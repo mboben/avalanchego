@@ -48,7 +48,11 @@ func (b *postForkBlock) Reject(context.Context) error {
 	// We do not reject the inner block here because it may be accepted later
 	delete(b.vm.verifiedBlocks, b.ID())
 	b.status = choices.Rejected
-	return nil
+	if err := b.vm.State.DeleteVerifiedBlock(b.ID()); err != nil {
+		return err
+	}
+
+	return b.vm.State.DeleteBlock(b.ID())
 }
 
 func (b *postForkBlock) Status() choices.Status {

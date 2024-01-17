@@ -164,13 +164,25 @@ func (p *postForkCommonComponents) Verify(
 		)
 	}
 
-	return p.vm.verifyAndRecordInnerBlk(
+	if err := p.vm.verifyAndRecordInnerBlk(
 		ctx,
 		&smblock.Context{
 			PChainHeight: parentPChainHeight,
 		},
 		child,
-	)
+	); err != nil {
+		return err
+	}
+
+	if err := p.vm.State.PutVerifiedBlock(child.ID()); err != nil {
+		return err
+	}
+
+	if err := p.vm.State.PutBlock(child, choices.Processing); err != nil {
+		return err
+	}
+
+	return p.vm.db.Commit()
 }
 
 // Return the child (a *postForkBlock) of this block

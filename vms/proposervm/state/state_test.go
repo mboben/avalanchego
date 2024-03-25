@@ -61,13 +61,13 @@ func TestPruneVerifiedBlocksOnRestart(t *testing.T) {
 	require.NoError(err)
 
 	require.NoError(state.PutVerifiedBlock(blk0.ID()))
-	require.NoError(state.PutBlock(blk0, choices.Processing))
+	require.NoError(state.PutBlock(blk0, choices.Accepted))
 
 	require.NoError(state.PutVerifiedBlock(blk1.ID()))
 	require.NoError(state.PutBlock(blk1, choices.Processing))
 
 	require.NoError(state.PutVerifiedBlock(blk2.ID()))
-	require.NoError(state.PutBlock(blk2, choices.Accepted))
+	require.NoError(state.PutBlock(blk2, choices.Processing))
 	require.NoError(state.SetPreference(blk2.ID()))
 
 	ok, err := state.HasVerifiedBlock(blk0.ID())
@@ -92,9 +92,9 @@ func TestPruneVerifiedBlocksOnRestart(t *testing.T) {
 
 	ok, err = state.HasVerifiedBlock(blk1.ID())
 	require.NoError(err)
-	require.False(ok)
+	require.True(ok)
 
 	ok, err = state.HasVerifiedBlock(blk2.ID())
 	require.NoError(err)
-	require.False(ok)
+	require.True(ok)
 }

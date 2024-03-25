@@ -2938,9 +2938,6 @@ func TestPreferencePersistenceAccept(t *testing.T) {
 				return nil, errors.New("unexpected block")
 			}
 		},
-		VerifyHeightIndexF: func(context.Context) error {
-			return nil
-		},
 	}
 
 	config := Config{}
@@ -3100,9 +3097,6 @@ func TestPreferencePersistenceReject(t *testing.T) {
 				return nil, errors.New("unexpected block")
 			}
 		},
-		VerifyHeightIndexF: func(context.Context) error {
-			return nil
-		},
 	}
 
 	config := Config{}
@@ -3222,9 +3216,6 @@ func TestProposerVMPreferenceDefaultsToGenesis(t *testing.T) {
 		},
 		GetBlockF: func(context.Context, ids.ID) (snowman.Block, error) {
 			return nil, nil
-		},
-		VerifyHeightIndexF: func(context.Context) error {
-			return nil
 		},
 	}
 

@@ -1996,6 +1996,7 @@ func TestRejectedHeightNotIndexed(t *testing.T) {
 		SignedBlock: ySlb,
 		postForkCommonComponents: postForkCommonComponents{
 			vm:       proVM,
+			outerBlk: ySlb,
 			innerBlk: yBlock,
 			status:   choices.Processing,
 		},

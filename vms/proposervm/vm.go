@@ -556,6 +556,7 @@ func (vm *VM) parsePostForkBlock(ctx context.Context, b []byte) (PostForkBlock, 
 			SignedBlock: statelessSignedBlock,
 			postForkCommonComponents: postForkCommonComponents{
 				vm:       vm,
+				outerBlk: statelessSignedBlock,
 				innerBlk: innerBlk,
 				status:   choices.Processing,
 			},
@@ -565,6 +566,7 @@ func (vm *VM) parsePostForkBlock(ctx context.Context, b []byte) (PostForkBlock, 
 			Block: statelessBlock,
 			postForkCommonComponents: postForkCommonComponents{
 				vm:       vm,
+				outerBlk: statelessSignedBlock,
 				innerBlk: innerBlk,
 				status:   choices.Processing,
 			},
@@ -630,6 +632,7 @@ func (vm *VM) getPostForkBlock(ctx context.Context, blkID ids.ID) (PostForkBlock
 			SignedBlock: statelessSignedBlock,
 			postForkCommonComponents: postForkCommonComponents{
 				vm:       vm,
+				outerBlk: statelessSignedBlock,
 				innerBlk: innerBlk,
 				status:   status,
 			},
@@ -639,6 +642,7 @@ func (vm *VM) getPostForkBlock(ctx context.Context, blkID ids.ID) (PostForkBlock
 		Block: statelessBlock,
 		postForkCommonComponents: postForkCommonComponents{
 			vm:       vm,
+			outerBlk: statelessBlock,
 			innerBlk: innerBlk,
 			status:   status,
 		},
@@ -717,6 +721,18 @@ func (vm *VM) verifyAndRecordInnerBlk(ctx context.Context, blockCtx *block.Conte
 		err = innerBlk.Verify(ctx)
 	}
 	if err != nil {
+		return err
+	}
+
+	if err := vm.State.PutVerifiedBlock(postFork.ID()); err != nil {
+		return err
+	}
+
+	if err := vm.State.PutBlock(postFork.getStatelessBlk(), choices.Processing); err != nil {
+		return err
+	}
+
+	if err := vm.db.Commit(); err != nil {
 		return err
 	}
 

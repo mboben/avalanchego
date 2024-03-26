@@ -72,6 +72,7 @@ type PostForkBlock interface {
 // field of postForkBlock and postForkOption
 type postForkCommonComponents struct {
 	vm       *VM
+	outerBlk block.Block
 	innerBlk snowman.Block
 	status   choices.Status
 }
@@ -164,25 +165,25 @@ func (p *postForkCommonComponents) Verify(
 		)
 	}
 
-	if err := p.vm.verifyAndRecordInnerBlk(
+	return p.vm.verifyAndRecordInnerBlk(
 		ctx,
 		&smblock.Context{
 			PChainHeight: parentPChainHeight,
 		},
 		child,
-	); err != nil {
+	)
+}
+
+func (p *postForkCommonComponents) Reject(context.Context) error {
+	// we do not reject the inner block here because that block may be contained
+	// in the proposer block that is causing this block to be rejected.
+	delete(p.vm.verifiedBlocks, p.outerBlk.ID())
+	p.status = choices.Rejected
+	if err := p.vm.State.DeleteVerifiedBlock(p.outerBlk.ID()); err != nil {
 		return err
 	}
 
-	if err := p.vm.State.PutVerifiedBlock(child.ID()); err != nil {
-		return err
-	}
-
-	if err := p.vm.State.PutBlock(child, choices.Processing); err != nil {
-		return err
-	}
-
-	return p.vm.db.Commit()
+	return p.vm.State.DeleteBlock(p.outerBlk.ID())
 }
 
 // Return the child (a *postForkBlock) of this block
@@ -278,6 +279,7 @@ func (p *postForkCommonComponents) buildChild(
 		SignedBlock: statelessChild,
 		postForkCommonComponents: postForkCommonComponents{
 			vm:       p.vm,
+			outerBlk: statelessChild,
 			innerBlk: innerBlock,
 			status:   choices.Processing,
 		},

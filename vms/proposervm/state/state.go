@@ -30,7 +30,7 @@ type State interface {
 
 type state struct {
 	*chainState
-	*blockState
+	BlockState
 	HeightIndex
 }
 
@@ -41,7 +41,7 @@ func New(db *versiondb.Database) (State, error) {
 
 	s := &state{
 		chainState:  newChainState(chainDB),
-		blockState:  newBlockState(blockDB),
+		BlockState:  NewBlockState(blockDB),
 		HeightIndex: NewHeightIndex(heightDB, db),
 	}
 
@@ -53,14 +53,14 @@ func NewMetered(db *versiondb.Database, namespace string, metrics prometheus.Reg
 	blockDB := prefixdb.New(blockStatePrefix, db)
 	heightDB := prefixdb.New(heightIndexPrefix, db)
 
-	blockState, err := newMeteredBlockState(blockDB, namespace, metrics)
+	blockState, err := NewMeteredBlockState(blockDB, namespace, metrics)
 	if err != nil {
 		return nil, err
 	}
 
 	s := &state{
 		chainState:  newChainState(chainDB),
-		blockState:  blockState,
+		BlockState:  blockState,
 		HeightIndex: NewHeightIndex(heightDB, db),
 	}
 
@@ -83,14 +83,14 @@ func (s *state) pruneVerifiedBlocks(db *versiondb.Database) error {
 
 	// Add the preference chain up to the last accepted block to be skipped.
 	preferredBlkIDs := set.Set[ids.ID]{}
-	preferredBlk, status, err := s.blockState.GetBlock(preferredID)
+	preferredBlk, status, err := s.BlockState.GetBlock(preferredID)
 	if err != nil {
 		return nil
 	}
 
 	for status == choices.Processing {
 		preferredBlkIDs.Add(preferredBlk.ID())
-		preferredBlk, status, err = s.blockState.GetBlock(preferredBlk.ParentID())
+		preferredBlk, status, err = s.BlockState.GetBlock(preferredBlk.ParentID())
 		if err != nil {
 			return nil
 		}

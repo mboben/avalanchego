@@ -56,7 +56,7 @@ func cachedBlockSize(_ ids.ID, bw *blockWrapper) int {
 	return ids.IDLen + len(bw.Block) + wrappers.IntLen + 2*constants.PointerOverhead
 }
 
-func newBlockState(db database.Database) *blockState {
+func NewBlockState(db database.Database) BlockState {
 	return &blockState{
 		blkCache: cache.NewSizedLRU[ids.ID, *blockWrapper](
 			blockCacheSize,
@@ -66,7 +66,7 @@ func newBlockState(db database.Database) *blockState {
 	}
 }
 
-func newMeteredBlockState(db database.Database, namespace string, metrics prometheus.Registerer) (*blockState, error) {
+func NewMeteredBlockState(db database.Database, namespace string, metrics prometheus.Registerer) (BlockState, error) {
 	blkCache, err := metercacher.New[ids.ID, *blockWrapper](
 		metric.AppendNamespace(namespace, "block_cache"),
 		metrics,

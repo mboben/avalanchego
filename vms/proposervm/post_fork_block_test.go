@@ -1626,6 +1626,7 @@ func TestProposerVMBlockAccept(t *testing.T) {
 				require.NoError(err)
 				require.True(ok)
 				gotBlk, status, err := vm.State.GetBlock(builtBlk.ID())
+				require.NoError(err)
 				require.Equal(builtBlk.Bytes(), gotBlk.Bytes())
 				require.Equal(choices.Processing, status)
 
@@ -1643,7 +1644,7 @@ func TestProposerVMBlockAccept(t *testing.T) {
 					require.NoError(err)
 
 					require.NoError(vm.SetPreference(ctx, builtBlk.ID()))
-					innerVM.LastAcceptedF = func(ctx context.Context) (ids.ID, error) {
+					innerVM.LastAcceptedF = func(context.Context) (ids.ID, error) {
 						return blk.ID(), nil
 					}
 				}

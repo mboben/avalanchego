@@ -45,56 +45,93 @@ func TestMeteredState(t *testing.T) {
 // a block which was previously verified issued to consensus never had
 // accept/reject called on it (e.g. if went offline).
 func TestPruneVerifiedBlocksOnRestart(t *testing.T) {
-	require := require.New(t)
+	gBlk, err := block.BuildUnsigned(ids.Empty, time.Time{}, 0, []byte("genesis"))
+	require.NoError(t, err)
 
-	db := versiondb.New(memdb.New())
-	state, err := New(db)
-	require.NoError(err)
+	tests := []struct {
+		name          string
+		preferredBlks []block.Block
+		verifiedBlks  []block.Block
+	}{
+		{
+			//  [g]
+			//   |
+			// *[1]*
+			//   |
+			// *[2]*
+			name: "single branch",
+			preferredBlks: func() []block.Block {
+				blk1, err := block.BuildUnsigned(gBlk.ID(), time.Time{}, 0, []byte("block 1"))
+				require.NoError(t, err)
 
-	blk0, err := block.BuildUnsigned(ids.Empty, time.Time{}, 0, []byte("block 0"))
-	require.NoError(err)
+				blk2, err := block.BuildUnsigned(blk1.ID(), time.Time{}, 0, []byte("block 2"))
+				require.NoError(t, err)
 
-	blk1, err := block.BuildUnsigned(blk0.ID(), time.Time{}, 0, []byte("block 0"))
-	require.NoError(err)
+				return []block.Block{blk1, blk2}
+			}(),
+		},
+		{
+			// 	    [g]
+			//    /    \
+			// *[1]*   [3]
+			//   |      |
+			// *[2]*   [4]
+			name: "multiple verified branches",
+			preferredBlks: func() []block.Block {
+				blk1, err := block.BuildUnsigned(gBlk.ID(), time.Time{}, 0, []byte("block 0"))
+				require.NoError(t, err)
 
-	blk2, err := block.BuildUnsigned(blk1.ID(), time.Time{}, 0, []byte("block 0"))
-	require.NoError(err)
+				blk2, err := block.BuildUnsigned(blk1.ID(), time.Time{}, 0, []byte("block 0"))
+				require.NoError(t, err)
 
-	require.NoError(state.PutVerifiedBlock(blk0.ID()))
-	require.NoError(state.PutBlock(blk0, choices.Accepted))
+				return []block.Block{blk1, blk2}
+			}(),
+			verifiedBlks: func() []block.Block {
+				blk3, err := block.BuildUnsigned(gBlk.ID(), time.Time{}, 0, []byte("block 3"))
+				require.NoError(t, err)
 
-	require.NoError(state.PutVerifiedBlock(blk1.ID()))
-	require.NoError(state.PutBlock(blk1, choices.Processing))
+				blk4, err := block.BuildUnsigned(blk3.ID(), time.Time{}, 0, []byte("block 4"))
+				require.NoError(t, err)
 
-	require.NoError(state.PutVerifiedBlock(blk2.ID()))
-	require.NoError(state.PutBlock(blk2, choices.Processing))
-	require.NoError(state.SetPreference(blk2.ID()))
+				return []block.Block{blk3, blk4}
+			}(),
+		},
+	}
 
-	ok, err := state.HasVerifiedBlock(blk0.ID())
-	require.NoError(err)
-	require.True(ok)
-	ok, err = state.HasVerifiedBlock(blk1.ID())
-	require.NoError(err)
-	require.True(ok)
-	ok, err = state.HasVerifiedBlock(blk2.ID())
-	require.NoError(err)
-	require.True(ok)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require := require.New(t)
 
-	require.NoError(db.Commit())
+			db := versiondb.New(memdb.New())
+			state, err := New(db)
+			require.NoError(err)
+			require.NoError(state.PutBlock(gBlk, choices.Accepted))
 
-	// we should prune the previously pending blocks upon restart
-	state, err = New(db)
-	require.NoError(err)
+			// Our preference is the tip of the preferred chain
+			require.NoError(state.SetPreference(tt.preferredBlks[len(tt.preferredBlks)-1].ID()))
 
-	ok, err = state.HasVerifiedBlock(blk0.ID())
-	require.NoError(err)
-	require.False(ok)
+			for _, blk := range append(tt.preferredBlks, tt.verifiedBlks...) {
+				require.NoError(state.PutVerifiedBlock(blk.ID()))
+				require.NoError(state.PutBlock(blk, choices.Processing))
+			}
 
-	ok, err = state.HasVerifiedBlock(blk1.ID())
-	require.NoError(err)
-	require.True(ok)
+			// We should prune all blocks not in the preferred chain upon
+			// restart
+			require.NoError(db.Commit())
+			state, err = New(db)
+			require.NoError(err)
 
-	ok, err = state.HasVerifiedBlock(blk2.ID())
-	require.NoError(err)
-	require.True(ok)
+			for _, blk := range tt.verifiedBlks {
+				ok, err := state.HasVerifiedBlock(blk.ID())
+				require.NoError(err)
+				require.False(ok)
+			}
+
+			for _, blk := range tt.preferredBlks {
+				ok, err := state.HasVerifiedBlock(blk.ID())
+				require.NoError(err)
+				require.True(ok)
+			}
+		})
+	}
 }

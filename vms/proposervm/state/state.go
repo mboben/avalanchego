@@ -81,7 +81,7 @@ func (s *state) pruneVerifiedBlocks(db *versiondb.Database) error {
 		return fmt.Errorf("failed to parse preference id: %w", err)
 	}
 
-	// Add the preference chain up to the last accepted block to be skipped.
+	// Prune all verified blocks that are not in the preferred chain
 	preferredBlkIDs := set.Set[ids.ID]{}
 	preferredBlk, status, err := s.BlockState.GetBlock(preferredID)
 	if err != nil {
@@ -96,7 +96,6 @@ func (s *state) pruneVerifiedBlocks(db *versiondb.Database) error {
 		}
 	}
 
-	// Delete any verified blocks that are not in the preference chain.
 	iter := s.chainState.db.NewIteratorWithPrefix([]byte{verifiedByte})
 	defer iter.Release()
 

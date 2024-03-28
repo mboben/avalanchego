@@ -2525,6 +2525,12 @@ func TestVM_VerifyBlockWithContext(t *testing.T) {
 		require.NoError(vm.Shutdown(context.Background()))
 	}()
 
+	signedBlk, err := statelessblock.BuildUnsigned(ids.GenerateTestID(), time.Time{}, 0, []byte("foobar"))
+	require.NoError(err)
+	statelessBlk := postForkBlock{
+		SignedBlock: signedBlk,
+	}
+
 	{
 		pChainHeight := uint64(0)
 		innerBlk := blockWithVerifyContext{
@@ -2545,6 +2551,7 @@ func TestVM_VerifyBlockWithContext(t *testing.T) {
 		blk.EXPECT().getInnerBlk().Return(innerBlk).AnyTimes()
 		blkID := ids.GenerateTestID()
 		blk.EXPECT().ID().Return(blkID).AnyTimes()
+		blk.EXPECT().getStatelessBlk().Return(statelessBlk).Times(2)
 
 		require.NoError(vm.verifyAndRecordInnerBlk(
 			context.Background(),
@@ -2587,6 +2594,7 @@ func TestVM_VerifyBlockWithContext(t *testing.T) {
 		blk.EXPECT().getInnerBlk().Return(innerBlk).AnyTimes()
 		blkID := ids.GenerateTestID()
 		blk.EXPECT().ID().Return(blkID).AnyTimes()
+		blk.EXPECT().getStatelessBlk().Return(statelessBlk)
 		require.NoError(vm.verifyAndRecordInnerBlk(
 			context.Background(),
 			&block.Context{
@@ -2609,6 +2617,7 @@ func TestVM_VerifyBlockWithContext(t *testing.T) {
 		blk.EXPECT().getInnerBlk().Return(innerBlk).AnyTimes()
 		blkID := ids.GenerateTestID()
 		blk.EXPECT().ID().Return(blkID).AnyTimes()
+		blk.EXPECT().getStatelessBlk().Return(statelessBlk)
 		require.NoError(vm.verifyAndRecordInnerBlk(context.Background(), nil, blk))
 	}
 }

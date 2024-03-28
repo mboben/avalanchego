@@ -1310,7 +1310,7 @@ func TestBlockVerify_PostForkBlock_PChainTooLow(t *testing.T) {
 
 // Tests that blocks are persisted on verify and deleted upon a consensus
 // decision
-func TestProposerVMBlockAccept(t *testing.T) {
+func TestProposerVMBlockDecision(t *testing.T) {
 	activationTime := time.Unix(0, 0)
 
 	type blockDecision struct {

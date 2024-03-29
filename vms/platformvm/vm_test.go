@@ -2353,6 +2353,6 @@ type testVM struct {
 	*VM
 }
 
-func (t *testVM) GetPreference() ids.ID {
+func (t *testVM) GetInitialPreference() ids.ID {
 	return t.VM.manager.Preferred()
 }

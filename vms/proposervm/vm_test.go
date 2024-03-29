@@ -3243,6 +3243,6 @@ func TestProposerVMPreferenceDefaultsToGenesis(t *testing.T) {
 		nil,
 		&common.SenderTest{},
 	))
-	require.Equal(ids.Empty, vm.GetPreference())
+	require.Equal(ids.Empty, vm.GetInitialPreference())
 	require.NoError(vm.Shutdown(ctx))
 }

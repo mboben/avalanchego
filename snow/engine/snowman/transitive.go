@@ -470,7 +470,7 @@ func (t *Transitive) Start(ctx context.Context, startReqID uint32) error {
 		return err
 	}
 
-	preferredID := t.VM.GetPreference()
+	preferredID := t.VM.GetInitialPreference()
 	preferredBlock, err := t.VM.GetBlock(ctx, preferredID)
 	if err != nil {
 		return err

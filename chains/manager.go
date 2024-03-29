@@ -1393,6 +1393,6 @@ type snowmanVM struct {
 	proposerVM *proposervm.VM
 }
 
-func (vm *snowmanVM) GetPreference() ids.ID {
-	return vm.proposerVM.GetPreference()
+func (vm *snowmanVM) GetInitialPreference() ids.ID {
+	return vm.proposerVM.GetInitialPreference()
 }

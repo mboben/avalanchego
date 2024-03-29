@@ -15,7 +15,7 @@ type TestVM struct {
 	GetPreferenceF func() ids.ID
 }
 
-func (t *TestVM) GetPreference() ids.ID {
+func (t *TestVM) GetInitialPreference() ids.ID {
 	if t.GetPreferenceF != nil {
 		return t.GetPreferenceF()
 	}

@@ -90,11 +90,12 @@ type VM struct {
 	// Only contains post-fork blocks near the tip so that the cache doesn't get
 	// filled with random blocks every time this node parses blocks while
 	// processing a GetAncestors message from a bootstrapping node.
-	innerBlkCache  cache.Cacher[ids.ID, snowman.Block]
-	preferred      ids.ID
-	consensusState snow.State
-	context        context.Context
-	onShutdown     func()
+	innerBlkCache     cache.Cacher[ids.ID, snowman.Block]
+	preferred         ids.ID
+	initialPreference ids.ID
+	consensusState    snow.State
+	context           context.Context
+	onShutdown        func()
 
 	// lastAcceptedTime is set to the last accepted PostForkBlock's timestamp
 	// if the last accepted block has been a PostForkOption block since having
@@ -202,11 +203,11 @@ func (vm *VM) Initialize(
 		return err
 	}
 
-	lastPreferredID, err := vm.State.GetPreference()
+	initialPreference, err := vm.State.GetPreference()
 	if errors.Is(err, database.ErrNotFound) {
 		// If we don't have a previous accepted tip then default to the last
 		// accepted block
-		lastPreferredID, err = vm.LastAccepted(ctx)
+		initialPreference, err = vm.LastAccepted(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to get last accepted block: %w", err)
 		}
@@ -214,9 +215,7 @@ func (vm *VM) Initialize(
 		return fmt.Errorf("failed to get last preference: %w", err)
 	}
 
-	if err := vm.SetPreference(ctx, lastPreferredID); err != nil {
-		return fmt.Errorf("failed to set initial preference")
-	}
+	vm.initialPreference = initialPreference
 
 	if err := vm.repairAcceptedChainByHeight(ctx); err != nil {
 		return err
@@ -306,8 +305,8 @@ func (vm *VM) GetBlock(ctx context.Context, id ids.ID) (snowman.Block, error) {
 	return vm.getBlock(ctx, id)
 }
 
-func (vm *VM) GetPreference() ids.ID {
-	return vm.preferred
+func (vm *VM) GetInitialPreference() ids.ID {
+	return vm.initialPreference
 }
 
 func (vm *VM) SetPreference(ctx context.Context, preferred ids.ID) error {

@@ -15,5 +15,5 @@ type VM interface {
 	// If no blocks have been accepted/preferred by consensus yet, it is
 	// assumed there is a definitionally accepted block, the Genesis block, that
 	// will be returned.
-	GetPreference() ids.ID
+	GetInitialPreference() ids.ID
 }

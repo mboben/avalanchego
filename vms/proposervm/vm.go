@@ -202,6 +202,22 @@ func (vm *VM) Initialize(
 		return err
 	}
 
+	lastPreferredID, err := vm.State.GetPreference()
+	if errors.Is(err, database.ErrNotFound) {
+		// If we don't have a previous accepted tip then default to the last
+		// accepted block
+		lastPreferredID, err = vm.LastAccepted(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to get last accepted block: %w", err)
+		}
+	} else if err != nil {
+		return fmt.Errorf("failed to get last preference: %w", err)
+	}
+
+	if err := vm.SetPreference(ctx, lastPreferredID); err != nil {
+		return fmt.Errorf("failed to set initial preference")
+	}
+
 	if err := vm.repairAcceptedChainByHeight(ctx); err != nil {
 		return err
 	}
@@ -295,6 +311,10 @@ func (vm *VM) GetPreference() ids.ID {
 }
 
 func (vm *VM) SetPreference(ctx context.Context, preferred ids.ID) error {
+	if vm.preferred == preferred {
+		return nil
+	}
+
 	vm.preferred = preferred
 
 	if err := vm.State.SetPreference(preferred); err != nil {

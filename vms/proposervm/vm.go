@@ -207,6 +207,8 @@ func (vm *VM) Initialize(
 	if errors.Is(err, database.ErrNotFound) {
 		// If we don't have a previous accepted tip then default to the last
 		// accepted block
+		// TODO only perform one lookup for the last accepted block in
+		// Initialize
 		initialPreference, err = vm.LastAccepted(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to get last accepted block: %w", err)

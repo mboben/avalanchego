@@ -176,7 +176,7 @@ func (mr *MockStateMockRecorder) GetMinimumHeight() *gomock.Call {
 // GetPreference mocks base method.
 func (m *MockState) GetPreference() (ids.ID, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetInitialPreference")
+	ret := m.ctrl.Call(m, "GetPreference")
 	ret0, _ := ret[0].(ids.ID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
@@ -185,7 +185,7 @@ func (m *MockState) GetPreference() (ids.ID, error) {
 // GetPreference indicates an expected call of GetPreference.
 func (mr *MockStateMockRecorder) GetPreference() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetInitialPreference", reflect.TypeOf((*MockState)(nil).GetPreference))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPreference", reflect.TypeOf((*MockState)(nil).GetPreference))
 }
 
 // HasVerifiedBlock mocks base method.

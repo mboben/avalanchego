@@ -2263,7 +2263,7 @@ func TestVMInnerBlkCache(t *testing.T) {
 	{
 		innerBlk := snowman.NewMockBlock(ctrl)
 		innerBlkID := ids.GenerateTestID()
-		innerVM.EXPECT().LastAccepted(gomock.Any()).Return(innerBlkID, nil)
+		innerVM.EXPECT().LastAccepted(gomock.Any()).Return(innerBlkID, nil).Times(2)
 		innerVM.EXPECT().GetBlock(gomock.Any(), innerBlkID).Return(innerBlk, nil)
 	}
 
@@ -2503,7 +2503,7 @@ func TestVM_VerifyBlockWithContext(t *testing.T) {
 	{
 		innerBlk := snowman.NewMockBlock(ctrl)
 		innerBlkID := ids.GenerateTestID()
-		innerVM.EXPECT().LastAccepted(gomock.Any()).Return(innerBlkID, nil)
+		innerVM.EXPECT().LastAccepted(gomock.Any()).Return(innerBlkID, nil).Times(2)
 		innerVM.EXPECT().GetBlock(gomock.Any(), innerBlkID).Return(innerBlk, nil)
 	}
 

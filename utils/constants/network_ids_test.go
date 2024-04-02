@@ -17,12 +17,12 @@ func TestGetHRP(t *testing.T) {
 			hrp: MainnetHRP,
 		},
 		{
-			id:  TestnetID,
-			hrp: FujiHRP,
+			id:  CostonID,
+			hrp: CostonHRP,
 		},
 		{
-			id:  FujiID,
-			hrp: FujiHRP,
+			id:  SongbirdID,
+			hrp: SongbirdName,
 		},
 		{
 			id:  LocalID,
@@ -31,6 +31,22 @@ func TestGetHRP(t *testing.T) {
 		{
 			id:  4294967295,
 			hrp: FallbackHRP,
+		},
+		{
+			id:  FlareID,
+			hrp: FlareHRP,
+		},
+		{
+			id:  CostwoID,
+			hrp: CostwoHRP,
+		},
+		{
+			id:  StagingID,
+			hrp: StagingHRP,
+		},
+		{
+			id:  LocalFlareID,
+			hrp: LocalFlareHRP,
 		},
 	}
 	for _, test := range tests {
@@ -53,12 +69,12 @@ func TestNetworkName(t *testing.T) {
 			name: MainnetName,
 		},
 		{
-			id:   TestnetID,
-			name: FujiName,
+			id:   CostonID,
+			name: CostonName,
 		},
 		{
-			id:   FujiID,
-			name: FujiName,
+			id:   SongbirdID,
+			name: SongbirdName,
 		},
 		{
 			id:   LocalID,
@@ -67,6 +83,22 @@ func TestNetworkName(t *testing.T) {
 		{
 			id:   4294967295,
 			name: "network-4294967295",
+		},
+		{
+			id:   FlareID,
+			name: FlareName,
+		},
+		{
+			id:   CostwoID,
+			name: CostwoName,
+		},
+		{
+			id:   StagingID,
+			name: StagingName,
+		},
+		{
+			id:   LocalFlareID,
+			name: LocalFlareName,
 		},
 	}
 	for _, test := range tests {
@@ -104,6 +136,22 @@ func TestNetworkID(t *testing.T) {
 		{
 			name: LocalName,
 			id:   LocalID,
+		},
+		{
+			name: FlareName,
+			id:   FlareID,
+		},
+		{
+			name: CostwoName,
+			id:   CostwoID,
+		},
+		{
+			name: StagingName,
+			id:   StagingID,
+		},
+		{
+			name: LocalFlareName,
+			id:   LocalFlareID,
 		},
 		{
 			name: "network-4294967295",

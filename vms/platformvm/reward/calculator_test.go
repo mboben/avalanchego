@@ -22,7 +22,7 @@ var defaultConfig = Config{
 	MaxConsumptionRate: .12 * PercentDenominator,
 	MinConsumptionRate: .10 * PercentDenominator,
 	MintingPeriod:      365 * 24 * time.Hour,
-	SupplyCap:          720 * units.MegaAvax,
+	SupplyCap:          0 * units.MegaAvax,
 }
 
 func TestLongerDurationBonus(t *testing.T) {
@@ -40,8 +40,8 @@ func TestLongerDurationBonus(t *testing.T) {
 	longBalance := units.KiloAvax
 	longBalance += c.Calculate(totalDuration, longBalance, 359*units.MegaAvax+longBalance)
 
-	if shortBalance >= longBalance {
-		t.Fatalf("should promote stakers to stake longer")
+	if shortBalance != longBalance {
+		t.Fatalf("non-zero rewards")
 	}
 }
 
@@ -58,19 +58,19 @@ func TestRewards(t *testing.T) {
 			duration:       defaultMaxStakingDuration,
 			stakeAmount:    units.MegaAvax,
 			existingAmount: 360 * units.MegaAvax,
-			expectedReward: 120 * units.KiloAvax,
+			expectedReward: 0 * units.KiloAvax,
 		},
 		{ // (720M - 400M) * (1M / 400M) * 12%
 			duration:       defaultMaxStakingDuration,
 			stakeAmount:    units.MegaAvax,
 			existingAmount: 400 * units.MegaAvax,
-			expectedReward: 96 * units.KiloAvax,
+			expectedReward: 0 * units.KiloAvax,
 		},
 		{ // (720M - 400M) * (2M / 400M) * 12%
 			duration:       defaultMaxStakingDuration,
 			stakeAmount:    2 * units.MegaAvax,
 			existingAmount: 400 * units.MegaAvax,
-			expectedReward: 192 * units.KiloAvax,
+			expectedReward: 0 * units.KiloAvax,
 		},
 		{ // (720M - 720M) * (1M / 720M) * 12%
 			duration:       defaultMaxStakingDuration,
@@ -84,28 +84,28 @@ func TestRewards(t *testing.T) {
 			duration:       defaultMinStakingDuration,
 			stakeAmount:    units.MegaAvax,
 			existingAmount: 360 * units.MegaAvax,
-			expectedReward: 274122724713,
+			expectedReward: 0,
 		},
 		// (720M - 360M) * (.005 / 360M) * (10% + 2% * MinimumStakingDuration / MaximumStakingDuration) * MinimumStakingDuration / MaximumStakingDuration
 		{
 			duration:       defaultMinStakingDuration,
 			stakeAmount:    defaultMinValidatorStake,
 			existingAmount: 360 * units.MegaAvax,
-			expectedReward: 1370,
+			expectedReward: 0,
 		},
 		// (720M - 400M) * (1M / 400M) * (10% + 2% * MinimumStakingDuration / MaximumStakingDuration) * MinimumStakingDuration / MaximumStakingDuration
 		{
 			duration:       defaultMinStakingDuration,
 			stakeAmount:    units.MegaAvax,
 			existingAmount: 400 * units.MegaAvax,
-			expectedReward: 219298179771,
+			expectedReward: 0,
 		},
 		// (720M - 400M) * (2M / 400M) * (10% + 2% * MinimumStakingDuration / MaximumStakingDuration) * MinimumStakingDuration / MaximumStakingDuration
 		{
 			duration:       defaultMinStakingDuration,
 			stakeAmount:    2 * units.MegaAvax,
 			existingAmount: 400 * units.MegaAvax,
-			expectedReward: 438596359542,
+			expectedReward: 0,
 		},
 		// (720M - 720M) * (1M / 720M) * (10% + 2% * MinimumStakingDuration / MaximumStakingDuration) * MinimumStakingDuration / MaximumStakingDuration
 		{

@@ -74,7 +74,7 @@ tar xzvf ${DOWNLOAD_PATH} -C /tmp
 #################################
 echo "building upgrade.test"
 # to install the ginkgo binary (required for test build and run)
-go install -v github.com/onsi/ginkgo/v2/ginkgo@v2.1.4
+go install -modcacherw -v github.com/onsi/ginkgo/v2/ginkgo@v2.1.4
 ACK_GINKGO_RC=true ginkgo build ./tests/upgrade
 ./tests/upgrade/upgrade.test --help
 

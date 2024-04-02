@@ -19,27 +19,45 @@ const (
 	EverestID uint32 = 4
 	FujiID    uint32 = 5
 
-	TestnetID  uint32 = FujiID
-	UnitTestID uint32 = 10
-	LocalID    uint32 = 12345
+	TestnetID    uint32 = FujiID
+	UnitTestID   uint32 = 10
+	LocalID      uint32 = 12345
+	FlareID      uint32 = 14
+	CostwoID     uint32 = 114
+	StagingID    uint32 = 161
+	LocalFlareID uint32 = 162
+	SongbirdID   uint32 = 5
+	CostonID     uint32 = 7
 
-	MainnetName  = "mainnet"
-	CascadeName  = "cascade"
-	DenaliName   = "denali"
-	EverestName  = "everest"
-	FujiName     = "fuji"
-	TestnetName  = "testnet"
-	UnitTestName = "testing"
-	LocalName    = "local"
+	MainnetName    = "mainnet"
+	CascadeName    = "cascade"
+	DenaliName     = "denali"
+	EverestName    = "everest"
+	FujiName       = "fuji"
+	TestnetName    = "testnet"
+	UnitTestName   = "testing"
+	LocalName      = "local"
+	FlareName      = "flare"
+	CostwoName     = "costwo"
+	StagingName    = "staging"
+	LocalFlareName = "localflare"
+	SongbirdName   = "songbird"
+	CostonName     = "coston"
 
-	MainnetHRP  = "avax"
-	CascadeHRP  = "cascade"
-	DenaliHRP   = "denali"
-	EverestHRP  = "everest"
-	FujiHRP     = "fuji"
-	UnitTestHRP = "testing"
-	LocalHRP    = "local"
-	FallbackHRP = "custom"
+	MainnetHRP    = "avax"
+	CascadeHRP    = "cascade"
+	DenaliHRP     = "denali"
+	EverestHRP    = "everest"
+	FujiHRP       = "fuji"
+	UnitTestHRP   = "testing"
+	LocalHRP      = "local"
+	FallbackHRP   = "custom"
+	FlareHRP      = "flare"
+	CostwoHRP     = "costwo"
+	StagingHRP    = "staging"
+	LocalFlareHRP = "localflare"
+	SongbirdHRP   = "songbird"
+	CostonHRP     = "coston"
 )
 
 // Variables to be exported
@@ -48,42 +66,69 @@ var (
 	PlatformChainID  = ids.Empty
 
 	NetworkIDToNetworkName = map[uint32]string{
-		MainnetID:  MainnetName,
-		CascadeID:  CascadeName,
-		DenaliID:   DenaliName,
-		EverestID:  EverestName,
-		FujiID:     FujiName,
-		UnitTestID: UnitTestName,
-		LocalID:    LocalName,
+		MainnetID: MainnetName,
+		CascadeID: CascadeName,
+		DenaliID:  DenaliName,
+		EverestID: EverestName,
+		// SGB-MERGE
+		// FujiID:       FujiName,
+		UnitTestID:   UnitTestName,
+		LocalID:      LocalName,
+		FlareID:      FlareName,
+		CostwoID:     CostwoName,
+		StagingID:    StagingName,
+		LocalFlareID: LocalFlareName,
+		SongbirdID:   SongbirdName,
+		CostonID:     CostonName,
 	}
 	NetworkNameToNetworkID = map[string]uint32{
-		MainnetName:  MainnetID,
-		CascadeName:  CascadeID,
-		DenaliName:   DenaliID,
-		EverestName:  EverestID,
-		FujiName:     FujiID,
-		TestnetName:  TestnetID,
-		UnitTestName: UnitTestID,
-		LocalName:    LocalID,
+		MainnetName:    MainnetID,
+		CascadeName:    CascadeID,
+		DenaliName:     DenaliID,
+		EverestName:    EverestID,
+		FujiName:       FujiID,
+		TestnetName:    TestnetID,
+		UnitTestName:   UnitTestID,
+		LocalName:      LocalID,
+		FlareName:      FlareID,
+		CostwoName:     CostwoID,
+		StagingName:    StagingID,
+		LocalFlareName: LocalFlareID,
+		// SGB-MERGE
+		SongbirdName: SongbirdID,
+		CostonName:   CostonID,
 	}
 
 	NetworkIDToHRP = map[uint32]string{
-		MainnetID:  MainnetHRP,
-		CascadeID:  CascadeHRP,
-		DenaliID:   DenaliHRP,
-		EverestID:  EverestHRP,
-		FujiID:     FujiHRP,
-		UnitTestID: UnitTestHRP,
-		LocalID:    LocalHRP,
+		MainnetID:    MainnetHRP,
+		CascadeID:    CascadeHRP,
+		DenaliID:     DenaliHRP,
+		EverestID:    EverestHRP,
+		UnitTestID:   UnitTestHRP,
+		LocalID:      LocalHRP,
+		FlareID:      FlareHRP,
+		CostwoID:     CostwoHRP,
+		StagingID:    StagingHRP,
+		LocalFlareID: LocalFlareHRP,
+		// SGB-MERGE
+		SongbirdID: SongbirdHRP,
+		CostonID:   CostonHRP,
 	}
 	NetworkHRPToNetworkID = map[string]uint32{
-		MainnetHRP:  MainnetID,
-		CascadeHRP:  CascadeID,
-		DenaliHRP:   DenaliID,
-		EverestHRP:  EverestID,
-		FujiHRP:     FujiID,
-		UnitTestHRP: UnitTestID,
-		LocalHRP:    LocalID,
+		MainnetHRP:    MainnetID,
+		CascadeHRP:    CascadeID,
+		DenaliHRP:     DenaliID,
+		EverestHRP:    EverestID,
+		FujiHRP:       FujiID,
+		UnitTestHRP:   UnitTestID,
+		LocalHRP:      LocalID,
+		FlareHRP:      FlareID,
+		CostwoHRP:     CostwoID,
+		StagingHRP:    StagingID,
+		LocalFlareHRP: LocalFlareID,
+		// SGB-MERGE
+		SongbirdHRP: SongbirdID,
+		CostonHRP:   CostonID,
 	}
 
 	ValidNetworkPrefix = "network-"

@@ -16,6 +16,7 @@ import (
 )
 
 func main() {
+
 	fs := config.BuildFlagSet()
 	v, err := config.BuildViper(fs, os.Args[1:])
 
@@ -44,6 +45,9 @@ func main() {
 		fmt.Printf("couldn't load node config: %s\n", err)
 		os.Exit(1)
 	}
+
+	// Flare specific: set the application prefix (flare for songbird and avalanche for flare)
+	version.InitApplicationPrefix(nodeConfig.NetworkID)
 
 	runner.Run(runnerConfig, nodeConfig)
 }

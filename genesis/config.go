@@ -1,22 +1,30 @@
-// Copyright (C) 2019-2021, Ava Labs, Inc. All rights reserved.
+// Copyright (C) 2019-2024, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
 package genesis
 
 import (
+	"cmp"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 
 	"github.com/ava-labs/avalanchego/ids"
+	"github.com/ava-labs/avalanchego/utils"
 	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/avalanchego/utils/formatting/address"
-	"github.com/ava-labs/avalanchego/utils/wrappers"
+	"github.com/ava-labs/avalanchego/utils/math"
+	"github.com/ava-labs/avalanchego/vms/platformvm/signer"
+)
 
-	safemath "github.com/ava-labs/avalanchego/utils/math"
+var (
+	_ utils.Sortable[Allocation] = Allocation{}
+
+	errInvalidGenesisJSON = errors.New("could not unmarshal genesis JSON")
 )
 
 type LockedAmount struct {
@@ -46,10 +54,18 @@ func (a Allocation) Unparse(networkID uint32) (UnparsedAllocation, error) {
 	return ua, err
 }
 
+func (a Allocation) Compare(other Allocation) int {
+	if amountCmp := cmp.Compare(a.InitialAmount, other.InitialAmount); amountCmp != 0 {
+		return amountCmp
+	}
+	return a.AVAXAddr.Compare(other.AVAXAddr)
+}
+
 type Staker struct {
-	NodeID        ids.NodeID  `json:"nodeID"`
-	RewardAddress ids.ShortID `json:"rewardAddress"`
-	DelegationFee uint32      `json:"delegationFee"`
+	NodeID        ids.NodeID                `json:"nodeID"`
+	RewardAddress ids.ShortID               `json:"rewardAddress"`
+	DelegationFee uint32                    `json:"delegationFee"`
+	Signer        *signer.ProofOfPossession `json:"signer,omitempty"`
 }
 
 func (s Staker) Unparse(networkID uint32) (UnparsedStaker, error) {
@@ -62,6 +78,7 @@ func (s Staker) Unparse(networkID uint32) (UnparsedStaker, error) {
 		NodeID:        s.NodeID,
 		RewardAddress: avaxAddr,
 		DelegationFee: s.DelegationFee,
+		Signer:        s.Signer,
 	}, err
 }
 
@@ -132,12 +149,12 @@ func (c *Config) InitialSupply() (uint64, error) {
 
 	initialSupply := uint64(0)
 	for _, allocation := range c.Allocations {
-		newInitialSupply, err := safemath.Add64(initialSupply, allocation.InitialAmount)
+		newInitialSupply, err := math.Add64(initialSupply, allocation.InitialAmount)
 		if err != nil {
 			return 0, err
 		}
 		for _, unlock := range allocation.UnlockSchedule {
-			newInitialSupply, err = safemath.Add64(newInitialSupply, unlock.Amount)
+			newInitialSupply, err = math.Add64(newInitialSupply, unlock.Amount)
 			if err != nil {
 				return 0, err
 			}
@@ -196,8 +213,7 @@ func init() {
 	unparsedSongbirdConfig := UnparsedConfig{}
 	unparsedCostonConfig := UnparsedConfig{}
 
-	errs := wrappers.Errs{}
-	errs.Add(
+	err := utils.Err(
 		json.Unmarshal(mainnetGenesisConfigJSON, &unparsedMainnetConfig),
 		json.Unmarshal(fujiGenesisConfigJSON, &unparsedFujiConfig),
 		json.Unmarshal([]byte(localGenesisConfigJSON), &unparsedLocalConfig),
@@ -208,17 +224,19 @@ func init() {
 		json.Unmarshal([]byte(songbirdGenesisConfigJSON), &unparsedSongbirdConfig),
 		json.Unmarshal([]byte(costonGenesisConfigJSON), &unparsedCostonConfig),
 	)
-	if errs.Errored() {
-		panic(errs.Err)
+	if err != nil {
+		panic(err)
 	}
 
-	mainnetConfig, err := unparsedMainnetConfig.Parse()
-	errs.Add(err)
-	MainnetConfig = mainnetConfig
+	MainnetConfig, err = unparsedMainnetConfig.Parse()
+	if err != nil {
+		panic(err)
+	}
 
-	fujiConfig, err := unparsedFujiConfig.Parse()
-	errs.Add(err)
-	FujiConfig = fujiConfig
+	FujiConfig, err = unparsedFujiConfig.Parse()
+	if err != nil {
+		panic(err)
+	}
 
 	localConfig, err := unparsedLocalConfig.Parse()
 	localConfig.CChainGenesis = localCChainGenesis
@@ -305,7 +323,7 @@ func GetConfigContent(genesisContent string) (*Config, error) {
 func parseGenesisJSONBytesToConfig(bytes []byte) (*Config, error) {
 	var unparsedConfig UnparsedConfig
 	if err := json.Unmarshal(bytes, &unparsedConfig); err != nil {
-		return nil, fmt.Errorf("could not unmarshal JSON: %w", err)
+		return nil, fmt.Errorf("%w: %w", errInvalidGenesisJSON, err)
 	}
 
 	config, err := unparsedConfig.Parse()

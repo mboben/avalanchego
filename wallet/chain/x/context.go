@@ -1,17 +1,22 @@
-// Copyright (C) 2019-2021, Ava Labs, Inc. All rights reserved.
+// Copyright (C) 2019-2024, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
 package x
 
 import (
-	stdcontext "context"
-
 	"github.com/ava-labs/avalanchego/api/info"
 	"github.com/ava-labs/avalanchego/ids"
+	"github.com/ava-labs/avalanchego/snow"
+	"github.com/ava-labs/avalanchego/utils/constants"
+	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/vms/avm"
+
+	stdcontext "context"
 )
 
-var _ Context = &context{}
+const Alias = "X"
+
+var _ Context = (*context)(nil)
 
 type Context interface {
 	NetworkID() uint32
@@ -31,7 +36,7 @@ type context struct {
 
 func NewContextFromURI(ctx stdcontext.Context, uri string) (Context, error) {
 	infoClient := info.NewClient(uri)
-	xChainClient := avm.NewClient(uri, "X")
+	xChainClient := avm.NewClient(uri, Alias)
 	return NewContextFromClients(ctx, infoClient, xChainClient)
 }
 
@@ -45,7 +50,7 @@ func NewContextFromClients(
 		return nil, err
 	}
 
-	chainID, err := infoClient.GetBlockchainID(ctx, "X")
+	chainID, err := infoClient.GetBlockchainID(ctx, Alias)
 	if err != nil {
 		return nil, err
 	}
@@ -85,8 +90,36 @@ func NewContext(
 	}
 }
 
-func (c *context) NetworkID() uint32        { return c.networkID }
-func (c *context) BlockchainID() ids.ID     { return c.blockchainID }
-func (c *context) AVAXAssetID() ids.ID      { return c.avaxAssetID }
-func (c *context) BaseTxFee() uint64        { return c.baseTxFee }
-func (c *context) CreateAssetTxFee() uint64 { return c.createAssetTxFee }
+func (c *context) NetworkID() uint32 {
+	return c.networkID
+}
+
+func (c *context) BlockchainID() ids.ID {
+	return c.blockchainID
+}
+
+func (c *context) AVAXAssetID() ids.ID {
+	return c.avaxAssetID
+}
+
+func (c *context) BaseTxFee() uint64 {
+	return c.baseTxFee
+}
+
+func (c *context) CreateAssetTxFee() uint64 {
+	return c.createAssetTxFee
+}
+
+func newSnowContext(c Context) (*snow.Context, error) {
+	chainID := c.BlockchainID()
+	lookup := ids.NewAliaser()
+	return &snow.Context{
+		NetworkID:   c.NetworkID(),
+		SubnetID:    constants.PrimaryNetworkID,
+		ChainID:     chainID,
+		XChainID:    chainID,
+		AVAXAssetID: c.AVAXAssetID(),
+		Log:         logging.NoLog{},
+		BCLookup:    lookup,
+	}, lookup.Alias(chainID, Alias)
+}

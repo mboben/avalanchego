@@ -1,4 +1,4 @@
-// Copyright (C) 2019-2021, Ava Labs, Inc. All rights reserved.
+// Copyright (C) 2019-2024, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
 package metric
@@ -9,10 +9,9 @@ import (
 	"time"
 
 	"github.com/gorilla/rpc/v2"
-
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/ava-labs/avalanchego/utils/wrappers"
+	"github.com/ava-labs/avalanchego/utils"
 )
 
 type APIInterceptor interface {
@@ -55,8 +54,7 @@ func NewAPIInterceptor(namespace string, registerer prometheus.Registerer) (APII
 		[]string{"method"},
 	)
 
-	errs := wrappers.Errs{}
-	errs.Add(
+	err := utils.Err(
 		registerer.Register(requestDurationCount),
 		registerer.Register(requestDurationSum),
 		registerer.Register(requestErrors),
@@ -65,10 +63,10 @@ func NewAPIInterceptor(namespace string, registerer prometheus.Registerer) (APII
 		requestDurationCount: requestDurationCount,
 		requestDurationSum:   requestDurationSum,
 		requestErrors:        requestErrors,
-	}, errs.Err
+	}, err
 }
 
-func (apr *apiInterceptor) InterceptRequest(i *rpc.RequestInfo) *http.Request {
+func (*apiInterceptor) InterceptRequest(i *rpc.RequestInfo) *http.Request {
 	ctx := i.Request.Context()
 	ctx = context.WithValue(ctx, requestTimestampKey, time.Now())
 	return i.Request.WithContext(ctx)

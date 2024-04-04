@@ -1,18 +1,18 @@
-// Copyright (C) 2019-2021, Ava Labs, Inc. All rights reserved.
+// Copyright (C) 2019-2024, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
 package p
 
 import (
-	stdcontext "context"
-
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/avalanchego/vms/components/avax"
 	"github.com/ava-labs/avalanchego/vms/platformvm/txs"
+
+	stdcontext "context"
 )
 
-var _ txs.Visitor = &backendVisitor{}
+var _ txs.Visitor = (*backendVisitor)(nil)
 
 // backendVisitor handles accepting of transactions for the backend
 type backendVisitor struct {
@@ -21,8 +21,13 @@ type backendVisitor struct {
 	txID ids.ID
 }
 
-func (*backendVisitor) AdvanceTimeTx(*txs.AdvanceTimeTx) error         { return errUnsupportedTxType }
-func (*backendVisitor) RewardValidatorTx(*txs.RewardValidatorTx) error { return errUnsupportedTxType }
+func (*backendVisitor) AdvanceTimeTx(*txs.AdvanceTimeTx) error {
+	return errUnsupportedTxType
+}
+
+func (*backendVisitor) RewardValidatorTx(*txs.RewardValidatorTx) error {
+	return errUnsupportedTxType
+}
 
 func (b *backendVisitor) AddValidatorTx(tx *txs.AddValidatorTx) error {
 	return b.baseTx(&tx.BaseTx)
@@ -41,7 +46,27 @@ func (b *backendVisitor) CreateChainTx(tx *txs.CreateChainTx) error {
 }
 
 func (b *backendVisitor) CreateSubnetTx(tx *txs.CreateSubnetTx) error {
+	b.b.setSubnetOwner(
+		b.txID,
+		tx.Owner,
+	)
 	return b.baseTx(&tx.BaseTx)
+}
+
+func (b *backendVisitor) RemoveSubnetValidatorTx(tx *txs.RemoveSubnetValidatorTx) error {
+	return b.baseTx(&tx.BaseTx)
+}
+
+func (b *backendVisitor) TransferSubnetOwnershipTx(tx *txs.TransferSubnetOwnershipTx) error {
+	b.b.setSubnetOwner(
+		tx.Subnet,
+		tx.Owner,
+	)
+	return b.baseTx(&tx.BaseTx)
+}
+
+func (b *backendVisitor) BaseTx(tx *txs.BaseTx) error {
+	return b.baseTx(tx)
 }
 
 func (b *backendVisitor) ImportTx(tx *txs.ImportTx) error {
@@ -74,6 +99,18 @@ func (b *backendVisitor) ExportTx(tx *txs.ExportTx) error {
 			return err
 		}
 	}
+	return b.baseTx(&tx.BaseTx)
+}
+
+func (b *backendVisitor) TransformSubnetTx(tx *txs.TransformSubnetTx) error {
+	return b.baseTx(&tx.BaseTx)
+}
+
+func (b *backendVisitor) AddPermissionlessValidatorTx(tx *txs.AddPermissionlessValidatorTx) error {
+	return b.baseTx(&tx.BaseTx)
+}
+
+func (b *backendVisitor) AddPermissionlessDelegatorTx(tx *txs.AddPermissionlessDelegatorTx) error {
 	return b.baseTx(&tx.BaseTx)
 }
 

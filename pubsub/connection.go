@@ -1,4 +1,4 @@
-// Copyright (C) 2019-2021, Ava Labs, Inc. All rights reserved.
+// Copyright (C) 2019-2024, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
 package pubsub
@@ -11,10 +11,9 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-
 	"go.uber.org/zap"
 
-	"github.com/ava-labs/avalanchego/utils/bloom"
+	"github.com/ava-labs/avalanchego/pubsub/bloom"
 )
 
 var (
@@ -22,7 +21,7 @@ var (
 	ErrAddressLimit                = errors.New("address limit exceeded")
 	ErrInvalidFilterParam          = errors.New("invalid bloom filter params")
 	ErrInvalidCommand              = errors.New("invalid command")
-	_                       Filter = &connection{}
+	_                       Filter = (*connection)(nil)
 )
 
 type Filter interface {
@@ -190,7 +189,7 @@ func (c *connection) handleNewBloom(cmd *NewBloom) error {
 	if !cmd.IsParamsValid() {
 		return ErrInvalidFilterParam
 	}
-	filter, err := bloom.New(uint64(cmd.MaxElements), float64(cmd.CollisionProb), MaxBytes)
+	filter, err := bloom.New(int(cmd.MaxElements), float64(cmd.CollisionProb), MaxBytes)
 	if err != nil {
 		return fmt.Errorf("bloom filter creation failed %w", err)
 	}

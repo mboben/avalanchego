@@ -1,14 +1,14 @@
-// Copyright (C) 2019-2021, Ava Labs, Inc. All rights reserved.
+// Copyright (C) 2019-2024, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
 package prefixdb
 
 import (
+	"context"
+	"slices"
 	"sync"
 
 	"github.com/ava-labs/avalanchego/database"
-	"github.com/ava-labs/avalanchego/database/nodb"
-	"github.com/ava-labs/avalanchego/utils"
 	"github.com/ava-labs/avalanchego/utils/hashing"
 )
 
@@ -17,9 +17,9 @@ const (
 )
 
 var (
-	_ database.Database = &Database{}
-	_ database.Batch    = &batch{}
-	_ database.Iterator = &iterator{}
+	_ database.Database = (*Database)(nil)
+	_ database.Batch    = (*batch)(nil)
+	_ database.Iterator = (*iterator)(nil)
 )
 
 // Database partitions a database into a sub-database by prefixing all keys with
@@ -34,25 +34,13 @@ type Database struct {
 	// concurrently with another operation. All other operations can hold RLock.
 	lock sync.RWMutex
 	// The underlying storage
-	db database.Database
+	db     database.Database
+	closed bool
 }
 
-// New returns a new prefixed database
-func New(prefix []byte, db database.Database) *Database {
-	if prefixDB, ok := db.(*Database); ok {
-		simplePrefix := make([]byte, len(prefixDB.dbPrefix)+len(prefix))
-		copy(simplePrefix, prefixDB.dbPrefix)
-		copy(simplePrefix[len(prefixDB.dbPrefix):], prefix)
-		return NewNested(simplePrefix, prefixDB.db)
-	}
-	return NewNested(prefix, db)
-}
-
-// NewNested returns a new prefixed database without attempting to compress
-// prefixes.
-func NewNested(prefix []byte, db database.Database) *Database {
+func newDB(prefix []byte, db database.Database) *Database {
 	return &Database{
-		dbPrefix: hashing.ComputeHash256(prefix),
+		dbPrefix: prefix,
 		db:       db,
 		bufferPool: sync.Pool{
 			New: func() interface{} {
@@ -62,6 +50,47 @@ func NewNested(prefix []byte, db database.Database) *Database {
 	}
 }
 
+// New returns a new prefixed database
+func New(prefix []byte, db database.Database) *Database {
+	if prefixDB, ok := db.(*Database); ok {
+		return newDB(
+			JoinPrefixes(prefixDB.dbPrefix, prefix),
+			prefixDB.db,
+		)
+	}
+	return newDB(
+		MakePrefix(prefix),
+		db,
+	)
+}
+
+// NewNested returns a new prefixed database without attempting to compress
+// prefixes.
+func NewNested(prefix []byte, db database.Database) *Database {
+	return newDB(
+		MakePrefix(prefix),
+		db,
+	)
+}
+
+func MakePrefix(prefix []byte) []byte {
+	return hashing.ComputeHash256(prefix)
+}
+
+func JoinPrefixes(firstPrefix, secondPrefix []byte) []byte {
+	simplePrefix := make([]byte, len(firstPrefix)+len(secondPrefix))
+	copy(simplePrefix, firstPrefix)
+	copy(simplePrefix[len(firstPrefix):], secondPrefix)
+	return MakePrefix(simplePrefix)
+}
+
+func PrefixKey(prefix, key []byte) []byte {
+	prefixedKey := make([]byte, len(prefix)+len(key))
+	copy(prefixedKey, prefix)
+	copy(prefixedKey[len(prefix):], key)
+	return prefixedKey
+}
+
 // Assumes that it is OK for the argument to db.db.Has
 // to be modified after db.db.Has returns
 // [key] may be modified after this method returns.
@@ -69,7 +98,7 @@ func (db *Database) Has(key []byte) (bool, error) {
 	db.lock.RLock()
 	defer db.lock.RUnlock()
 
-	if db.db == nil {
+	if db.closed {
 		return false, database.ErrClosed
 	}
 	prefixedKey := db.prefix(key)
@@ -85,7 +114,7 @@ func (db *Database) Get(key []byte) ([]byte, error) {
 	db.lock.RLock()
 	defer db.lock.RUnlock()
 
-	if db.db == nil {
+	if db.closed {
 		return nil, database.ErrClosed
 	}
 	prefixedKey := db.prefix(key)
@@ -102,7 +131,7 @@ func (db *Database) Put(key, value []byte) error {
 	db.lock.RLock()
 	defer db.lock.RUnlock()
 
-	if db.db == nil {
+	if db.closed {
 		return database.ErrClosed
 	}
 	prefixedKey := db.prefix(key)
@@ -118,7 +147,7 @@ func (db *Database) Delete(key []byte) error {
 	db.lock.RLock()
 	defer db.lock.RUnlock()
 
-	if db.db == nil {
+	if db.closed {
 		return database.ErrClosed
 	}
 	prefixedKey := db.prefix(key)
@@ -152,8 +181,10 @@ func (db *Database) NewIteratorWithStartAndPrefix(start, prefix []byte) database
 	db.lock.RLock()
 	defer db.lock.RUnlock()
 
-	if db.db == nil {
-		return &nodb.Iterator{Err: database.ErrClosed}
+	if db.closed {
+		return &database.IteratorError{
+			Err: database.ErrClosed,
+		}
 	}
 	prefixedStart := db.prefix(start)
 	prefixedPrefix := db.prefix(prefix)
@@ -170,7 +201,7 @@ func (db *Database) Compact(start, limit []byte) error {
 	db.lock.RLock()
 	defer db.lock.RUnlock()
 
-	if db.db == nil {
+	if db.closed {
 		return database.ErrClosed
 	}
 	return db.db.Compact(db.prefix(start), db.prefix(limit))
@@ -180,10 +211,10 @@ func (db *Database) Close() error {
 	db.lock.Lock()
 	defer db.lock.Unlock()
 
-	if db.db == nil {
+	if db.closed {
 		return database.ErrClosed
 	}
-	db.db = nil
+	db.closed = true
 	return nil
 }
 
@@ -191,17 +222,17 @@ func (db *Database) isClosed() bool {
 	db.lock.RLock()
 	defer db.lock.RUnlock()
 
-	return db.db == nil
+	return db.closed
 }
 
-func (db *Database) HealthCheck() (interface{}, error) {
+func (db *Database) HealthCheck(ctx context.Context) (interface{}, error) {
 	db.lock.RLock()
 	defer db.lock.RUnlock()
 
-	if db.db == nil {
+	if db.closed {
 		return nil, database.ErrClosed
 	}
-	return db.db.HealthCheck()
+	return db.db.HealthCheck(ctx)
 }
 
 // Return a copy of [key], prepended with this db's prefix.
@@ -225,12 +256,6 @@ func (db *Database) prefix(key []byte) []byte {
 	return prefixedKey
 }
 
-type keyValue struct {
-	key    []byte
-	value  []byte
-	delete bool
-}
-
 // Batch of database operations
 type batch struct {
 	database.Batch
@@ -239,7 +264,7 @@ type batch struct {
 	// Each key is prepended with the database's prefix.
 	// Each byte slice underlying a key should be returned to the pool
 	// when this batch is reset.
-	writes []keyValue
+	ops []database.BatchOp
 }
 
 // Assumes that it is OK for the argument to b.Batch.Put
@@ -248,8 +273,11 @@ type batch struct {
 // [value] may be modified after this method returns.
 func (b *batch) Put(key, value []byte) error {
 	prefixedKey := b.db.prefix(key)
-	copiedValue := utils.CopyBytes(value)
-	b.writes = append(b.writes, keyValue{prefixedKey, copiedValue, false})
+	copiedValue := slices.Clone(value)
+	b.ops = append(b.ops, database.BatchOp{
+		Key:   prefixedKey,
+		Value: copiedValue,
+	})
 	return b.Batch.Put(prefixedKey, copiedValue)
 }
 
@@ -258,7 +286,10 @@ func (b *batch) Put(key, value []byte) error {
 // [key] may be modified after this method returns.
 func (b *batch) Delete(key []byte) error {
 	prefixedKey := b.db.prefix(key)
-	b.writes = append(b.writes, keyValue{prefixedKey, nil, true})
+	b.ops = append(b.ops, database.BatchOp{
+		Key:    prefixedKey,
+		Delete: true,
+	})
 	return b.Batch.Delete(prefixedKey)
 }
 
@@ -267,7 +298,7 @@ func (b *batch) Write() error {
 	b.db.lock.RLock()
 	defer b.db.lock.RUnlock()
 
-	if b.db.db == nil {
+	if b.db.closed {
 		return database.ErrClosed
 	}
 	return b.Batch.Write()
@@ -279,15 +310,15 @@ func (b *batch) Reset() {
 	// Don't return the byte buffers underneath each value back to the pool
 	// because we assume in batch.Replay that it's not safe to modify the
 	// value argument to w.Put.
-	for _, kv := range b.writes {
-		b.db.bufferPool.Put(kv.key)
+	for _, op := range b.ops {
+		b.db.bufferPool.Put(op.Key)
 	}
 
 	// Clear b.writes
-	if cap(b.writes) > len(b.writes)*database.MaxExcessCapacityFactor {
-		b.writes = make([]keyValue, 0, cap(b.writes)/database.CapacityReductionFactor)
+	if cap(b.ops) > len(b.ops)*database.MaxExcessCapacityFactor {
+		b.ops = make([]database.BatchOp, 0, cap(b.ops)/database.CapacityReductionFactor)
 	} else {
-		b.writes = b.writes[:0]
+		b.ops = b.ops[:0]
 	}
 	b.Batch.Reset()
 }
@@ -296,14 +327,14 @@ func (b *batch) Reset() {
 // Assumes it's safe to modify the key argument to w.Delete and w.Put
 // after those methods return.
 func (b *batch) Replay(w database.KeyValueWriterDeleter) error {
-	for _, keyvalue := range b.writes {
-		keyWithoutPrefix := keyvalue.key[len(b.db.dbPrefix):]
-		if keyvalue.delete {
+	for _, op := range b.ops {
+		keyWithoutPrefix := op.Key[len(b.db.dbPrefix):]
+		if op.Delete {
 			if err := w.Delete(keyWithoutPrefix); err != nil {
 				return err
 			}
 		} else {
-			if err := w.Put(keyWithoutPrefix, keyvalue.value); err != nil {
+			if err := w.Put(keyWithoutPrefix, op.Value); err != nil {
 				return err
 			}
 		}
@@ -344,9 +375,13 @@ func (it *iterator) Next() bool {
 	return hasNext
 }
 
-func (it *iterator) Key() []byte { return it.key }
+func (it *iterator) Key() []byte {
+	return it.key
+}
 
-func (it *iterator) Value() []byte { return it.val }
+func (it *iterator) Value() []byte {
+	return it.val
+}
 
 // Error returns [database.ErrClosed] if the underlying db was closed
 // otherwise it returns the normal iterator error.

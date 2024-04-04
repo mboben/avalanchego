@@ -1,23 +1,26 @@
-// Copyright (C) 2019-2021, Ava Labs, Inc. All rights reserved.
+// Copyright (C) 2019-2024, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
 package metrics
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
-	"sort"
+	"slices"
 	"sync"
 
 	"github.com/prometheus/client_golang/prometheus"
+
+	"github.com/ava-labs/avalanchego/utils/metric"
 
 	dto "github.com/prometheus/client_model/go"
 )
 
 var (
-	errDuplicatedPrefix = errors.New("duplicated prefix")
+	_ MultiGatherer = (*multiGatherer)(nil)
 
-	_ MultiGatherer = &multiGatherer{}
+	errReregisterGatherer = errors.New("attempt to register existing gatherer")
 )
 
 // MultiGatherer extends the Gatherer interface by allowing additional gatherers
@@ -47,23 +50,19 @@ func (g *multiGatherer) Gather() ([]*dto.MetricFamily, error) {
 
 	var results []*dto.MetricFamily
 	for namespace, gatherer := range g.gatherers {
-		metrics, err := gatherer.Gather()
+		gatheredMetrics, err := gatherer.Gather()
 		if err != nil {
 			return nil, err
 		}
-		for _, metric := range metrics {
+		for _, gatheredMetric := range gatheredMetrics {
 			var name string
-			if metric.Name != nil {
-				if len(namespace) > 0 {
-					name = fmt.Sprintf("%s_%s", namespace, *metric.Name)
-				} else {
-					name = *metric.Name
-				}
+			if gatheredMetric.Name != nil {
+				name = metric.AppendNamespace(namespace, *gatheredMetric.Name)
 			} else {
 				name = namespace
 			}
-			metric.Name = &name
-			results = append(results, metric)
+			gatheredMetric.Name = &name
+			results = append(results, gatheredMetric)
 		}
 	}
 	// Because we overwrite every metric's name, we are guaranteed that there
@@ -76,18 +75,21 @@ func (g *multiGatherer) Register(namespace string, gatherer prometheus.Gatherer)
 	g.lock.Lock()
 	defer g.lock.Unlock()
 
-	if _, exists := g.gatherers[namespace]; exists {
-		return errDuplicatedPrefix
+	if existingGatherer, exists := g.gatherers[namespace]; exists {
+		return fmt.Errorf("%w for namespace %q; existing: %#v; new: %#v",
+			errReregisterGatherer,
+			namespace,
+			existingGatherer,
+			gatherer,
+		)
 	}
 
 	g.gatherers[namespace] = gatherer
 	return nil
 }
 
-type sortMetricsData []*dto.MetricFamily
-
-func (m sortMetricsData) Less(i, j int) bool { return *m[i].Name < *m[j].Name }
-func (m sortMetricsData) Len() int           { return len(m) }
-func (m sortMetricsData) Swap(i, j int)      { m[j], m[i] = m[i], m[j] }
-
-func sortMetrics(m []*dto.MetricFamily) { sort.Sort(sortMetricsData(m)) }
+func sortMetrics(m []*dto.MetricFamily) {
+	slices.SortFunc(m, func(i, j *dto.MetricFamily) int {
+		return cmp.Compare(*i.Name, *j.Name)
+	})
+}

@@ -1,100 +1,63 @@
 #!/usr/bin/env bash
-set -e
-set -o nounset
-set -o pipefail
+
+set -euo pipefail
 
 # e.g.,
-# ./scripts/build.sh
-# ./scripts/tests.e2e.sh ./build/avalanchego
-# ENABLE_WHITELIST_VTX_TESTS=true ./scripts/tests.e2e.sh ./build/avalanchego
+# ./scripts/tests.e2e.sh
+# ./scripts/tests.e2e.sh --ginkgo.label-filter=x                                       # All arguments are supplied to ginkgo
+# E2E_SERIAL=1 ./scripts/tests.e2e.sh                                                  # Run tests serially
+# AVALANCHEGO_PATH=./build/avalanchego ./scripts/tests.e2e.sh                          # Customization of avalanchego path
+# E2E_USE_EXISTING_NETWORK=1 TMPNET_NETWORK_DIR=/path/to ./scripts/tests.e2e.sh        # Execute against an existing network
 if ! [[ "$0" =~ scripts/tests.e2e.sh ]]; then
   echo "must be run from repository root"
   exit 255
 fi
 
-AVALANCHEGO_PATH="${1-}"
-if [[ -z "${AVALANCHEGO_PATH}" ]]; then
-  echo "Missing AVALANCHEGO_PATH argument!"
-  echo "Usage: ${0} [AVALANCHEGO_PATH]" >> /dev/stderr
-  exit 255
-fi
-
-ENABLE_WHITELIST_VTX_TESTS=${ENABLE_WHITELIST_VTX_TESTS:-false}
-
 #################################
-# download avalanche-network-runner
-# https://github.com/ava-labs/avalanche-network-runner
-# TODO: migrate to upstream avalanche-network-runner
-GOARCH=$(go env GOARCH)
-GOOS=$(go env GOOS)
-NETWORK_RUNNER_VERSION=1.1.0
-DOWNLOAD_PATH=/tmp/avalanche-network-runner.tar.gz
-DOWNLOAD_URL="https://github.com/ava-labs/avalanche-network-runner/releases/download/v${NETWORK_RUNNER_VERSION}/avalanche-network-runner_${NETWORK_RUNNER_VERSION}_${GOOS}_${GOARCH}.tar.gz"
-
-rm -f ${DOWNLOAD_PATH}
-rm -f /tmp/avalanche-network-runner
-
-echo "downloading avalanche-network-runner ${NETWORK_RUNNER_VERSION} at ${DOWNLOAD_URL}"
-curl --fail -L ${DOWNLOAD_URL} -o ${DOWNLOAD_PATH}
-
-echo "extracting downloaded avalanche-network-runner"
-tar xzvf ${DOWNLOAD_PATH} -C /tmp
-/tmp/avalanche-network-runner -h
-
-GOPATH="$(go env GOPATH)"
-PATH="${GOPATH}/bin:${PATH}"
+# Sourcing constants.sh ensures that the necessary CGO flags are set to
+# build the portable version of BLST. Without this, ginkgo may fail to
+# build the test binary if run on a host (e.g. github worker) that lacks
+# the instructions to build non-portable BLST.
+source ./scripts/constants.sh
 
 #################################
 echo "building e2e.test"
 # to install the ginkgo binary (required for test build and run)
-go install -modcacherw -v github.com/onsi/ginkgo/v2/ginkgo@v2.1.4
+go install -modcacherw -v github.com/onsi/ginkgo/v2/ginkgo@v2.13.1
 ACK_GINKGO_RC=true ginkgo build ./tests/e2e
 ./tests/e2e/e2e.test --help
 
 #################################
-# run "avalanche-network-runner" server
-echo "launch avalanche-network-runner in the background"
-/tmp/avalanche-network-runner \
-server \
---log-level debug \
---port=":12342" \
---disable-grpc-gateway 2> /dev/null &
-PID=${!}
+# Since TMPNET_NETWORK_DIR may be set in the environment (e.g. to configure ginkgo
+# or tmpnetctl), configuring the use of an existing network with this script
+# requires the extra step of setting E2E_USE_EXISTING_NETWORK=1.
+if [[ -n "${E2E_USE_EXISTING_NETWORK:-}" && -n "${TMPNET_NETWORK_DIR:-}" ]]; then
+  E2E_ARGS="--use-existing-network"
+else
+  AVALANCHEGO_PATH="$(realpath "${AVALANCHEGO_PATH:-./build/avalanchego}")"
+  E2E_ARGS="--avalanchego-path=${AVALANCHEGO_PATH}"
+fi
 
 #################################
-# By default, it runs all e2e test cases!
-# Use "--ginkgo.skip" to skip tests.
-# Use "--ginkgo.focus" to select tests.
-#
-# to run only ping tests:
-# --ginkgo.focus "\[Local\] \[Ping\]"
-#
-# to run only X-Chain whitelist vtx tests:
-# --ginkgo.focus "\[X-Chain\] \[WhitelistVtx\]"
-#
-# to run only X-Chain transfer tests:
-# --ginkgo.focus "\[X-Chain\] \[Virtuous Transfer Tx AVAX\]"
-#
-# to skip all "Local" tests
-# --ginkgo.skip "\[Local\]"
-#
-# set "--enable-whitelist-vtx-tests" to explicitly enable/disable whitelist vtx tests
-echo "running e2e tests against the local cluster with ${AVALANCHEGO_PATH}"
-./tests/e2e/e2e.test \
---ginkgo.v \
---log-level debug \
---network-runner-grpc-endpoint="0.0.0.0:12342" \
---network-runner-avalanchego-path=${AVALANCHEGO_PATH} \
---network-runner-avalanchego-log-level="WARN" \
---test-keys-file=tests/test.insecure.secp256k1.keys \
---enable-whitelist-vtx-tests=${ENABLE_WHITELIST_VTX_TESTS} \
-&& EXIT_CODE=$? || EXIT_CODE=$?
-
-kill ${PID}
-
-if [[ ${EXIT_CODE} -gt 0 ]]; then
-  echo "FAILURE with exit code ${EXIT_CODE}"
-  exit ${EXIT_CODE}
+# Determine ginkgo args
+GINKGO_ARGS=""
+if [[ -n "${E2E_SERIAL:-}" ]]; then
+  # Specs will be executed serially. This supports running e2e tests in CI
+  # where parallel execution of tests that start new nodes beyond the
+  # initial set of validators could overload the free tier CI workers.
+  # Forcing serial execution in this test script instead of marking
+  # resource-hungry tests as serial supports executing the test suite faster
+  # on powerful development workstations.
+  echo "tests will be executed serially to minimize resource requirements"
 else
-  echo "ALL SUCCESS!"
+  # Enable parallel execution of specs defined in the test binary by
+  # default. This requires invoking the binary via the ginkgo cli
+  # since the test binary isn't capable of executing specs in
+  # parallel.
+  echo "tests will be executed in parallel"
+  GINKGO_ARGS="-p"
 fi
+
+#################################
+# - Execute in random order to identify unwanted dependency
+ginkgo ${GINKGO_ARGS} -v --randomize-all ./tests/e2e/e2e.test -- "${E2E_ARGS[@]}" "${@}"

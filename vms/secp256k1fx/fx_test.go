@@ -1,4 +1,4 @@
-// Copyright (C) 2019-2021, Ava Labs, Inc. All rights reserved.
+// Copyright (C) 2019-2024, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
 package secp256k1fx
@@ -12,13 +12,13 @@ import (
 	"github.com/ava-labs/avalanchego/codec/linearcodec"
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/cb58"
-	"github.com/ava-labs/avalanchego/utils/crypto"
+	"github.com/ava-labs/avalanchego/utils/crypto/secp256k1"
 	"github.com/ava-labs/avalanchego/utils/logging"
 )
 
 var (
 	txBytes  = []byte{0, 1, 2, 3, 4, 5}
-	sigBytes = [crypto.SECP256K1RSigLen]byte{ // signature of addr on txBytes
+	sigBytes = [secp256k1.SignatureLen]byte{ // signature of addr on txBytes
 		0x0e, 0x33, 0x4e, 0xbc, 0x67, 0xa7, 0x3f, 0xe8,
 		0x24, 0x33, 0xac, 0xa3, 0x47, 0x88, 0xa6, 0x3d,
 		0x58, 0xe5, 0x8e, 0xf0, 0x3a, 0xd5, 0x84, 0xf1,
@@ -35,7 +35,7 @@ var (
 		0x39, 0x1a, 0xe7, 0xf0,
 	}
 	addr2     ids.ShortID
-	sig2Bytes [crypto.SECP256K1RSigLen]byte // signature of addr2 on txBytes
+	sig2Bytes [secp256k1.SignatureLen]byte // signature of addr2 on txBytes
 )
 
 func init() {
@@ -52,29 +52,28 @@ func init() {
 }
 
 func TestFxInitialize(t *testing.T) {
-	require := require.New(t)
 	vm := TestVM{
-		Codec: linearcodec.NewDefault(),
+		Codec: linearcodec.NewDefault(time.Time{}),
 		Log:   logging.NoLog{},
 	}
 	fx := Fx{}
-	require.NoError(fx.Initialize(&vm))
+	require.NoError(t, fx.Initialize(&vm))
 }
 
 func TestFxInitializeInvalid(t *testing.T) {
-	require := require.New(t)
 	fx := Fx{}
-	require.ErrorIs(fx.Initialize(nil), errWrongVMType)
+	err := fx.Initialize(nil)
+	require.ErrorIs(t, err, ErrWrongVMType)
 }
 
 func TestFxVerifyTransfer(t *testing.T) {
 	require := require.New(t)
 	vm := TestVM{
-		Codec: linearcodec.NewDefault(),
+		Codec: linearcodec.NewDefault(time.Time{}),
 		Log:   logging.NoLog{},
 	}
 	date := time.Date(2019, time.January, 19, 16, 25, 17, 3, time.UTC)
-	vm.CLK.Set(date)
+	vm.Clk.Set(date)
 	fx := Fx{}
 	require.NoError(fx.Initialize(&vm))
 	require.NoError(fx.Bootstrapping())
@@ -97,7 +96,7 @@ func TestFxVerifyTransfer(t *testing.T) {
 		},
 	}
 	cred := &Credential{
-		Sigs: [][crypto.SECP256K1RSigLen]byte{
+		Sigs: [][secp256k1.SignatureLen]byte{
 			sigBytes,
 		},
 	}
@@ -108,11 +107,11 @@ func TestFxVerifyTransfer(t *testing.T) {
 func TestFxVerifyTransferNilTx(t *testing.T) {
 	require := require.New(t)
 	vm := TestVM{
-		Codec: linearcodec.NewDefault(),
+		Codec: linearcodec.NewDefault(time.Time{}),
 		Log:   logging.NoLog{},
 	}
 	date := time.Date(2019, time.January, 19, 16, 25, 17, 3, time.UTC)
-	vm.CLK.Set(date)
+	vm.Clk.Set(date)
 	fx := Fx{}
 	require.NoError(fx.Initialize(&vm))
 	out := &TransferOutput{
@@ -132,22 +131,23 @@ func TestFxVerifyTransferNilTx(t *testing.T) {
 		},
 	}
 	cred := &Credential{
-		Sigs: [][crypto.SECP256K1RSigLen]byte{
+		Sigs: [][secp256k1.SignatureLen]byte{
 			sigBytes,
 		},
 	}
 
-	require.ErrorIs(fx.VerifyTransfer(nil, in, cred, out), errWrongTxType)
+	err := fx.VerifyTransfer(nil, in, cred, out)
+	require.ErrorIs(err, ErrWrongTxType)
 }
 
 func TestFxVerifyTransferNilOutput(t *testing.T) {
 	require := require.New(t)
 	vm := TestVM{
-		Codec: linearcodec.NewDefault(),
+		Codec: linearcodec.NewDefault(time.Time{}),
 		Log:   logging.NoLog{},
 	}
 	date := time.Date(2019, time.January, 19, 16, 25, 17, 3, time.UTC)
-	vm.CLK.Set(date)
+	vm.Clk.Set(date)
 	fx := Fx{}
 	require.NoError(fx.Initialize(&vm))
 	tx := &TestTx{UnsignedBytes: txBytes}
@@ -158,22 +158,23 @@ func TestFxVerifyTransferNilOutput(t *testing.T) {
 		},
 	}
 	cred := &Credential{
-		Sigs: [][crypto.SECP256K1RSigLen]byte{
+		Sigs: [][secp256k1.SignatureLen]byte{
 			sigBytes,
 		},
 	}
 
-	require.ErrorIs(fx.VerifyTransfer(tx, in, cred, nil), errWrongUTXOType)
+	err := fx.VerifyTransfer(tx, in, cred, nil)
+	require.ErrorIs(err, ErrWrongUTXOType)
 }
 
 func TestFxVerifyTransferNilInput(t *testing.T) {
 	require := require.New(t)
 	vm := TestVM{
-		Codec: linearcodec.NewDefault(),
+		Codec: linearcodec.NewDefault(time.Time{}),
 		Log:   logging.NoLog{},
 	}
 	date := time.Date(2019, time.January, 19, 16, 25, 17, 3, time.UTC)
-	vm.CLK.Set(date)
+	vm.Clk.Set(date)
 	fx := Fx{}
 	require.NoError(fx.Initialize(&vm))
 	tx := &TestTx{UnsignedBytes: txBytes}
@@ -188,22 +189,23 @@ func TestFxVerifyTransferNilInput(t *testing.T) {
 		},
 	}
 	cred := &Credential{
-		Sigs: [][crypto.SECP256K1RSigLen]byte{
+		Sigs: [][secp256k1.SignatureLen]byte{
 			sigBytes,
 		},
 	}
 
-	require.ErrorIs(fx.VerifyTransfer(tx, nil, cred, out), errWrongInputType)
+	err := fx.VerifyTransfer(tx, nil, cred, out)
+	require.ErrorIs(err, ErrWrongInputType)
 }
 
 func TestFxVerifyTransferNilCredential(t *testing.T) {
 	require := require.New(t)
 	vm := TestVM{
-		Codec: linearcodec.NewDefault(),
+		Codec: linearcodec.NewDefault(time.Time{}),
 		Log:   logging.NoLog{},
 	}
 	date := time.Date(2019, time.January, 19, 16, 25, 17, 3, time.UTC)
-	vm.CLK.Set(date)
+	vm.Clk.Set(date)
 	fx := Fx{}
 	require.NoError(fx.Initialize(&vm))
 	tx := &TestTx{UnsignedBytes: txBytes}
@@ -224,17 +226,18 @@ func TestFxVerifyTransferNilCredential(t *testing.T) {
 		},
 	}
 
-	require.ErrorIs(fx.VerifyTransfer(tx, in, nil, out), errWrongCredentialType)
+	err := fx.VerifyTransfer(tx, in, nil, out)
+	require.ErrorIs(err, ErrWrongCredentialType)
 }
 
 func TestFxVerifyTransferInvalidOutput(t *testing.T) {
 	require := require.New(t)
 	vm := TestVM{
-		Codec: linearcodec.NewDefault(),
+		Codec: linearcodec.NewDefault(time.Time{}),
 		Log:   logging.NoLog{},
 	}
 	date := time.Date(2019, time.January, 19, 16, 25, 17, 3, time.UTC)
-	vm.CLK.Set(date)
+	vm.Clk.Set(date)
 	fx := Fx{}
 	require.NoError(fx.Initialize(&vm))
 	tx := &TestTx{UnsignedBytes: txBytes}
@@ -255,22 +258,23 @@ func TestFxVerifyTransferInvalidOutput(t *testing.T) {
 		},
 	}
 	cred := &Credential{
-		Sigs: [][crypto.SECP256K1RSigLen]byte{
+		Sigs: [][secp256k1.SignatureLen]byte{
 			sigBytes,
 		},
 	}
 
-	require.ErrorIs(fx.VerifyTransfer(tx, in, cred, out), errOutputUnoptimized)
+	err := fx.VerifyTransfer(tx, in, cred, out)
+	require.ErrorIs(err, ErrOutputUnoptimized)
 }
 
 func TestFxVerifyTransferWrongAmounts(t *testing.T) {
 	require := require.New(t)
 	vm := TestVM{
-		Codec: linearcodec.NewDefault(),
+		Codec: linearcodec.NewDefault(time.Time{}),
 		Log:   logging.NoLog{},
 	}
 	date := time.Date(2019, time.January, 19, 16, 25, 17, 3, time.UTC)
-	vm.CLK.Set(date)
+	vm.Clk.Set(date)
 	fx := Fx{}
 	require.NoError(fx.Initialize(&vm))
 	tx := &TestTx{UnsignedBytes: txBytes}
@@ -291,22 +295,23 @@ func TestFxVerifyTransferWrongAmounts(t *testing.T) {
 		},
 	}
 	cred := &Credential{
-		Sigs: [][crypto.SECP256K1RSigLen]byte{
+		Sigs: [][secp256k1.SignatureLen]byte{
 			sigBytes,
 		},
 	}
 
-	require.Error(fx.VerifyTransfer(tx, in, cred, out))
+	err := fx.VerifyTransfer(tx, in, cred, out)
+	require.ErrorIs(err, ErrMismatchedAmounts)
 }
 
 func TestFxVerifyTransferTimelocked(t *testing.T) {
 	require := require.New(t)
 	vm := TestVM{
-		Codec: linearcodec.NewDefault(),
+		Codec: linearcodec.NewDefault(time.Time{}),
 		Log:   logging.NoLog{},
 	}
 	date := time.Date(2019, time.January, 19, 16, 25, 17, 3, time.UTC)
-	vm.CLK.Set(date)
+	vm.Clk.Set(date)
 	fx := Fx{}
 	require.NoError(fx.Initialize(&vm))
 	tx := &TestTx{UnsignedBytes: txBytes}
@@ -327,22 +332,23 @@ func TestFxVerifyTransferTimelocked(t *testing.T) {
 		},
 	}
 	cred := &Credential{
-		Sigs: [][crypto.SECP256K1RSigLen]byte{
+		Sigs: [][secp256k1.SignatureLen]byte{
 			sigBytes,
 		},
 	}
 
-	require.ErrorIs(fx.VerifyTransfer(tx, in, cred, out), errTimelocked)
+	err := fx.VerifyTransfer(tx, in, cred, out)
+	require.ErrorIs(err, ErrTimelocked)
 }
 
 func TestFxVerifyTransferTooManySigners(t *testing.T) {
 	require := require.New(t)
 	vm := TestVM{
-		Codec: linearcodec.NewDefault(),
+		Codec: linearcodec.NewDefault(time.Time{}),
 		Log:   logging.NoLog{},
 	}
 	date := time.Date(2019, time.January, 19, 16, 25, 17, 3, time.UTC)
-	vm.CLK.Set(date)
+	vm.Clk.Set(date)
 	fx := Fx{}
 	require.NoError(fx.Initialize(&vm))
 	tx := &TestTx{UnsignedBytes: txBytes}
@@ -363,23 +369,24 @@ func TestFxVerifyTransferTooManySigners(t *testing.T) {
 		},
 	}
 	cred := &Credential{
-		Sigs: [][crypto.SECP256K1RSigLen]byte{
+		Sigs: [][secp256k1.SignatureLen]byte{
 			sigBytes,
 			{},
 		},
 	}
 
-	require.ErrorIs(fx.VerifyTransfer(tx, in, cred, out), errTooManySigners)
+	err := fx.VerifyTransfer(tx, in, cred, out)
+	require.ErrorIs(err, ErrTooManySigners)
 }
 
 func TestFxVerifyTransferTooFewSigners(t *testing.T) {
 	require := require.New(t)
 	vm := TestVM{
-		Codec: linearcodec.NewDefault(),
+		Codec: linearcodec.NewDefault(time.Time{}),
 		Log:   logging.NoLog{},
 	}
 	date := time.Date(2019, time.January, 19, 16, 25, 17, 3, time.UTC)
-	vm.CLK.Set(date)
+	vm.Clk.Set(date)
 	fx := Fx{}
 	require.NoError(fx.Initialize(&vm))
 	tx := &TestTx{UnsignedBytes: txBytes}
@@ -400,20 +407,21 @@ func TestFxVerifyTransferTooFewSigners(t *testing.T) {
 		},
 	}
 	cred := &Credential{
-		Sigs: [][crypto.SECP256K1RSigLen]byte{},
+		Sigs: [][secp256k1.SignatureLen]byte{},
 	}
 
-	require.ErrorIs(fx.VerifyTransfer(tx, in, cred, out), errTooFewSigners)
+	err := fx.VerifyTransfer(tx, in, cred, out)
+	require.ErrorIs(err, ErrTooFewSigners)
 }
 
 func TestFxVerifyTransferMismatchedSigners(t *testing.T) {
 	require := require.New(t)
 	vm := TestVM{
-		Codec: linearcodec.NewDefault(),
+		Codec: linearcodec.NewDefault(time.Time{}),
 		Log:   logging.NoLog{},
 	}
 	date := time.Date(2019, time.January, 19, 16, 25, 17, 3, time.UTC)
-	vm.CLK.Set(date)
+	vm.Clk.Set(date)
 	fx := Fx{}
 	require.NoError(fx.Initialize(&vm))
 	tx := &TestTx{UnsignedBytes: txBytes}
@@ -434,23 +442,24 @@ func TestFxVerifyTransferMismatchedSigners(t *testing.T) {
 		},
 	}
 	cred := &Credential{
-		Sigs: [][crypto.SECP256K1RSigLen]byte{
+		Sigs: [][secp256k1.SignatureLen]byte{
 			sigBytes,
 			{},
 		},
 	}
 
-	require.ErrorIs(fx.VerifyTransfer(tx, in, cred, out), errInputCredentialSignersMismatch)
+	err := fx.VerifyTransfer(tx, in, cred, out)
+	require.ErrorIs(err, ErrInputCredentialSignersMismatch)
 }
 
 func TestFxVerifyTransferInvalidSignature(t *testing.T) {
 	require := require.New(t)
 	vm := TestVM{
-		Codec: linearcodec.NewDefault(),
+		Codec: linearcodec.NewDefault(time.Time{}),
 		Log:   logging.NoLog{},
 	}
 	date := time.Date(2019, time.January, 19, 16, 25, 17, 3, time.UTC)
-	vm.CLK.Set(date)
+	vm.Clk.Set(date)
 	fx := Fx{}
 	require.NoError(fx.Initialize(&vm))
 	require.NoError(fx.Bootstrapping())
@@ -472,24 +481,25 @@ func TestFxVerifyTransferInvalidSignature(t *testing.T) {
 		},
 	}
 	cred := &Credential{
-		Sigs: [][crypto.SECP256K1RSigLen]byte{
+		Sigs: [][secp256k1.SignatureLen]byte{
 			{},
 		},
 	}
 
 	require.NoError(fx.VerifyTransfer(tx, in, cred, out))
 	require.NoError(fx.Bootstrapped())
-	require.Error(fx.VerifyTransfer(tx, in, cred, out), errAddrsNotSortedUnique)
+	err := fx.VerifyTransfer(tx, in, cred, out)
+	require.ErrorIs(err, secp256k1.ErrInvalidSig)
 }
 
 func TestFxVerifyTransferWrongSigner(t *testing.T) {
 	require := require.New(t)
 	vm := TestVM{
-		Codec: linearcodec.NewDefault(),
+		Codec: linearcodec.NewDefault(time.Time{}),
 		Log:   logging.NoLog{},
 	}
 	date := time.Date(2019, time.January, 19, 16, 25, 17, 3, time.UTC)
-	vm.CLK.Set(date)
+	vm.Clk.Set(date)
 	fx := Fx{}
 	require.NoError(fx.Initialize(&vm))
 	require.NoError(fx.Bootstrapping())
@@ -511,24 +521,65 @@ func TestFxVerifyTransferWrongSigner(t *testing.T) {
 		},
 	}
 	cred := &Credential{
-		Sigs: [][crypto.SECP256K1RSigLen]byte{
+		Sigs: [][secp256k1.SignatureLen]byte{
 			sigBytes,
 		},
 	}
 
 	require.NoError(fx.VerifyTransfer(tx, in, cred, out))
 	require.NoError(fx.Bootstrapped())
-	require.Error(fx.VerifyTransfer(tx, in, cred, out))
+	err := fx.VerifyTransfer(tx, in, cred, out)
+	require.ErrorIs(err, ErrWrongSig)
+}
+
+func TestFxVerifyTransferSigIndexOOB(t *testing.T) {
+	require := require.New(t)
+	vm := TestVM{
+		Codec: linearcodec.NewDefault(time.Time{}),
+		Log:   logging.NoLog{},
+	}
+	date := time.Date(2019, time.January, 19, 16, 25, 17, 3, time.UTC)
+	vm.Clk.Set(date)
+	fx := Fx{}
+	require.NoError(fx.Initialize(&vm))
+	require.NoError(fx.Bootstrapping())
+	tx := &TestTx{UnsignedBytes: txBytes}
+	out := &TransferOutput{
+		Amt: 1,
+		OutputOwners: OutputOwners{
+			Locktime:  0,
+			Threshold: 1,
+			Addrs: []ids.ShortID{
+				addr,
+			},
+		},
+	}
+	in := &TransferInput{
+		Amt: 1,
+		Input: Input{
+			SigIndices: []uint32{1}, // There is no address at index 1
+		},
+	}
+	cred := &Credential{
+		Sigs: [][secp256k1.SignatureLen]byte{
+			sigBytes,
+		},
+	}
+
+	require.NoError(fx.VerifyTransfer(tx, in, cred, out))
+	require.NoError(fx.Bootstrapped())
+	err := fx.VerifyTransfer(tx, in, cred, out)
+	require.ErrorIs(err, ErrInputOutputIndexOutOfBounds)
 }
 
 func TestFxVerifyOperation(t *testing.T) {
 	require := require.New(t)
 	vm := TestVM{
-		Codec: linearcodec.NewDefault(),
+		Codec: linearcodec.NewDefault(time.Time{}),
 		Log:   logging.NoLog{},
 	}
 	date := time.Date(2019, time.January, 19, 16, 25, 17, 3, time.UTC)
-	vm.CLK.Set(date)
+	vm.Clk.Set(date)
 	fx := Fx{}
 	require.NoError(fx.Initialize(&vm))
 	tx := &TestTx{UnsignedBytes: txBytes}
@@ -564,7 +615,7 @@ func TestFxVerifyOperation(t *testing.T) {
 		},
 	}
 	cred := &Credential{
-		Sigs: [][crypto.SECP256K1RSigLen]byte{
+		Sigs: [][secp256k1.SignatureLen]byte{
 			sigBytes,
 		},
 	}
@@ -576,11 +627,11 @@ func TestFxVerifyOperation(t *testing.T) {
 func TestFxVerifyOperationUnknownTx(t *testing.T) {
 	require := require.New(t)
 	vm := TestVM{
-		Codec: linearcodec.NewDefault(),
+		Codec: linearcodec.NewDefault(time.Time{}),
 		Log:   logging.NoLog{},
 	}
 	date := time.Date(2019, time.January, 19, 16, 25, 17, 3, time.UTC)
-	vm.CLK.Set(date)
+	vm.Clk.Set(date)
 	fx := Fx{}
 	require.NoError(fx.Initialize(&vm))
 	utxo := &MintOutput{
@@ -615,23 +666,24 @@ func TestFxVerifyOperationUnknownTx(t *testing.T) {
 		},
 	}
 	cred := &Credential{
-		Sigs: [][crypto.SECP256K1RSigLen]byte{
+		Sigs: [][secp256k1.SignatureLen]byte{
 			sigBytes,
 		},
 	}
 
 	utxos := []interface{}{utxo}
-	require.ErrorIs(fx.VerifyOperation(nil, op, cred, utxos), errWrongTxType)
+	err := fx.VerifyOperation(nil, op, cred, utxos)
+	require.ErrorIs(err, ErrWrongTxType)
 }
 
 func TestFxVerifyOperationUnknownOperation(t *testing.T) {
 	require := require.New(t)
 	vm := TestVM{
-		Codec: linearcodec.NewDefault(),
+		Codec: linearcodec.NewDefault(time.Time{}),
 		Log:   logging.NoLog{},
 	}
 	date := time.Date(2019, time.January, 19, 16, 25, 17, 3, time.UTC)
-	vm.CLK.Set(date)
+	vm.Clk.Set(date)
 	fx := Fx{}
 	require.NoError(fx.Initialize(&vm))
 	tx := &TestTx{UnsignedBytes: txBytes}
@@ -644,23 +696,24 @@ func TestFxVerifyOperationUnknownOperation(t *testing.T) {
 		},
 	}
 	cred := &Credential{
-		Sigs: [][crypto.SECP256K1RSigLen]byte{
+		Sigs: [][secp256k1.SignatureLen]byte{
 			sigBytes,
 		},
 	}
 
 	utxos := []interface{}{utxo}
-	require.ErrorIs(fx.VerifyOperation(tx, nil, cred, utxos), errWrongOpType)
+	err := fx.VerifyOperation(tx, nil, cred, utxos)
+	require.ErrorIs(err, ErrWrongOpType)
 }
 
 func TestFxVerifyOperationUnknownCredential(t *testing.T) {
 	require := require.New(t)
 	vm := TestVM{
-		Codec: linearcodec.NewDefault(),
+		Codec: linearcodec.NewDefault(time.Time{}),
 		Log:   logging.NoLog{},
 	}
 	date := time.Date(2019, time.January, 19, 16, 25, 17, 3, time.UTC)
-	vm.CLK.Set(date)
+	vm.Clk.Set(date)
 	fx := Fx{}
 	require.NoError(fx.Initialize(&vm))
 	tx := &TestTx{UnsignedBytes: txBytes}
@@ -697,17 +750,18 @@ func TestFxVerifyOperationUnknownCredential(t *testing.T) {
 	}
 
 	utxos := []interface{}{utxo}
-	require.ErrorIs(fx.VerifyOperation(tx, op, nil, utxos), errWrongCredentialType)
+	err := fx.VerifyOperation(tx, op, nil, utxos)
+	require.ErrorIs(err, ErrWrongCredentialType)
 }
 
 func TestFxVerifyOperationWrongNumberOfUTXOs(t *testing.T) {
 	require := require.New(t)
 	vm := TestVM{
-		Codec: linearcodec.NewDefault(),
+		Codec: linearcodec.NewDefault(time.Time{}),
 		Log:   logging.NoLog{},
 	}
 	date := time.Date(2019, time.January, 19, 16, 25, 17, 3, time.UTC)
-	vm.CLK.Set(date)
+	vm.Clk.Set(date)
 	fx := Fx{}
 	require.NoError(fx.Initialize(&vm))
 	tx := &TestTx{UnsignedBytes: txBytes}
@@ -743,23 +797,24 @@ func TestFxVerifyOperationWrongNumberOfUTXOs(t *testing.T) {
 		},
 	}
 	cred := &Credential{
-		Sigs: [][crypto.SECP256K1RSigLen]byte{
+		Sigs: [][secp256k1.SignatureLen]byte{
 			sigBytes,
 		},
 	}
 
 	utxos := []interface{}{utxo, utxo}
-	require.ErrorIs(fx.VerifyOperation(tx, op, cred, utxos), errWrongNumberOfUTXOs)
+	err := fx.VerifyOperation(tx, op, cred, utxos)
+	require.ErrorIs(err, ErrWrongNumberOfUTXOs)
 }
 
 func TestFxVerifyOperationUnknownUTXOType(t *testing.T) {
 	require := require.New(t)
 	vm := TestVM{
-		Codec: linearcodec.NewDefault(),
+		Codec: linearcodec.NewDefault(time.Time{}),
 		Log:   logging.NoLog{},
 	}
 	date := time.Date(2019, time.January, 19, 16, 25, 17, 3, time.UTC)
-	vm.CLK.Set(date)
+	vm.Clk.Set(date)
 	fx := Fx{}
 	require.NoError(fx.Initialize(&vm))
 	tx := &TestTx{UnsignedBytes: txBytes}
@@ -787,23 +842,24 @@ func TestFxVerifyOperationUnknownUTXOType(t *testing.T) {
 		},
 	}
 	cred := &Credential{
-		Sigs: [][crypto.SECP256K1RSigLen]byte{
+		Sigs: [][secp256k1.SignatureLen]byte{
 			sigBytes,
 		},
 	}
 
 	utxos := []interface{}{nil}
-	require.ErrorIs(fx.VerifyOperation(tx, op, cred, utxos), errWrongUTXOType)
+	err := fx.VerifyOperation(tx, op, cred, utxos)
+	require.ErrorIs(err, ErrWrongUTXOType)
 }
 
 func TestFxVerifyOperationInvalidOperationVerify(t *testing.T) {
 	require := require.New(t)
 	vm := TestVM{
-		Codec: linearcodec.NewDefault(),
+		Codec: linearcodec.NewDefault(time.Time{}),
 		Log:   logging.NoLog{},
 	}
 	date := time.Date(2019, time.January, 19, 16, 25, 17, 3, time.UTC)
-	vm.CLK.Set(date)
+	vm.Clk.Set(date)
 	fx := Fx{}
 	require.NoError(fx.Initialize(&vm))
 	tx := &TestTx{UnsignedBytes: txBytes}
@@ -836,23 +892,24 @@ func TestFxVerifyOperationInvalidOperationVerify(t *testing.T) {
 		},
 	}
 	cred := &Credential{
-		Sigs: [][crypto.SECP256K1RSigLen]byte{
+		Sigs: [][secp256k1.SignatureLen]byte{
 			sigBytes,
 		},
 	}
 
 	utxos := []interface{}{utxo}
-	require.ErrorIs(fx.VerifyOperation(tx, op, cred, utxos), errOutputUnspendable)
+	err := fx.VerifyOperation(tx, op, cred, utxos)
+	require.ErrorIs(err, ErrOutputUnspendable)
 }
 
 func TestFxVerifyOperationMismatchedMintOutputs(t *testing.T) {
 	require := require.New(t)
 	vm := TestVM{
-		Codec: linearcodec.NewDefault(),
+		Codec: linearcodec.NewDefault(time.Time{}),
 		Log:   logging.NoLog{},
 	}
 	date := time.Date(2019, time.January, 19, 16, 25, 17, 3, time.UTC)
-	vm.CLK.Set(date)
+	vm.Clk.Set(date)
 	fx := Fx{}
 	require.NoError(fx.Initialize(&vm))
 	tx := &TestTx{UnsignedBytes: txBytes}
@@ -883,25 +940,28 @@ func TestFxVerifyOperationMismatchedMintOutputs(t *testing.T) {
 		},
 	}
 	cred := &Credential{
-		Sigs: [][crypto.SECP256K1RSigLen]byte{
+		Sigs: [][secp256k1.SignatureLen]byte{
 			sigBytes,
 		},
 	}
 
 	utxos := []interface{}{utxo}
-	require.ErrorIs(fx.VerifyOperation(tx, op, cred, utxos), errWrongMintCreated)
+	err := fx.VerifyOperation(tx, op, cred, utxos)
+	require.ErrorIs(err, ErrWrongMintCreated)
 }
 
 func TestVerifyPermission(t *testing.T) {
-	require := require.New(t)
 	vm := TestVM{
-		Codec: linearcodec.NewDefault(),
+		Codec: linearcodec.NewDefault(time.Time{}),
 		Log:   logging.NoLog{},
 	}
 	fx := Fx{}
-	require.NoError(fx.Initialize(&vm))
-	require.NoError(fx.Bootstrapping())
-	require.NoError(fx.Bootstrapped())
+	require.NoError(t, fx.Initialize(&vm))
+	require.NoError(t, fx.Bootstrapping())
+	require.NoError(t, fx.Bootstrapped())
+
+	now := time.Now()
+	fx.VM.Clock().Set(now)
 
 	type test struct {
 		description string
@@ -909,138 +969,170 @@ func TestVerifyPermission(t *testing.T) {
 		in          *Input
 		cred        *Credential
 		cg          *OutputOwners
-		shouldErr   bool
+		expectedErr error
 	}
 	tests := []test{
 		{
 			"threshold 0, no sigs, has addrs",
 			&TestTx{UnsignedBytes: txBytes},
 			&Input{SigIndices: []uint32{}},
-			&Credential{Sigs: [][crypto.SECP256K1RSigLen]byte{}},
+			&Credential{Sigs: [][secp256k1.SignatureLen]byte{}},
 			&OutputOwners{
 				Threshold: 0,
 				Addrs:     []ids.ShortID{addr},
 			},
-			true,
+			ErrOutputUnoptimized,
 		},
 		{
 			"threshold 0, no sigs, no addrs",
 			&TestTx{UnsignedBytes: txBytes},
 			&Input{SigIndices: []uint32{}},
-			&Credential{Sigs: [][crypto.SECP256K1RSigLen]byte{}},
+			&Credential{Sigs: [][secp256k1.SignatureLen]byte{}},
 			&OutputOwners{
 				Threshold: 0,
 				Addrs:     []ids.ShortID{},
 			},
-			false,
+			nil,
 		},
 		{
 			"threshold 1, 1 sig",
 			&TestTx{UnsignedBytes: txBytes},
 			&Input{SigIndices: []uint32{0}},
-			&Credential{Sigs: [][crypto.SECP256K1RSigLen]byte{sigBytes}},
+			&Credential{Sigs: [][secp256k1.SignatureLen]byte{sigBytes}},
 			&OutputOwners{
 				Threshold: 1,
 				Addrs:     []ids.ShortID{addr},
 			},
-			false,
+			nil,
 		},
 		{
 			"threshold 0, 1 sig (too many sigs)",
 			&TestTx{UnsignedBytes: txBytes},
 			&Input{SigIndices: []uint32{0}},
-			&Credential{Sigs: [][crypto.SECP256K1RSigLen]byte{sigBytes}},
+			&Credential{Sigs: [][secp256k1.SignatureLen]byte{sigBytes}},
 			&OutputOwners{
 				Threshold: 0,
 				Addrs:     []ids.ShortID{addr},
 			},
-			true,
+			ErrOutputUnoptimized,
 		},
 		{
 			"threshold 1, 0 sigs (too few sigs)",
 			&TestTx{UnsignedBytes: txBytes},
 			&Input{SigIndices: []uint32{}},
-			&Credential{Sigs: [][crypto.SECP256K1RSigLen]byte{}},
+			&Credential{Sigs: [][secp256k1.SignatureLen]byte{}},
 			&OutputOwners{
 				Threshold: 1,
 				Addrs:     []ids.ShortID{addr},
 			},
-			true,
+			ErrTooFewSigners,
 		},
 		{
 			"threshold 1, 1 incorrect sig",
 			&TestTx{UnsignedBytes: txBytes},
 			&Input{SigIndices: []uint32{0}},
-			&Credential{Sigs: [][crypto.SECP256K1RSigLen]byte{sigBytes}},
+			&Credential{Sigs: [][secp256k1.SignatureLen]byte{sigBytes}},
 			&OutputOwners{
 				Threshold: 1,
 				Addrs:     []ids.ShortID{ids.GenerateTestShortID()},
 			},
-			true,
+			ErrWrongSig,
 		},
 		{
 			"repeated sig",
 			&TestTx{UnsignedBytes: txBytes},
 			&Input{SigIndices: []uint32{0, 0}},
-			&Credential{Sigs: [][crypto.SECP256K1RSigLen]byte{sigBytes, sigBytes}},
+			&Credential{Sigs: [][secp256k1.SignatureLen]byte{sigBytes, sigBytes}},
 			&OutputOwners{
 				Threshold: 2,
 				Addrs:     []ids.ShortID{addr, addr2},
 			},
-			true,
+			ErrInputIndicesNotSortedUnique,
 		},
 		{
 			"threshold 2, repeated address and repeated sig",
 			&TestTx{UnsignedBytes: txBytes},
 			&Input{SigIndices: []uint32{0, 1}},
-			&Credential{Sigs: [][crypto.SECP256K1RSigLen]byte{sigBytes, sigBytes}},
+			&Credential{Sigs: [][secp256k1.SignatureLen]byte{sigBytes, sigBytes}},
 			&OutputOwners{
 				Threshold: 2,
 				Addrs:     []ids.ShortID{addr, addr},
 			},
-			true,
+			ErrAddrsNotSortedUnique,
 		},
 		{
 			"threshold 2, 2 sigs",
 			&TestTx{UnsignedBytes: txBytes},
 			&Input{SigIndices: []uint32{0, 1}},
-			&Credential{Sigs: [][crypto.SECP256K1RSigLen]byte{sigBytes, sig2Bytes}},
+			&Credential{Sigs: [][secp256k1.SignatureLen]byte{sigBytes, sig2Bytes}},
 			&OutputOwners{
 				Threshold: 2,
 				Addrs:     []ids.ShortID{addr, addr2},
 			},
-			false,
+			nil,
 		},
 		{
 			"threshold 2, 2 sigs reversed (should be sorted)",
 			&TestTx{UnsignedBytes: txBytes},
 			&Input{SigIndices: []uint32{1, 0}},
-			&Credential{Sigs: [][crypto.SECP256K1RSigLen]byte{sig2Bytes, sigBytes}},
+			&Credential{Sigs: [][secp256k1.SignatureLen]byte{sig2Bytes, sigBytes}},
 			&OutputOwners{
 				Threshold: 2,
 				Addrs:     []ids.ShortID{addr, addr2},
 			},
-			true,
+			ErrInputIndicesNotSortedUnique,
 		},
 		{
 			"threshold 1, 1 sig, index out of bounds",
 			&TestTx{UnsignedBytes: txBytes},
 			&Input{SigIndices: []uint32{1}},
-			&Credential{Sigs: [][crypto.SECP256K1RSigLen]byte{sigBytes}},
+			&Credential{Sigs: [][secp256k1.SignatureLen]byte{sigBytes}},
 			&OutputOwners{
 				Threshold: 1,
 				Addrs:     []ids.ShortID{addr},
 			},
-			true,
+			ErrInputOutputIndexOutOfBounds,
+		},
+		{
+			"too many signers",
+			&TestTx{UnsignedBytes: txBytes},
+			&Input{SigIndices: []uint32{0, 1}},
+			&Credential{Sigs: [][secp256k1.SignatureLen]byte{sigBytes, sig2Bytes}},
+			&OutputOwners{
+				Threshold: 1,
+				Addrs:     []ids.ShortID{addr, addr2},
+			},
+			ErrTooManySigners,
+		},
+		{
+			"number of signatures doesn't match",
+			&TestTx{UnsignedBytes: txBytes},
+			&Input{SigIndices: []uint32{0}},
+			&Credential{Sigs: [][secp256k1.SignatureLen]byte{sigBytes, sig2Bytes}},
+			&OutputOwners{
+				Threshold: 1,
+				Addrs:     []ids.ShortID{addr, addr2},
+			},
+			ErrInputCredentialSignersMismatch,
+		},
+		{
+			"output is locked",
+			&TestTx{UnsignedBytes: txBytes},
+			&Input{SigIndices: []uint32{0}},
+			&Credential{Sigs: [][secp256k1.SignatureLen]byte{sigBytes, sig2Bytes}},
+			&OutputOwners{
+				Threshold: 1,
+				Locktime:  uint64(now.Add(time.Second).Unix()),
+				Addrs:     []ids.ShortID{addr, addr2},
+			},
+			ErrTimelocked,
 		},
 	}
 
 	for _, test := range tests {
-		err := fx.VerifyPermission(test.tx, test.in, test.cred, test.cg)
-		if test.shouldErr {
-			require.Errorf(err, "test '%s' should have errored but didn't", test.description)
-		} else {
-			require.NoErrorf(err, "test '%s' errored but it shouldn't have", test.description)
-		}
+		t.Run(test.description, func(t *testing.T) {
+			err := fx.VerifyPermission(test.tx, test.in, test.cred, test.cg)
+			require.ErrorIs(t, err, test.expectedErr)
+		})
 	}
 }

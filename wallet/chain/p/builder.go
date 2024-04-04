@@ -1,4 +1,4 @@
-// Copyright (C) 2019-2021, Ava Labs, Inc. All rights reserved.
+// Copyright (C) 2019-2024, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
 package p
@@ -6,28 +6,31 @@ package p
 import (
 	"errors"
 	"fmt"
-
-	stdcontext "context"
+	"time"
 
 	"github.com/ava-labs/avalanchego/ids"
+	"github.com/ava-labs/avalanchego/utils"
 	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/avalanchego/utils/math"
+	"github.com/ava-labs/avalanchego/utils/set"
 	"github.com/ava-labs/avalanchego/vms/components/avax"
+	"github.com/ava-labs/avalanchego/vms/platformvm/fx"
+	"github.com/ava-labs/avalanchego/vms/platformvm/signer"
 	"github.com/ava-labs/avalanchego/vms/platformvm/stakeable"
 	"github.com/ava-labs/avalanchego/vms/platformvm/txs"
-	"github.com/ava-labs/avalanchego/vms/platformvm/validator"
 	"github.com/ava-labs/avalanchego/vms/secp256k1fx"
 	"github.com/ava-labs/avalanchego/wallet/subnet/primary/common"
+
+	stdcontext "context"
 )
 
 var (
 	errNoChangeAddress           = errors.New("no possible change address")
-	errWrongTxType               = errors.New("wrong tx type")
 	errUnknownOwnerType          = errors.New("unknown owner type")
 	errInsufficientAuthorization = errors.New("insufficient authorization")
 	errInsufficientFunds         = errors.New("insufficient funds")
 
-	_ Builder = &builder{}
+	_ Builder = (*builder)(nil)
 )
 
 // Builder provides a convenient interface for building unsigned P-chain
@@ -69,7 +72,7 @@ type Builder interface {
 	//   will take from delegation rewards. If 1,000,000 is provided, 100% of
 	//   the delegation reward will be sent to the validator's [rewardsOwner].
 	NewAddValidatorTx(
-		vdr *validator.Validator,
+		vdr *txs.Validator,
 		rewardsOwner *secp256k1fx.OutputOwners,
 		shares uint32,
 		options ...common.Option,
@@ -80,9 +83,17 @@ type Builder interface {
 	// - [vdr] specifies all the details of the validation period such as the
 	//   startTime, endTime, sampling weight, nodeID, and subnetID.
 	NewAddSubnetValidatorTx(
-		vdr *validator.SubnetValidator,
+		vdr *txs.SubnetValidator,
 		options ...common.Option,
 	) (*txs.AddSubnetValidatorTx, error)
+
+	// NewRemoveSubnetValidatorTx removes [nodeID] from the validator
+	// set [subnetID].
+	NewRemoveSubnetValidatorTx(
+		nodeID ids.NodeID,
+		subnetID ids.ID,
+		options ...common.Option,
+	) (*txs.RemoveSubnetValidatorTx, error)
 
 	// NewAddDelegatorTx creates a new delegator to a validator on the primary
 	// network.
@@ -92,7 +103,7 @@ type Builder interface {
 	// - [rewardsOwner] specifies the owner of all the rewards this delegator
 	//   may accrue at the end of its delegation period.
 	NewAddDelegatorTx(
-		vdr *validator.Validator,
+		vdr *txs.Validator,
 		rewardsOwner *secp256k1fx.OutputOwners,
 		options ...common.Option,
 	) (*txs.AddDelegatorTx, error)
@@ -123,6 +134,17 @@ type Builder interface {
 		options ...common.Option,
 	) (*txs.CreateSubnetTx, error)
 
+	// NewTransferSubnetOwnershipTx changes the owner of the named subnet.
+	//
+	// - [subnetID] specifies the subnet to be modified
+	// - [owner] specifies who has the ability to create new chains and add new
+	//   validators to the subnet.
+	NewTransferSubnetOwnershipTx(
+		subnetID ids.ID,
+		owner *secp256k1fx.OutputOwners,
+		options ...common.Option,
+	) (*txs.TransferSubnetOwnershipTx, error)
+
 	// NewImportTx creates an import transaction that attempts to consume all
 	// the available UTXOs and import the funds to [to].
 	//
@@ -144,6 +166,94 @@ type Builder interface {
 		outputs []*avax.TransferableOutput,
 		options ...common.Option,
 	) (*txs.ExportTx, error)
+
+	// NewTransformSubnetTx creates a transform subnet transaction that attempts
+	// to convert the provided [subnetID] from a permissioned subnet to a
+	// permissionless subnet. This transaction will convert
+	// [maxSupply] - [initialSupply] of [assetID] to staking rewards.
+	//
+	// - [subnetID] specifies the subnet to transform.
+	// - [assetID] specifies the asset to use to reward stakers on the subnet.
+	// - [initialSupply] is the amount of [assetID] that will be in circulation
+	//   after this transaction is accepted.
+	// - [maxSupply] is the maximum total amount of [assetID] that should ever
+	//   exist.
+	// - [minConsumptionRate] is the rate that a staker will receive rewards
+	//   if they stake with a duration of 0.
+	// - [maxConsumptionRate] is the maximum rate that staking rewards should be
+	//   consumed from the reward pool per year.
+	// - [minValidatorStake] is the minimum amount of funds required to become a
+	//   validator.
+	// - [maxValidatorStake] is the maximum amount of funds a single validator
+	//   can be allocated, including delegated funds.
+	// - [minStakeDuration] is the minimum number of seconds a staker can stake
+	//   for.
+	// - [maxStakeDuration] is the maximum number of seconds a staker can stake
+	//   for.
+	// - [minValidatorStake] is the minimum amount of funds required to become a
+	//   delegator.
+	// - [maxValidatorWeightFactor] is the factor which calculates the maximum
+	//   amount of delegation a validator can receive. A value of 1 effectively
+	//   disables delegation.
+	// - [uptimeRequirement] is the minimum percentage a validator must be
+	//   online and responsive to receive a reward.
+	NewTransformSubnetTx(
+		subnetID ids.ID,
+		assetID ids.ID,
+		initialSupply uint64,
+		maxSupply uint64,
+		minConsumptionRate uint64,
+		maxConsumptionRate uint64,
+		minValidatorStake uint64,
+		maxValidatorStake uint64,
+		minStakeDuration time.Duration,
+		maxStakeDuration time.Duration,
+		minDelegationFee uint32,
+		minDelegatorStake uint64,
+		maxValidatorWeightFactor byte,
+		uptimeRequirement uint32,
+		options ...common.Option,
+	) (*txs.TransformSubnetTx, error)
+
+	// NewAddPermissionlessValidatorTx creates a new validator of the specified
+	// subnet.
+	//
+	// - [vdr] specifies all the details of the validation period such as the
+	//   subnetID, startTime, endTime, stake weight, and nodeID.
+	// - [signer] if the subnetID is the primary network, this is the BLS key
+	//   for this validator. Otherwise, this value should be the empty signer.
+	// - [assetID] specifies the asset to stake.
+	// - [validationRewardsOwner] specifies the owner of all the rewards this
+	//   validator earns for its validation period.
+	// - [delegationRewardsOwner] specifies the owner of all the rewards this
+	//   validator earns for delegations during its validation period.
+	// - [shares] specifies the fraction (out of 1,000,000) that this validator
+	//   will take from delegation rewards. If 1,000,000 is provided, 100% of
+	//   the delegation reward will be sent to the validator's [rewardsOwner].
+	NewAddPermissionlessValidatorTx(
+		vdr *txs.SubnetValidator,
+		signer signer.Signer,
+		assetID ids.ID,
+		validationRewardsOwner *secp256k1fx.OutputOwners,
+		delegationRewardsOwner *secp256k1fx.OutputOwners,
+		shares uint32,
+		options ...common.Option,
+	) (*txs.AddPermissionlessValidatorTx, error)
+
+	// NewAddPermissionlessDelegatorTx creates a new delegator of the specified
+	// subnet on the specified nodeID.
+	//
+	// - [vdr] specifies all the details of the delegation period such as the
+	//   subnetID, startTime, endTime, stake weight, and nodeID.
+	// - [assetID] specifies the asset to stake.
+	// - [rewardsOwner] specifies the owner of all the rewards this delegator
+	//   earns during its delegation period.
+	NewAddPermissionlessDelegatorTx(
+		vdr *txs.SubnetValidator,
+		assetID ids.ID,
+		rewardsOwner *secp256k1fx.OutputOwners,
+		options ...common.Option,
+	) (*txs.AddPermissionlessDelegatorTx, error)
 }
 
 // BuilderBackend specifies the required information needed to build unsigned
@@ -151,21 +261,21 @@ type Builder interface {
 type BuilderBackend interface {
 	Context
 	UTXOs(ctx stdcontext.Context, sourceChainID ids.ID) ([]*avax.UTXO, error)
-	GetTx(ctx stdcontext.Context, txID ids.ID) (*txs.Tx, error)
+	GetSubnetOwner(ctx stdcontext.Context, subnetID ids.ID) (fx.Owner, error)
 }
 
 type builder struct {
-	addrs   ids.ShortSet
+	addrs   set.Set[ids.ShortID]
 	backend BuilderBackend
 }
 
 // NewBuilder returns a new transaction builder.
 //
-// - [addrs] is the set of addresses that the builder assumes can be used when
-//   signing the transactions in the future.
-// - [backend] provides the required access to the chain's context and state to
-//   build out the transactions.
-func NewBuilder(addrs ids.ShortSet, backend BuilderBackend) Builder {
+//   - [addrs] is the set of addresses that the builder assumes can be used when
+//     signing the transactions in the future.
+//   - [backend] provides the required access to the chain's context and state
+//     to build out the transactions.
+func NewBuilder(addrs set.Set[ids.ShortID], backend BuilderBackend) Builder {
 	return &builder{
 		addrs:   addrs,
 		backend: backend,
@@ -212,7 +322,7 @@ func (b *builder) NewBaseTx(
 	outputs = append(outputs, changeOutputs...)
 	avax.SortTransferableOutputs(outputs, txs.Codec) // sort the outputs
 
-	return &txs.CreateSubnetTx{
+	tx := &txs.CreateSubnetTx{
 		BaseTx: txs.BaseTx{BaseTx: avax.BaseTx{
 			NetworkID:    b.backend.NetworkID(),
 			BlockchainID: constants.PlatformChainID,
@@ -221,18 +331,22 @@ func (b *builder) NewBaseTx(
 			Memo:         ops.Memo(),
 		}},
 		Owner: &secp256k1fx.OutputOwners{},
-	}, nil
+	}
+	return tx, b.initCtx(tx)
 }
 
 func (b *builder) NewAddValidatorTx(
-	vdr *validator.Validator,
+	vdr *txs.Validator,
 	rewardsOwner *secp256k1fx.OutputOwners,
 	shares uint32,
 	options ...common.Option,
 ) (*txs.AddValidatorTx, error) {
-	toBurn := map[ids.ID]uint64{}
+	avaxAssetID := b.backend.AVAXAssetID()
+	toBurn := map[ids.ID]uint64{
+		avaxAssetID: b.backend.AddPrimaryNetworkValidatorFee(),
+	}
 	toStake := map[ids.ID]uint64{
-		b.backend.AVAXAssetID(): vdr.Wght,
+		avaxAssetID: vdr.Wght,
 	}
 	ops := common.NewOptions(options)
 	inputs, baseOutputs, stakeOutputs, err := b.spend(toBurn, toStake, ops)
@@ -240,8 +354,8 @@ func (b *builder) NewAddValidatorTx(
 		return nil, err
 	}
 
-	ids.SortShortIDs(rewardsOwner.Addrs)
-	return &txs.AddValidatorTx{
+	utils.Sort(rewardsOwner.Addrs)
+	tx := &txs.AddValidatorTx{
 		BaseTx: txs.BaseTx{BaseTx: avax.BaseTx{
 			NetworkID:    b.backend.NetworkID(),
 			BlockchainID: constants.PlatformChainID,
@@ -249,19 +363,20 @@ func (b *builder) NewAddValidatorTx(
 			Outs:         baseOutputs,
 			Memo:         ops.Memo(),
 		}},
-		Validator:    *vdr,
-		Stake:        stakeOutputs,
-		RewardsOwner: rewardsOwner,
-		Shares:       shares,
-	}, nil
+		Validator:        *vdr,
+		StakeOuts:        stakeOutputs,
+		RewardsOwner:     rewardsOwner,
+		DelegationShares: shares,
+	}
+	return tx, b.initCtx(tx)
 }
 
 func (b *builder) NewAddSubnetValidatorTx(
-	vdr *validator.SubnetValidator,
+	vdr *txs.SubnetValidator,
 	options ...common.Option,
 ) (*txs.AddSubnetValidatorTx, error) {
 	toBurn := map[ids.ID]uint64{
-		b.backend.AVAXAssetID(): b.backend.CreateSubnetTxFee(),
+		b.backend.AVAXAssetID(): b.backend.AddSubnetValidatorFee(),
 	}
 	toStake := map[ids.ID]uint64{}
 	ops := common.NewOptions(options)
@@ -275,7 +390,7 @@ func (b *builder) NewAddSubnetValidatorTx(
 		return nil, err
 	}
 
-	return &txs.AddSubnetValidatorTx{
+	tx := &txs.AddSubnetValidatorTx{
 		BaseTx: txs.BaseTx{BaseTx: avax.BaseTx{
 			NetworkID:    b.backend.NetworkID(),
 			BlockchainID: constants.PlatformChainID,
@@ -283,51 +398,19 @@ func (b *builder) NewAddSubnetValidatorTx(
 			Outs:         outputs,
 			Memo:         ops.Memo(),
 		}},
-		Validator:  *vdr,
-		SubnetAuth: subnetAuth,
-	}, nil
+		SubnetValidator: *vdr,
+		SubnetAuth:      subnetAuth,
+	}
+	return tx, b.initCtx(tx)
 }
 
-func (b *builder) NewAddDelegatorTx(
-	vdr *validator.Validator,
-	rewardsOwner *secp256k1fx.OutputOwners,
-	options ...common.Option,
-) (*txs.AddDelegatorTx, error) {
-	toBurn := map[ids.ID]uint64{}
-	toStake := map[ids.ID]uint64{
-		b.backend.AVAXAssetID(): vdr.Wght,
-	}
-	ops := common.NewOptions(options)
-	inputs, baseOutputs, stakeOutputs, err := b.spend(toBurn, toStake, ops)
-	if err != nil {
-		return nil, err
-	}
-
-	ids.SortShortIDs(rewardsOwner.Addrs)
-	return &txs.AddDelegatorTx{
-		BaseTx: txs.BaseTx{BaseTx: avax.BaseTx{
-			NetworkID:    b.backend.NetworkID(),
-			BlockchainID: constants.PlatformChainID,
-			Ins:          inputs,
-			Outs:         baseOutputs,
-			Memo:         ops.Memo(),
-		}},
-		Validator:    *vdr,
-		Stake:        stakeOutputs,
-		RewardsOwner: rewardsOwner,
-	}, nil
-}
-
-func (b *builder) NewCreateChainTx(
+func (b *builder) NewRemoveSubnetValidatorTx(
+	nodeID ids.NodeID,
 	subnetID ids.ID,
-	genesis []byte,
-	vmID ids.ID,
-	fxIDs []ids.ID,
-	chainName string,
 	options ...common.Option,
-) (*txs.CreateChainTx, error) {
+) (*txs.RemoveSubnetValidatorTx, error) {
 	toBurn := map[ids.ID]uint64{
-		b.backend.AVAXAssetID(): b.backend.CreateSubnetTxFee(),
+		b.backend.AVAXAssetID(): b.backend.BaseTxFee(),
 	}
 	toStake := map[ids.ID]uint64{}
 	ops := common.NewOptions(options)
@@ -341,8 +424,80 @@ func (b *builder) NewCreateChainTx(
 		return nil, err
 	}
 
-	ids.SortIDs(fxIDs)
-	return &txs.CreateChainTx{
+	tx := &txs.RemoveSubnetValidatorTx{
+		BaseTx: txs.BaseTx{BaseTx: avax.BaseTx{
+			NetworkID:    b.backend.NetworkID(),
+			BlockchainID: constants.PlatformChainID,
+			Ins:          inputs,
+			Outs:         outputs,
+			Memo:         ops.Memo(),
+		}},
+		Subnet:     subnetID,
+		NodeID:     nodeID,
+		SubnetAuth: subnetAuth,
+	}
+	return tx, b.initCtx(tx)
+}
+
+func (b *builder) NewAddDelegatorTx(
+	vdr *txs.Validator,
+	rewardsOwner *secp256k1fx.OutputOwners,
+	options ...common.Option,
+) (*txs.AddDelegatorTx, error) {
+	avaxAssetID := b.backend.AVAXAssetID()
+	toBurn := map[ids.ID]uint64{
+		avaxAssetID: b.backend.AddPrimaryNetworkDelegatorFee(),
+	}
+	toStake := map[ids.ID]uint64{
+		b.backend.AVAXAssetID(): vdr.Wght,
+	}
+	ops := common.NewOptions(options)
+	inputs, baseOutputs, stakeOutputs, err := b.spend(toBurn, toStake, ops)
+	if err != nil {
+		return nil, err
+	}
+
+	utils.Sort(rewardsOwner.Addrs)
+	tx := &txs.AddDelegatorTx{
+		BaseTx: txs.BaseTx{BaseTx: avax.BaseTx{
+			NetworkID:    b.backend.NetworkID(),
+			BlockchainID: constants.PlatformChainID,
+			Ins:          inputs,
+			Outs:         baseOutputs,
+			Memo:         ops.Memo(),
+		}},
+		Validator:              *vdr,
+		StakeOuts:              stakeOutputs,
+		DelegationRewardsOwner: rewardsOwner,
+	}
+	return tx, b.initCtx(tx)
+}
+
+func (b *builder) NewCreateChainTx(
+	subnetID ids.ID,
+	genesis []byte,
+	vmID ids.ID,
+	fxIDs []ids.ID,
+	chainName string,
+	options ...common.Option,
+) (*txs.CreateChainTx, error) {
+	toBurn := map[ids.ID]uint64{
+		b.backend.AVAXAssetID(): b.backend.CreateBlockchainTxFee(),
+	}
+	toStake := map[ids.ID]uint64{}
+	ops := common.NewOptions(options)
+	inputs, outputs, _, err := b.spend(toBurn, toStake, ops)
+	if err != nil {
+		return nil, err
+	}
+
+	subnetAuth, err := b.authorizeSubnet(subnetID, ops)
+	if err != nil {
+		return nil, err
+	}
+
+	utils.Sort(fxIDs)
+	tx := &txs.CreateChainTx{
 		BaseTx: txs.BaseTx{BaseTx: avax.BaseTx{
 			NetworkID:    b.backend.NetworkID(),
 			BlockchainID: constants.PlatformChainID,
@@ -356,7 +511,8 @@ func (b *builder) NewCreateChainTx(
 		FxIDs:       fxIDs,
 		GenesisData: genesis,
 		SubnetAuth:  subnetAuth,
-	}, nil
+	}
+	return tx, b.initCtx(tx)
 }
 
 func (b *builder) NewCreateSubnetTx(
@@ -373,8 +529,8 @@ func (b *builder) NewCreateSubnetTx(
 		return nil, err
 	}
 
-	ids.SortShortIDs(owner.Addrs)
-	return &txs.CreateSubnetTx{
+	utils.Sort(owner.Addrs)
+	tx := &txs.CreateSubnetTx{
 		BaseTx: txs.BaseTx{BaseTx: avax.BaseTx{
 			NetworkID:    b.backend.NetworkID(),
 			BlockchainID: constants.PlatformChainID,
@@ -383,7 +539,44 @@ func (b *builder) NewCreateSubnetTx(
 			Memo:         ops.Memo(),
 		}},
 		Owner: owner,
-	}, nil
+	}
+	return tx, b.initCtx(tx)
+}
+
+func (b *builder) NewTransferSubnetOwnershipTx(
+	subnetID ids.ID,
+	owner *secp256k1fx.OutputOwners,
+	options ...common.Option,
+) (*txs.TransferSubnetOwnershipTx, error) {
+	toBurn := map[ids.ID]uint64{
+		b.backend.AVAXAssetID(): b.backend.BaseTxFee(),
+	}
+	toStake := map[ids.ID]uint64{}
+	ops := common.NewOptions(options)
+	inputs, outputs, _, err := b.spend(toBurn, toStake, ops)
+	if err != nil {
+		return nil, err
+	}
+
+	subnetAuth, err := b.authorizeSubnet(subnetID, ops)
+	if err != nil {
+		return nil, err
+	}
+
+	utils.Sort(owner.Addrs)
+	tx := &txs.TransferSubnetOwnershipTx{
+		BaseTx: txs.BaseTx{BaseTx: avax.BaseTx{
+			NetworkID:    b.backend.NetworkID(),
+			BlockchainID: constants.PlatformChainID,
+			Ins:          inputs,
+			Outs:         outputs,
+			Memo:         ops.Memo(),
+		}},
+		Subnet:     subnetID,
+		Owner:      owner,
+		SubnetAuth: subnetAuth,
+	}
+	return tx, b.initCtx(tx)
 }
 
 func (b *builder) NewImportTx(
@@ -437,7 +630,7 @@ func (b *builder) NewImportTx(
 		}
 		importedAmounts[assetID] = newImportedAmount
 	}
-	avax.SortTransferableInputs(importedInputs) // sort imported inputs
+	utils.Sort(importedInputs) // sort imported inputs
 
 	if len(importedInputs) == 0 {
 		return nil, fmt.Errorf(
@@ -479,7 +672,7 @@ func (b *builder) NewImportTx(
 	}
 
 	avax.SortTransferableOutputs(outputs, txs.Codec) // sort imported outputs
-	return &txs.ImportTx{
+	tx := &txs.ImportTx{
 		BaseTx: txs.BaseTx{BaseTx: avax.BaseTx{
 			NetworkID:    b.backend.NetworkID(),
 			BlockchainID: constants.PlatformChainID,
@@ -489,7 +682,8 @@ func (b *builder) NewImportTx(
 		}},
 		SourceChain:    sourceChainID,
 		ImportedInputs: importedInputs,
-	}, nil
+	}
+	return tx, b.initCtx(tx)
 }
 
 func (b *builder) NewExportTx(
@@ -517,7 +711,7 @@ func (b *builder) NewExportTx(
 	}
 
 	avax.SortTransferableOutputs(outputs, txs.Codec) // sort exported outputs
-	return &txs.ExportTx{
+	tx := &txs.ExportTx{
 		BaseTx: txs.BaseTx{BaseTx: avax.BaseTx{
 			NetworkID:    b.backend.NetworkID(),
 			BlockchainID: constants.PlatformChainID,
@@ -527,7 +721,153 @@ func (b *builder) NewExportTx(
 		}},
 		DestinationChain: chainID,
 		ExportedOutputs:  outputs,
-	}, nil
+	}
+	return tx, b.initCtx(tx)
+}
+
+func (b *builder) NewTransformSubnetTx(
+	subnetID ids.ID,
+	assetID ids.ID,
+	initialSupply uint64,
+	maxSupply uint64,
+	minConsumptionRate uint64,
+	maxConsumptionRate uint64,
+	minValidatorStake uint64,
+	maxValidatorStake uint64,
+	minStakeDuration time.Duration,
+	maxStakeDuration time.Duration,
+	minDelegationFee uint32,
+	minDelegatorStake uint64,
+	maxValidatorWeightFactor byte,
+	uptimeRequirement uint32,
+	options ...common.Option,
+) (*txs.TransformSubnetTx, error) {
+	toBurn := map[ids.ID]uint64{
+		b.backend.AVAXAssetID(): b.backend.TransformSubnetTxFee(),
+		assetID:                 maxSupply - initialSupply,
+	}
+	toStake := map[ids.ID]uint64{}
+	ops := common.NewOptions(options)
+	inputs, outputs, _, err := b.spend(toBurn, toStake, ops)
+	if err != nil {
+		return nil, err
+	}
+
+	subnetAuth, err := b.authorizeSubnet(subnetID, ops)
+	if err != nil {
+		return nil, err
+	}
+
+	tx := &txs.TransformSubnetTx{
+		BaseTx: txs.BaseTx{BaseTx: avax.BaseTx{
+			NetworkID:    b.backend.NetworkID(),
+			BlockchainID: constants.PlatformChainID,
+			Ins:          inputs,
+			Outs:         outputs,
+			Memo:         ops.Memo(),
+		}},
+		Subnet:                   subnetID,
+		AssetID:                  assetID,
+		InitialSupply:            initialSupply,
+		MaximumSupply:            maxSupply,
+		MinConsumptionRate:       minConsumptionRate,
+		MaxConsumptionRate:       maxConsumptionRate,
+		MinValidatorStake:        minValidatorStake,
+		MaxValidatorStake:        maxValidatorStake,
+		MinStakeDuration:         uint32(minStakeDuration / time.Second),
+		MaxStakeDuration:         uint32(maxStakeDuration / time.Second),
+		MinDelegationFee:         minDelegationFee,
+		MinDelegatorStake:        minDelegatorStake,
+		MaxValidatorWeightFactor: maxValidatorWeightFactor,
+		UptimeRequirement:        uptimeRequirement,
+		SubnetAuth:               subnetAuth,
+	}
+	return tx, b.initCtx(tx)
+}
+
+func (b *builder) NewAddPermissionlessValidatorTx(
+	vdr *txs.SubnetValidator,
+	signer signer.Signer,
+	assetID ids.ID,
+	validationRewardsOwner *secp256k1fx.OutputOwners,
+	delegationRewardsOwner *secp256k1fx.OutputOwners,
+	shares uint32,
+	options ...common.Option,
+) (*txs.AddPermissionlessValidatorTx, error) {
+	avaxAssetID := b.backend.AVAXAssetID()
+	toBurn := map[ids.ID]uint64{}
+	if vdr.Subnet == constants.PrimaryNetworkID {
+		toBurn[avaxAssetID] = b.backend.AddPrimaryNetworkValidatorFee()
+	} else {
+		toBurn[avaxAssetID] = b.backend.AddSubnetValidatorFee()
+	}
+	toStake := map[ids.ID]uint64{
+		assetID: vdr.Wght,
+	}
+	ops := common.NewOptions(options)
+	inputs, baseOutputs, stakeOutputs, err := b.spend(toBurn, toStake, ops)
+	if err != nil {
+		return nil, err
+	}
+
+	utils.Sort(validationRewardsOwner.Addrs)
+	utils.Sort(delegationRewardsOwner.Addrs)
+	tx := &txs.AddPermissionlessValidatorTx{
+		BaseTx: txs.BaseTx{BaseTx: avax.BaseTx{
+			NetworkID:    b.backend.NetworkID(),
+			BlockchainID: constants.PlatformChainID,
+			Ins:          inputs,
+			Outs:         baseOutputs,
+			Memo:         ops.Memo(),
+		}},
+		Validator:             vdr.Validator,
+		Subnet:                vdr.Subnet,
+		Signer:                signer,
+		StakeOuts:             stakeOutputs,
+		ValidatorRewardsOwner: validationRewardsOwner,
+		DelegatorRewardsOwner: delegationRewardsOwner,
+		DelegationShares:      shares,
+	}
+	return tx, b.initCtx(tx)
+}
+
+func (b *builder) NewAddPermissionlessDelegatorTx(
+	vdr *txs.SubnetValidator,
+	assetID ids.ID,
+	rewardsOwner *secp256k1fx.OutputOwners,
+	options ...common.Option,
+) (*txs.AddPermissionlessDelegatorTx, error) {
+	avaxAssetID := b.backend.AVAXAssetID()
+	toBurn := map[ids.ID]uint64{}
+	if vdr.Subnet == constants.PrimaryNetworkID {
+		toBurn[avaxAssetID] = b.backend.AddPrimaryNetworkDelegatorFee()
+	} else {
+		toBurn[avaxAssetID] = b.backend.AddSubnetDelegatorFee()
+	}
+	toStake := map[ids.ID]uint64{
+		assetID: vdr.Wght,
+	}
+	ops := common.NewOptions(options)
+	inputs, baseOutputs, stakeOutputs, err := b.spend(toBurn, toStake, ops)
+	if err != nil {
+		return nil, err
+	}
+
+	utils.Sort(rewardsOwner.Addrs)
+	tx := &txs.AddPermissionlessDelegatorTx{
+		BaseTx: txs.BaseTx{BaseTx: avax.BaseTx{
+			NetworkID:    b.backend.NetworkID(),
+			BlockchainID: constants.PlatformChainID,
+			Ins:          inputs,
+			Outs:         baseOutputs,
+			Memo:         ops.Memo(),
+		}},
+		Validator:              vdr.Validator,
+		Subnet:                 vdr.Subnet,
+		StakeOuts:              stakeOutputs,
+		DelegationRewardsOwner: rewardsOwner,
+	}
+	return tx, b.initCtx(tx)
 }
 
 func (b *builder) getBalance(
@@ -580,15 +920,15 @@ func (b *builder) getBalance(
 
 // spend takes in the requested burn amounts and the requested stake amounts.
 //
-// - [amountsToBurn] maps assetID to the amount of the asset to spend without
-//   producing an output. This is typically used for fees. However, it can also
-//   be used to consume some of an asset that will be produced in separate
-//   outputs, such as ExportedOutputs. Only unlocked UTXOs are able to be
-//   burned here.
-// - [amountsToStake] maps assetID to the amount of the asset to spend and place
-//   into the staked outputs. First locked UTXOs are attempted to be used for
-//   these funds, and then unlocked UTXOs will be attempted to be used. There is
-//   no preferential ordering on the unlock times.
+//   - [amountsToBurn] maps assetID to the amount of the asset to spend without
+//     producing an output. This is typically used for fees. However, it can
+//     also be used to consume some of an asset that will be produced in
+//     separate outputs, such as ExportedOutputs. Only unlocked UTXOs are able
+//     to be burned here.
+//   - [amountsToStake] maps assetID to the amount of the asset to spend and
+//     place into the staked outputs. First locked UTXOs are attempted to be
+//     used for these funds, and then unlocked UTXOs will be attempted to be
+//     used. There is no preferential ordering on the unlock times.
 func (b *builder) spend(
 	amountsToBurn map[ids.ID]uint64,
 	amountsToStake map[ids.ID]uint64,
@@ -666,7 +1006,7 @@ func (b *builder) spend(
 		})
 
 		// Stake any value that should be staked
-		amountToStake := math.Min64(
+		amountToStake := min(
 			remainingAmountToStake, // Amount we still need to stake
 			out.Amt,                // Amount available to stake
 		)
@@ -744,7 +1084,7 @@ func (b *builder) spend(
 		})
 
 		// Burn any value that should be burned
-		amountToBurn := math.Min64(
+		amountToBurn := min(
 			remainingAmountToBurn, // Amount we still need to burn
 			out.Amt,               // Amount available to burn
 		)
@@ -752,7 +1092,7 @@ func (b *builder) spend(
 
 		amountAvalibleToStake := out.Amt - amountToBurn
 		// Burn any value that should be burned
-		amountToStake := math.Min64(
+		amountToStake := min(
 			remainingAmountToStake, // Amount we still need to stake
 			amountAvalibleToStake,  // Amount available to stake
 		)
@@ -800,27 +1140,22 @@ func (b *builder) spend(
 		}
 	}
 
-	avax.SortTransferableInputs(inputs)                    // sort inputs
+	utils.Sort(inputs)                                     // sort inputs
 	avax.SortTransferableOutputs(changeOutputs, txs.Codec) // sort the change outputs
 	avax.SortTransferableOutputs(stakeOutputs, txs.Codec)  // sort stake outputs
 	return inputs, changeOutputs, stakeOutputs, nil
 }
 
 func (b *builder) authorizeSubnet(subnetID ids.ID, options *common.Options) (*secp256k1fx.Input, error) {
-	subnetTx, err := b.backend.GetTx(options.Context(), subnetID)
+	ownerIntf, err := b.backend.GetSubnetOwner(options.Context(), subnetID)
 	if err != nil {
 		return nil, fmt.Errorf(
-			"failed to fetch subnet %q: %w",
+			"failed to fetch subnet owner for %q: %w",
 			subnetID,
 			err,
 		)
 	}
-	subnet, ok := subnetTx.Unsigned.(*txs.CreateSubnetTx)
-	if !ok {
-		return nil, errWrongTxType
-	}
-
-	owner, ok := subnet.Owner.(*secp256k1fx.OutputOwners)
+	owner, ok := ownerIntf.(*secp256k1fx.OutputOwners)
 	if !ok {
 		return nil, errUnknownOwnerType
 	}
@@ -835,4 +1170,14 @@ func (b *builder) authorizeSubnet(subnetID ids.ID, options *common.Options) (*se
 	return &secp256k1fx.Input{
 		SigIndices: inputSigIndices,
 	}, nil
+}
+
+func (b *builder) initCtx(tx txs.UnsignedTx) error {
+	ctx, err := newSnowContext(b.backend)
+	if err != nil {
+		return err
+	}
+
+	tx.InitCtx(ctx)
+	return nil
 }

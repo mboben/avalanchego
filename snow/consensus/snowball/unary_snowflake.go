@@ -1,13 +1,17 @@
-// Copyright (C) 2019-2021, Ava Labs, Inc. All rights reserved.
+// Copyright (C) 2019-2024, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
 package snowball
 
-import (
-	"fmt"
-)
+import "fmt"
 
-var _ UnarySnowflake = &unarySnowflake{}
+var _ Unary = (*unarySnowflake)(nil)
+
+func newUnarySnowflake(beta int) unarySnowflake {
+	return unarySnowflake{
+		beta: beta,
+	}
+}
 
 // unarySnowflake is the implementation of a unary snowflake instance
 type unarySnowflake struct {
@@ -24,18 +28,27 @@ type unarySnowflake struct {
 	finalized bool
 }
 
-func (sf *unarySnowflake) Initialize(beta int) { sf.beta = beta }
-
 func (sf *unarySnowflake) RecordSuccessfulPoll() {
 	sf.confidence++
 	sf.finalized = sf.finalized || sf.confidence >= sf.beta
 }
 
-func (sf *unarySnowflake) RecordUnsuccessfulPoll() { sf.confidence = 0 }
+// RecordPollPreference fails to reach an alpha threshold to increase our
+// confidence, so this calls RecordUnsuccessfulPoll to reset the confidence
+// counter.
+func (sf *unarySnowflake) RecordPollPreference() {
+	sf.RecordUnsuccessfulPoll()
+}
 
-func (sf *unarySnowflake) Finalized() bool { return sf.finalized }
+func (sf *unarySnowflake) RecordUnsuccessfulPoll() {
+	sf.confidence = 0
+}
 
-func (sf *unarySnowflake) Extend(beta int, choice int) BinarySnowflake {
+func (sf *unarySnowflake) Finalized() bool {
+	return sf.finalized
+}
+
+func (sf *unarySnowflake) Extend(beta int, choice int) Binary {
 	return &binarySnowflake{
 		binarySlush: binarySlush{preference: choice},
 		confidence:  sf.confidence,
@@ -44,7 +57,7 @@ func (sf *unarySnowflake) Extend(beta int, choice int) BinarySnowflake {
 	}
 }
 
-func (sf *unarySnowflake) Clone() UnarySnowflake {
+func (sf *unarySnowflake) Clone() Unary {
 	newSnowflake := *sf
 	return &newSnowflake
 }

@@ -1,11 +1,11 @@
-// Copyright (C) 2019-2021, Ava Labs, Inc. All rights reserved.
+// Copyright (C) 2019-2024, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
 package block
 
 import (
-	"crypto/x509"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/ava-labs/avalanchego/ids"
@@ -15,10 +15,11 @@ import (
 )
 
 var (
-	_ SignedBlock = &statelessBlock{}
+	_ SignedBlock = (*statelessBlock)(nil)
 
 	errUnexpectedProposer = errors.New("expected no proposer but one was provided")
 	errMissingProposer    = errors.New("expected proposer but none was provided")
+	errInvalidCertificate = errors.New("invalid certificate")
 )
 
 type Block interface {
@@ -27,7 +28,7 @@ type Block interface {
 	Block() []byte
 	Bytes() []byte
 
-	initialize(bytes []byte) error
+	initialize(bytes []byte, durangoTime time.Time) error
 }
 
 type SignedBlock interface {
@@ -54,17 +55,28 @@ type statelessBlock struct {
 
 	id        ids.ID
 	timestamp time.Time
-	cert      *x509.Certificate
+	cert      *staking.Certificate
 	proposer  ids.NodeID
 	bytes     []byte
 }
 
-func (b *statelessBlock) ID() ids.ID       { return b.id }
-func (b *statelessBlock) ParentID() ids.ID { return b.StatelessBlock.ParentID }
-func (b *statelessBlock) Block() []byte    { return b.StatelessBlock.Block }
-func (b *statelessBlock) Bytes() []byte    { return b.bytes }
+func (b *statelessBlock) ID() ids.ID {
+	return b.id
+}
 
-func (b *statelessBlock) initialize(bytes []byte) error {
+func (b *statelessBlock) ParentID() ids.ID {
+	return b.StatelessBlock.ParentID
+}
+
+func (b *statelessBlock) Block() []byte {
+	return b.StatelessBlock.Block
+}
+
+func (b *statelessBlock) Bytes() []byte {
+	return b.bytes
+}
+
+func (b *statelessBlock) initialize(bytes []byte, durangoTime time.Time) error {
 	b.bytes = bytes
 
 	// The serialized form of the block is the unsignedBytes followed by the
@@ -79,23 +91,32 @@ func (b *statelessBlock) initialize(bytes []byte) error {
 		return nil
 	}
 
-	cert, err := x509.ParseCertificate(b.StatelessBlock.Certificate)
+	// TODO: Remove durangoTime after v1.11.x has activated.
+	var err error
+	if b.timestamp.Before(durangoTime) {
+		b.cert, err = staking.ParseCertificate(b.StatelessBlock.Certificate)
+	} else {
+		b.cert, err = staking.ParseCertificatePermissive(b.StatelessBlock.Certificate)
+	}
 	if err != nil {
-		return err
+		return fmt.Errorf("%w: %w", errInvalidCertificate, err)
 	}
 
-	if err := staking.VerifyCertificate(cert); err != nil {
-		return err
-	}
-
-	b.cert = cert
-	b.proposer = ids.NodeIDFromCert(cert)
+	b.proposer = ids.NodeIDFromCert(b.cert)
 	return nil
 }
 
-func (b *statelessBlock) PChainHeight() uint64 { return b.StatelessBlock.PChainHeight }
-func (b *statelessBlock) Timestamp() time.Time { return b.timestamp }
-func (b *statelessBlock) Proposer() ids.NodeID { return b.proposer }
+func (b *statelessBlock) PChainHeight() uint64 {
+	return b.StatelessBlock.PChainHeight
+}
+
+func (b *statelessBlock) Timestamp() time.Time {
+	return b.timestamp
+}
+
+func (b *statelessBlock) Proposer() ids.NodeID {
+	return b.proposer
+}
 
 func (b *statelessBlock) Verify(shouldHaveProposer bool, chainID ids.ID) error {
 	if !shouldHaveProposer {
@@ -113,5 +134,9 @@ func (b *statelessBlock) Verify(shouldHaveProposer bool, chainID ids.ID) error {
 	}
 
 	headerBytes := header.Bytes()
-	return b.cert.CheckSignature(b.cert.SignatureAlgorithm, headerBytes, b.Signature)
+	return staking.CheckSignature(
+		b.cert,
+		headerBytes,
+		b.Signature,
+	)
 }

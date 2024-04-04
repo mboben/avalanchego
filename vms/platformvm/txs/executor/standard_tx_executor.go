@@ -1,26 +1,32 @@
-// Copyright (C) 2019-2021, Ava Labs, Inc. All rights reserved.
+// Copyright (C) 2019-2024, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
 package executor
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"time"
+
+	"go.uber.org/zap"
 
 	"github.com/ava-labs/avalanchego/chains/atomic"
-	"github.com/ava-labs/avalanchego/database"
 	"github.com/ava-labs/avalanchego/ids"
+	"github.com/ava-labs/avalanchego/utils/constants"
+	"github.com/ava-labs/avalanchego/utils/set"
 	"github.com/ava-labs/avalanchego/vms/components/avax"
 	"github.com/ava-labs/avalanchego/vms/components/verify"
 	"github.com/ava-labs/avalanchego/vms/platformvm/state"
 	"github.com/ava-labs/avalanchego/vms/platformvm/txs"
-	"github.com/ava-labs/avalanchego/vms/platformvm/utxo"
 )
 
 var (
-	_ txs.Visitor = &StandardTxExecutor{}
+	_ txs.Visitor = (*StandardTxExecutor)(nil)
 
-	errCustomAssetBeforeBlueberry = errors.New("custom assets can only be imported after the blueberry upgrade")
+	errEmptyNodeID                = errors.New("validator nodeID cannot be empty")
+	errMaxStakeDurationTooLarge   = errors.New("max stake duration must be less than or equal to the global max stake duration")
+	errMissingStartTimePreDurango = errors.New("staker transactions must have a StartTime pre-Durango")
 )
 
 type StandardTxExecutor struct {
@@ -31,37 +37,38 @@ type StandardTxExecutor struct {
 
 	// outputs of visitor execution
 	OnAccept       func() // may be nil
-	Inputs         ids.Set
+	Inputs         set.Set[ids.ID]
 	AtomicRequests map[ids.ID]*atomic.Requests // may be nil
 }
 
-func (*StandardTxExecutor) AddValidatorTx(*txs.AddValidatorTx) error { return errWrongTxType }
-func (*StandardTxExecutor) AddSubnetValidatorTx(*txs.AddSubnetValidatorTx) error {
-	return errWrongTxType
+func (*StandardTxExecutor) AdvanceTimeTx(*txs.AdvanceTimeTx) error {
+	return ErrWrongTxType
 }
-func (*StandardTxExecutor) AddDelegatorTx(*txs.AddDelegatorTx) error       { return errWrongTxType }
-func (*StandardTxExecutor) AdvanceTimeTx(*txs.AdvanceTimeTx) error         { return errWrongTxType }
-func (*StandardTxExecutor) RewardValidatorTx(*txs.RewardValidatorTx) error { return errWrongTxType }
+
+func (*StandardTxExecutor) RewardValidatorTx(*txs.RewardValidatorTx) error {
+	return ErrWrongTxType
+}
 
 func (e *StandardTxExecutor) CreateChainTx(tx *txs.CreateChainTx) error {
 	if err := e.Tx.SyntacticVerify(e.Ctx); err != nil {
 		return err
 	}
 
-	// Make sure this transaction has at least one credential for the subnet
-	// authorization.
-	if len(e.Tx.Creds) == 0 {
-		return errWrongNumberOfCredentials
+	var (
+		currentTimestamp = e.State.GetTimestamp()
+		isDurangoActive  = e.Config.IsDurangoActivated(currentTimestamp)
+	)
+	if err := avax.VerifyMemoFieldLength(tx.Memo, isDurangoActive); err != nil {
+		return err
 	}
 
-	// Select the credentials for each purpose
-	baseTxCredsLen := len(e.Tx.Creds) - 1
-	baseTxCreds := e.Tx.Creds[:baseTxCredsLen]
-	subnetCred := e.Tx.Creds[baseTxCredsLen]
+	baseTxCreds, err := verifyPoASubnetAuthorization(e.Backend, e.State, e.Tx, tx.SubnetID, tx.SubnetAuth)
+	if err != nil {
+		return err
+	}
 
 	// Verify the flowcheck
-	timestamp := e.State.GetTimestamp()
-	createBlockchainTxFee := e.Config.GetCreateBlockchainTxFee(timestamp)
+	createBlockchainTxFee := e.Config.GetCreateBlockchainTxFee(currentTimestamp)
 	if err := e.FlowChecker.VerifySpend(
 		tx,
 		e.State,
@@ -75,36 +82,20 @@ func (e *StandardTxExecutor) CreateChainTx(tx *txs.CreateChainTx) error {
 		return err
 	}
 
-	subnetIntf, _, err := e.State.GetTx(tx.SubnetID)
-	if err == database.ErrNotFound {
-		return fmt.Errorf("%s isn't a known subnet", tx.SubnetID)
-	}
-	if err != nil {
-		return err
-	}
-
-	subnet, ok := subnetIntf.Unsigned.(*txs.CreateSubnetTx)
-	if !ok {
-		return fmt.Errorf("%s isn't a subnet", tx.SubnetID)
-	}
-
-	// Verify that this chain is authorized by the subnet
-	if err := e.Fx.VerifyPermission(tx, tx.SubnetAuth, subnetCred, subnet.Owner); err != nil {
-		return err
-	}
-
 	txID := e.Tx.ID()
 
 	// Consume the UTXOS
-	utxo.Consume(e.State, tx.Ins)
+	avax.Consume(e.State, tx.Ins)
 	// Produce the UTXOS
-	utxo.Produce(e.State, txID, tx.Outs)
+	avax.Produce(e.State, txID, tx.Outs)
 	// Add the new chain to the database
 	e.State.AddChain(e.Tx)
 
 	// If this proposal is committed and this node is a member of the subnet
 	// that validates the blockchain, create the blockchain
-	e.OnAccept = func() { e.Config.CreateChain(txID, tx) }
+	e.OnAccept = func() {
+		e.Config.CreateChain(txID, tx)
+	}
 	return nil
 }
 
@@ -114,9 +105,16 @@ func (e *StandardTxExecutor) CreateSubnetTx(tx *txs.CreateSubnetTx) error {
 		return err
 	}
 
+	var (
+		currentTimestamp = e.State.GetTimestamp()
+		isDurangoActive  = e.Config.IsDurangoActivated(currentTimestamp)
+	)
+	if err := avax.VerifyMemoFieldLength(tx.Memo, isDurangoActive); err != nil {
+		return err
+	}
+
 	// Verify the flowcheck
-	timestamp := e.State.GetTimestamp()
-	createSubnetTxFee := e.Config.GetCreateSubnetTxFee(timestamp)
+	createSubnetTxFee := e.Config.GetCreateSubnetTxFee(currentTimestamp)
 	if err := e.FlowChecker.VerifySpend(
 		tx,
 		e.State,
@@ -133,11 +131,12 @@ func (e *StandardTxExecutor) CreateSubnetTx(tx *txs.CreateSubnetTx) error {
 	txID := e.Tx.ID()
 
 	// Consume the UTXOS
-	utxo.Consume(e.State, tx.Ins)
+	avax.Consume(e.State, tx.Ins)
 	// Produce the UTXOS
-	utxo.Produce(e.State, txID, tx.Outs)
+	avax.Produce(e.State, txID, tx.Outs)
 	// Add the new subnet to the database
 	e.State.AddSubnet(e.Tx)
+	e.State.SetSubnetOwner(txID, tx.Owner)
 	return nil
 }
 
@@ -146,31 +145,27 @@ func (e *StandardTxExecutor) ImportTx(tx *txs.ImportTx) error {
 		return err
 	}
 
-	currentChainTime := e.State.GetTimestamp()
+	var (
+		currentTimestamp = e.State.GetTimestamp()
+		isDurangoActive  = e.Config.IsDurangoActivated(currentTimestamp)
+	)
+	if err := avax.VerifyMemoFieldLength(tx.Memo, isDurangoActive); err != nil {
+		return err
+	}
 
-	e.Inputs = ids.NewSet(len(tx.ImportedInputs))
+	e.Inputs = set.NewSet[ids.ID](len(tx.ImportedInputs))
 	utxoIDs := make([][]byte, len(tx.ImportedInputs))
 	for i, in := range tx.ImportedInputs {
 		utxoID := in.UTXOID.InputID()
 
 		e.Inputs.Add(utxoID)
 		utxoIDs[i] = utxoID[:]
-
-		if currentChainTime.Before(e.Config.BlueberryTime) {
-			// TODO: Remove this check once the Blueberry network upgrade is
-			//       complete.
-			//
-			// Blueberry network upgrade allows exporting of all assets to the
-			// P-chain.
-			assetID := in.AssetID()
-			if assetID != e.Ctx.AVAXAssetID {
-				return errCustomAssetBeforeBlueberry
-			}
-		}
 	}
 
-	if e.Bootstrapped.GetValue() {
-		if err := verify.SameSubnet(e.Ctx, tx.SourceChain); err != nil {
+	// Skip verification of the shared memory inputs if the other primary
+	// network chains are not guaranteed to be up-to-date.
+	if e.Bootstrapped.Get() && !e.Config.PartialSyncPrimaryNetwork {
+		if err := verify.SameSubnet(context.TODO(), e.Ctx, tx.SourceChain); err != nil {
 			return err
 		}
 
@@ -216,10 +211,13 @@ func (e *StandardTxExecutor) ImportTx(tx *txs.ImportTx) error {
 	txID := e.Tx.ID()
 
 	// Consume the UTXOS
-	utxo.Consume(e.State, tx.Ins)
+	avax.Consume(e.State, tx.Ins)
 	// Produce the UTXOS
-	utxo.Produce(e.State, txID, tx.Outs)
+	avax.Produce(e.State, txID, tx.Outs)
 
+	// Note: We apply atomic requests even if we are not verifying atomic
+	// requests to ensure the shared state will be correct if we later start
+	// verifying the requests.
 	e.AtomicRequests = map[ids.ID]*atomic.Requests{
 		tx.SourceChain: {
 			RemoveRequests: utxoIDs,
@@ -233,12 +231,20 @@ func (e *StandardTxExecutor) ExportTx(tx *txs.ExportTx) error {
 		return err
 	}
 
+	var (
+		currentTimestamp = e.State.GetTimestamp()
+		isDurangoActive  = e.Config.IsDurangoActivated(currentTimestamp)
+	)
+	if err := avax.VerifyMemoFieldLength(tx.Memo, isDurangoActive); err != nil {
+		return err
+	}
+
 	outs := make([]*avax.TransferableOutput, len(tx.Outs)+len(tx.ExportedOutputs))
 	copy(outs, tx.Outs)
 	copy(outs[len(tx.Outs):], tx.ExportedOutputs)
 
-	if e.Bootstrapped.GetValue() {
-		if err := verify.SameSubnet(e.Ctx, tx.DestinationChain); err != nil {
+	if e.Bootstrapped.Get() {
+		if err := verify.SameSubnet(context.TODO(), e.Ctx, tx.DestinationChain); err != nil {
 			return err
 		}
 	}
@@ -260,10 +266,13 @@ func (e *StandardTxExecutor) ExportTx(tx *txs.ExportTx) error {
 	txID := e.Tx.ID()
 
 	// Consume the UTXOS
-	utxo.Consume(e.State, tx.Ins)
+	avax.Consume(e.State, tx.Ins)
 	// Produce the UTXOS
-	utxo.Produce(e.State, txID, tx.Outs)
+	avax.Produce(e.State, txID, tx.Outs)
 
+	// Note: We apply atomic requests even if we are not verifying atomic
+	// requests to ensure the shared state will be correct if we later start
+	// verifying the requests.
 	elems := make([]*atomic.Element, len(tx.ExportedOutputs))
 	for i, out := range tx.ExportedOutputs {
 		utxo := &avax.UTXO{
@@ -275,7 +284,7 @@ func (e *StandardTxExecutor) ExportTx(tx *txs.ExportTx) error {
 			Out:   out.Out,
 		}
 
-		utxoBytes, err := txs.Codec.Marshal(txs.Version, utxo)
+		utxoBytes, err := txs.Codec.Marshal(txs.CodecVersion, utxo)
 		if err != nil {
 			return fmt.Errorf("failed to marshal UTXO: %w", err)
 		}
@@ -294,6 +303,343 @@ func (e *StandardTxExecutor) ExportTx(tx *txs.ExportTx) error {
 		tx.DestinationChain: {
 			PutRequests: elems,
 		},
+	}
+	return nil
+}
+
+func (e *StandardTxExecutor) AddValidatorTx(tx *txs.AddValidatorTx) error {
+	if tx.Validator.NodeID == ids.EmptyNodeID {
+		return errEmptyNodeID
+	}
+
+	if _, err := verifyAddValidatorTx(
+		e.Backend,
+		e.State,
+		e.Tx,
+		tx,
+	); err != nil {
+		return err
+	}
+
+	if err := e.putStaker(tx); err != nil {
+		return err
+	}
+
+	txID := e.Tx.ID()
+	avax.Consume(e.State, tx.Ins)
+	avax.Produce(e.State, txID, tx.Outs)
+
+	if e.Config.PartialSyncPrimaryNetwork && tx.Validator.NodeID == e.Ctx.NodeID {
+		e.Ctx.Log.Warn("verified transaction that would cause this node to become unhealthy",
+			zap.String("reason", "primary network is not being fully synced"),
+			zap.Stringer("txID", txID),
+			zap.String("txType", "addValidator"),
+			zap.Stringer("nodeID", tx.Validator.NodeID),
+		)
+	}
+	return nil
+}
+
+func (e *StandardTxExecutor) AddSubnetValidatorTx(tx *txs.AddSubnetValidatorTx) error {
+	if err := verifyAddSubnetValidatorTx(
+		e.Backend,
+		e.State,
+		e.Tx,
+		tx,
+	); err != nil {
+		return err
+	}
+
+	if err := e.putStaker(tx); err != nil {
+		return err
+	}
+
+	txID := e.Tx.ID()
+	avax.Consume(e.State, tx.Ins)
+	avax.Produce(e.State, txID, tx.Outs)
+	return nil
+}
+
+func (e *StandardTxExecutor) AddDelegatorTx(tx *txs.AddDelegatorTx) error {
+	if _, err := verifyAddDelegatorTx(
+		e.Backend,
+		e.State,
+		e.Tx,
+		tx,
+	); err != nil {
+		return err
+	}
+
+	if err := e.putStaker(tx); err != nil {
+		return err
+	}
+
+	txID := e.Tx.ID()
+	avax.Consume(e.State, tx.Ins)
+	avax.Produce(e.State, txID, tx.Outs)
+	return nil
+}
+
+// Verifies a [*txs.RemoveSubnetValidatorTx] and, if it passes, executes it on
+// [e.State]. For verification rules, see [verifyRemoveSubnetValidatorTx]. This
+// transaction will result in [tx.NodeID] being removed as a validator of
+// [tx.SubnetID].
+// Note: [tx.NodeID] may be either a current or pending validator.
+func (e *StandardTxExecutor) RemoveSubnetValidatorTx(tx *txs.RemoveSubnetValidatorTx) error {
+	staker, isCurrentValidator, err := verifyRemoveSubnetValidatorTx(
+		e.Backend,
+		e.State,
+		e.Tx,
+		tx,
+	)
+	if err != nil {
+		return err
+	}
+
+	if isCurrentValidator {
+		e.State.DeleteCurrentValidator(staker)
+	} else {
+		e.State.DeletePendingValidator(staker)
+	}
+
+	// Invariant: There are no permissioned subnet delegators to remove.
+
+	txID := e.Tx.ID()
+	avax.Consume(e.State, tx.Ins)
+	avax.Produce(e.State, txID, tx.Outs)
+
+	return nil
+}
+
+func (e *StandardTxExecutor) TransformSubnetTx(tx *txs.TransformSubnetTx) error {
+	if err := e.Tx.SyntacticVerify(e.Ctx); err != nil {
+		return err
+	}
+
+	var (
+		currentTimestamp = e.State.GetTimestamp()
+		isDurangoActive  = e.Config.IsDurangoActivated(currentTimestamp)
+	)
+	if err := avax.VerifyMemoFieldLength(tx.Memo, isDurangoActive); err != nil {
+		return err
+	}
+
+	// Note: math.MaxInt32 * time.Second < math.MaxInt64 - so this can never
+	// overflow.
+	if time.Duration(tx.MaxStakeDuration)*time.Second > e.Backend.Config.MaxStakeDuration {
+		return errMaxStakeDurationTooLarge
+	}
+
+	baseTxCreds, err := verifyPoASubnetAuthorization(e.Backend, e.State, e.Tx, tx.Subnet, tx.SubnetAuth)
+	if err != nil {
+		return err
+	}
+
+	totalRewardAmount := tx.MaximumSupply - tx.InitialSupply
+	if err := e.Backend.FlowChecker.VerifySpend(
+		tx,
+		e.State,
+		tx.Ins,
+		tx.Outs,
+		baseTxCreds,
+		// Invariant: [tx.AssetID != e.Ctx.AVAXAssetID]. This prevents the first
+		//            entry in this map literal from being overwritten by the
+		//            second entry.
+		map[ids.ID]uint64{
+			e.Ctx.AVAXAssetID: e.Config.TransformSubnetTxFee,
+			tx.AssetID:        totalRewardAmount,
+		},
+	); err != nil {
+		return err
+	}
+
+	txID := e.Tx.ID()
+
+	// Consume the UTXOS
+	avax.Consume(e.State, tx.Ins)
+	// Produce the UTXOS
+	avax.Produce(e.State, txID, tx.Outs)
+	// Transform the new subnet in the database
+	e.State.AddSubnetTransformation(e.Tx)
+	e.State.SetCurrentSupply(tx.Subnet, tx.InitialSupply)
+	return nil
+}
+
+func (e *StandardTxExecutor) AddPermissionlessValidatorTx(tx *txs.AddPermissionlessValidatorTx) error {
+	if err := verifyAddPermissionlessValidatorTx(
+		e.Backend,
+		e.State,
+		e.Tx,
+		tx,
+	); err != nil {
+		return err
+	}
+
+	if err := e.putStaker(tx); err != nil {
+		return err
+	}
+
+	txID := e.Tx.ID()
+	avax.Consume(e.State, tx.Ins)
+	avax.Produce(e.State, txID, tx.Outs)
+
+	if e.Config.PartialSyncPrimaryNetwork &&
+		tx.Subnet == constants.PrimaryNetworkID &&
+		tx.Validator.NodeID == e.Ctx.NodeID {
+		e.Ctx.Log.Warn("verified transaction that would cause this node to become unhealthy",
+			zap.String("reason", "primary network is not being fully synced"),
+			zap.Stringer("txID", txID),
+			zap.String("txType", "addPermissionlessValidator"),
+			zap.Stringer("nodeID", tx.Validator.NodeID),
+		)
+	}
+
+	return nil
+}
+
+func (e *StandardTxExecutor) AddPermissionlessDelegatorTx(tx *txs.AddPermissionlessDelegatorTx) error {
+	if err := verifyAddPermissionlessDelegatorTx(
+		e.Backend,
+		e.State,
+		e.Tx,
+		tx,
+	); err != nil {
+		return err
+	}
+
+	if err := e.putStaker(tx); err != nil {
+		return err
+	}
+
+	txID := e.Tx.ID()
+	avax.Consume(e.State, tx.Ins)
+	avax.Produce(e.State, txID, tx.Outs)
+	return nil
+}
+
+// Verifies a [*txs.TransferSubnetOwnershipTx] and, if it passes, executes it on
+// [e.State]. For verification rules, see [verifyTransferSubnetOwnershipTx].
+// This transaction will result in the ownership of [tx.Subnet] being transferred
+// to [tx.Owner].
+func (e *StandardTxExecutor) TransferSubnetOwnershipTx(tx *txs.TransferSubnetOwnershipTx) error {
+	err := verifyTransferSubnetOwnershipTx(
+		e.Backend,
+		e.State,
+		e.Tx,
+		tx,
+	)
+	if err != nil {
+		return err
+	}
+
+	e.State.SetSubnetOwner(tx.Subnet, tx.Owner)
+
+	txID := e.Tx.ID()
+	avax.Consume(e.State, tx.Ins)
+	avax.Produce(e.State, txID, tx.Outs)
+	return nil
+}
+
+func (e *StandardTxExecutor) BaseTx(tx *txs.BaseTx) error {
+	if !e.Backend.Config.IsDurangoActivated(e.State.GetTimestamp()) {
+		return ErrDurangoUpgradeNotActive
+	}
+
+	// Verify the tx is well-formed
+	if err := e.Tx.SyntacticVerify(e.Ctx); err != nil {
+		return err
+	}
+
+	if err := avax.VerifyMemoFieldLength(tx.Memo, true /*=isDurangoActive*/); err != nil {
+		return err
+	}
+
+	// Verify the flowcheck
+	if err := e.FlowChecker.VerifySpend(
+		tx,
+		e.State,
+		tx.Ins,
+		tx.Outs,
+		e.Tx.Creds,
+		map[ids.ID]uint64{
+			e.Ctx.AVAXAssetID: e.Config.TxFee,
+		},
+	); err != nil {
+		return err
+	}
+
+	txID := e.Tx.ID()
+	// Consume the UTXOS
+	avax.Consume(e.State, tx.Ins)
+	// Produce the UTXOS
+	avax.Produce(e.State, txID, tx.Outs)
+	return nil
+}
+
+// Creates the staker as defined in [stakerTx] and adds it to [e.State].
+func (e *StandardTxExecutor) putStaker(stakerTx txs.Staker) error {
+	var (
+		chainTime = e.State.GetTimestamp()
+		txID      = e.Tx.ID()
+		staker    *state.Staker
+		err       error
+	)
+
+	if !e.Config.IsDurangoActivated(chainTime) {
+		// Pre-Durango, stakers set a future [StartTime] and are added to the
+		// pending staker set. They are promoted to the current staker set once
+		// the chain time reaches [StartTime].
+		scheduledStakerTx, ok := stakerTx.(txs.ScheduledStaker)
+		if !ok {
+			return fmt.Errorf("%w: %T", errMissingStartTimePreDurango, stakerTx)
+		}
+		staker, err = state.NewPendingStaker(txID, scheduledStakerTx)
+	} else {
+		// Only calculate the potentialReward for permissionless stakers.
+		// Recall that we only need to check if this is a permissioned
+		// validator as there are no permissioned delegators
+		var potentialReward uint64
+		if !stakerTx.CurrentPriority().IsPermissionedValidator() {
+			subnetID := stakerTx.SubnetID()
+			currentSupply, err := e.State.GetCurrentSupply(subnetID)
+			if err != nil {
+				return err
+			}
+
+			rewards, err := GetRewardsCalculator(e.Backend, e.State, subnetID)
+			if err != nil {
+				return err
+			}
+
+			// Post-Durango, stakers are immediately added to the current staker
+			// set. Their [StartTime] is the current chain time.
+			stakeDuration := stakerTx.EndTime().Sub(chainTime)
+			potentialReward = rewards.Calculate(
+				stakeDuration,
+				stakerTx.Weight(),
+				currentSupply,
+			)
+
+			e.State.SetCurrentSupply(subnetID, currentSupply+potentialReward)
+		}
+
+		staker, err = state.NewCurrentStaker(txID, stakerTx, chainTime, potentialReward)
+	}
+	if err != nil {
+		return err
+	}
+
+	switch priority := staker.Priority; {
+	case priority.IsCurrentValidator():
+		e.State.PutCurrentValidator(staker)
+	case priority.IsCurrentDelegator():
+		e.State.PutCurrentDelegator(staker)
+	case priority.IsPendingValidator():
+		e.State.PutPendingValidator(staker)
+	case priority.IsPendingDelegator():
+		e.State.PutPendingDelegator(staker)
+	default:
+		return fmt.Errorf("staker %s, unexpected priority %d", staker.TxID, priority)
 	}
 	return nil
 }

@@ -1,4 +1,4 @@
-// Copyright (C) 2019-2021, Ava Labs, Inc. All rights reserved.
+// Copyright (C) 2019-2024, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
 package state
@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/google/btree"
-
 	"github.com/stretchr/testify/require"
 
 	"github.com/ava-labs/avalanchego/ids"
@@ -31,7 +30,7 @@ func TestTreeIterator(t *testing.T) {
 		},
 	}
 
-	tree := btree.New(defaultTreeDegree)
+	tree := btree.NewG(defaultTreeDegree, (*Staker).Less)
 	for _, staker := range stakers {
 		require.Nil(tree.ReplaceOrInsert(staker))
 	}
@@ -46,9 +45,8 @@ func TestTreeIterator(t *testing.T) {
 }
 
 func TestTreeIteratorNil(t *testing.T) {
-	require := require.New(t)
 	it := NewTreeIterator(nil)
-	require.False(it.Next())
+	require.False(t, it.Next())
 	it.Release()
 }
 
@@ -69,7 +67,7 @@ func TestTreeIteratorEarlyRelease(t *testing.T) {
 		},
 	}
 
-	tree := btree.New(defaultTreeDegree)
+	tree := btree.NewG(defaultTreeDegree, (*Staker).Less)
 	for _, staker := range stakers {
 		require.Nil(tree.ReplaceOrInsert(staker))
 	}

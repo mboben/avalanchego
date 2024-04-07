@@ -6,15 +6,24 @@ package genesis
 import (
 	"time"
 
-	"github.com/ava-labs/avalanchego/utils/crypto"
+	"github.com/ava-labs/avalanchego/utils/crypto/secp256k1"
 	"github.com/ava-labs/avalanchego/utils/units"
 	"github.com/ava-labs/avalanchego/vms/platformvm/reward"
 	// "github.com/flare-foundation/flare/utils/units"
 	// "github.com/flare-foundation/flare/vms/platformvm/reward"
 )
 
+const (
+	VMRQKeyStr          = "vmRQiZeXEXYMyJhEiqdC2z5JhuDbxL8ix9UVvjgMu2Er1NepE"
+	VMRQKeyFormattedStr = secp256k1.PrivateKeyPrefix + VMRQKeyStr
+
+	EWOQKeyStr          = "ewoqjP7PxY4yr3iLTpLisriqt94hdyDFNgchSxGGztUrTXtNN"
+	EWOQKeyFormattedStr = secp256k1.PrivateKeyPrefix + EWOQKeyStr
+)
+
 var (
-	EWOQKey *crypto.PrivateKeySECP256K1R
+	VMRQKey *secp256k1.PrivateKey
+	EWOQKey *secp256k1.PrivateKey
 )
 
 var (

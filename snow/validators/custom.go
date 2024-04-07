@@ -24,7 +24,7 @@ var (
 	errNotInitialized = errors.New("default validator set not initialized")
 )
 
-func DefaultValidatorList() []Validator {
+func DefaultValidatorList() []*Validator {
 	return defaultValidators.list()
 }
 
@@ -38,7 +38,7 @@ func InitializeDefaultValidators(networkID uint32) {
 
 type defaultValidatorSet struct {
 	initialzed bool
-	vdrMap     map[ids.NodeID]Validator
+	vdrMap     map[ids.NodeID]*Validator
 }
 
 func (dvs *defaultValidatorSet) initialize(networkID uint32) {
@@ -46,7 +46,7 @@ func (dvs *defaultValidatorSet) initialize(networkID uint32) {
 		return
 	}
 
-	var vdrs []Validator
+	var vdrs []*Validator
 	switch networkID {
 	case constants.LocalID:
 		vdrs = loadCustomValidators()
@@ -55,18 +55,18 @@ func (dvs *defaultValidatorSet) initialize(networkID uint32) {
 	case constants.CostonID:
 		vdrs = loadCostonValidators()
 	}
-	dvs.vdrMap = make(map[ids.NodeID]Validator)
+	dvs.vdrMap = make(map[ids.NodeID]*Validator)
 	for _, vdr := range vdrs {
-		dvs.vdrMap[vdr.ID()] = vdr
+		dvs.vdrMap[vdr.NodeID] = vdr
 	}
 	dvs.initialzed = true
 }
 
-func (dvs *defaultValidatorSet) list() []Validator {
+func (dvs *defaultValidatorSet) list() []*Validator {
 	if !dvs.initialzed {
 		panic(errNotInitialized)
 	}
-	vdrs := make([]Validator, 0, len(dvs.vdrMap))
+	vdrs := make([]*Validator, 0, len(dvs.vdrMap))
 	for _, vdr := range dvs.vdrMap {
 		vdrs = append(vdrs, vdr)
 	}
@@ -81,13 +81,13 @@ func (dvs *defaultValidatorSet) isValidator(vdrID ids.NodeID) bool {
 	return ok
 }
 
-func loadCustomValidators() []Validator {
+func loadCustomValidators() []*Validator {
 	customValidatorList := os.Getenv(customValidatorEnv)
 	nodeIDs := strings.Split(customValidatorList, ",")
 	return createValidators(nodeIDs, uint64(customValidatorWeight))
 }
 
-func loadCostonValidators() []Validator {
+func loadCostonValidators() []*Validator {
 	nodeIDs := []string{
 		"NodeID-5dDZXn99LCkDoEi6t9gTitZuQmhokxQTc",
 		"NodeID-EkH8wyEshzEQBToAdR7Fexxcj9rrmEEHZ",
@@ -98,7 +98,7 @@ func loadCostonValidators() []Validator {
 	return createValidators(nodeIDs, uint64(costonValidatorWeight))
 }
 
-func loadSongbirdValidators() []Validator {
+func loadSongbirdValidators() []*Validator {
 	nodeIDs := []string{
 		"NodeID-3M9KVT6ixi4gVMisbm5TnPXYXgFN5LHuv",
 		"NodeID-NnX4fajAmyvpL9RLfheNdc47FKKDuQW8i",
@@ -124,7 +124,7 @@ func loadSongbirdValidators() []Validator {
 	return createValidators(nodeIDs, uint64(songbirdValidatorWeight))
 }
 
-func createValidators(nodeIDs []string, weight uint64) (vdrs []Validator) {
+func createValidators(nodeIDs []string, weight uint64) (vdrs []*Validator) {
 	for _, nodeID := range nodeIDs {
 		if nodeID == "" {
 			continue
@@ -134,9 +134,9 @@ func createValidators(nodeIDs []string, weight uint64) (vdrs []Validator) {
 		if err != nil {
 			panic(fmt.Sprintf("invalid validator node ID: %s", nodeID))
 		}
-		vdrs = append(vdrs, &validator{
-			nodeID: ids.NodeID(shortID),
-			weight: weight,
+		vdrs = append(vdrs, &Validator{
+			NodeID: ids.NodeID(shortID),
+			Weight: weight,
 		})
 	}
 	return

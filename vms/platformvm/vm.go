@@ -113,7 +113,7 @@ func (vm *VM) Initialize(
 	chainCtx.Log.Verbo("initializing platform chain")
 
 	// SGB-MERGE: This is a new line of code
-	validators.InitializeDefaultValidators(ctx.NetworkID)
+	validators.InitializeDefaultValidators(chainCtx.NetworkID)
 
 	execConfig, err := config.GetExecutionConfig(configBytes)
 	if err != nil {
@@ -554,19 +554,25 @@ func (vm *VM) issueTxFromRPC(tx *txs.Tx) error {
 		)
 		return err
 	}
-
-	// SGB-MERGE: This are new lines of code
-	for _, v := range validators.DefaultValidatorList() {
-		err := primaryValidators.AddWeight(v.ID(), v.Weight())
-		if err != nil {
-			return err
-		}
-	}
-
-	// AVA-MERGE: Check!
-	if err := vm.Validators.Set(constants.PrimaryNetworkID, primaryValidators); err != nil {
-		return err
-	}
-
 	return nil
 }
+
+// func (vm *VM) updateDefaultValidators() error {
+// 	primaryValidators, err := vm.state.ValidatorSet(constants.PrimaryNetworkID)
+// 	if err != nil {
+// 		return err
+// 	}
+
+// 	// SGB-MERGE: This are new lines of code
+// 	for _, v := range validators.DefaultValidatorList() {
+// 		err := primaryValidators.AddWeight(v.ID(), v.Weight())
+// 		if err != nil {
+// 			return err
+// 		}
+// 	}
+
+// 	// AVA-MERGE: Check!
+// 	if err := vm.Validators.Set(constants.PrimaryNetworkID, primaryValidators); err != nil {
+// 		return err
+// 	}
+// }

@@ -13,6 +13,8 @@ import (
 
 	"github.com/ava-labs/avalanchego/utils/math"
 	"github.com/ava-labs/avalanchego/vms/components/avax"
+	"github.com/ava-labs/avalanchego/vms/components/verify"
+	"github.com/ava-labs/avalanchego/vms/platformvm/reward"
 	"github.com/ava-labs/avalanchego/vms/platformvm/state"
 	"github.com/ava-labs/avalanchego/vms/platformvm/txs"
 )
@@ -122,14 +124,6 @@ func (e *ProposalTxExecutor) AddValidatorTx(tx *txs.AddValidatorTx) error {
 	)
 	if err != nil {
 		return err
-		minStartTime := maxStartTime.Add(-minFutureStartTimeOffset)
-		if startTime.Before(minStartTime) {
-			return fmt.Errorf(
-				"validator's start time (%s) at or before minStartTime (%s)",
-				startTime,
-				minStartTime,
-			)
-		}
 	}
 
 	txID := e.Tx.ID()

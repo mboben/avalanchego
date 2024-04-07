@@ -148,6 +148,8 @@ var (
 		constants.LocalFlareID: time.Date(10000, time.December, 1, 0, 0, 0, 0, time.UTC),
 		constants.CostonID:     time.Date(10000, time.December, 1, 0, 0, 0, 0, time.UTC),
 		constants.SongbirdID:   time.Date(10000, time.December, 1, 0, 0, 0, 0, time.UTC),
+	}
+
 	ApricotPhasePre6Times = map[uint32]time.Time{
 		constants.MainnetID: time.Date(2022, time.September, 5, 1, 30, 0, 0, time.UTC),
 		constants.FujiID:    time.Date(2022, time.September, 6, 20, 0, 0, 0, time.UTC),
@@ -163,6 +165,8 @@ var (
 		constants.LocalFlareID: time.Date(10000, time.December, 1, 0, 0, 0, 0, time.UTC),
 		constants.CostonID:     time.Date(10000, time.December, 1, 0, 0, 0, 0, time.UTC),
 		constants.SongbirdID:   time.Date(10000, time.December, 1, 0, 0, 0, 0, time.UTC),
+	}
+
 	ApricotPhase6Times = map[uint32]time.Time{
 		constants.MainnetID: time.Date(2022, time.September, 6, 20, 0, 0, 0, time.UTC),
 		constants.FujiID:    time.Date(2022, time.September, 6, 20, 0, 0, 0, time.UTC),

@@ -41,6 +41,7 @@ var (
 	ErrDurangoUpgradeNotActive         = errors.New("attempting to use a Durango-upgrade feature prior to activation")
 	ErrAddValidatorTxPostDurango       = errors.New("AddValidatorTx is not permitted post-Durango")
 	ErrAddDelegatorTxPostDurango       = errors.New("AddDelegatorTx is not permitted post-Durango")
+	ErrSubnetNotSupported              = errors.New("subnet not supported")
 )
 
 // verifySubnetValidatorPrimaryNetworkRequirements verifies the primary
@@ -111,26 +112,28 @@ func verifyAddValidatorTx(
 		return nil, err
 	}
 
+	minValidatorStake, maxValidatorStake, _, minDelegationFee, minStakeDuration, _, maxStakeDuration, minFutureStartTimeOffset, _, minStakeStartTime := GetCurrentInflationSettings(currentTimestamp, backend.Ctx.NetworkID, backend.Config)
+
 	startTime := tx.StartTime()
 	duration := tx.EndTime().Sub(startTime)
 	switch {
-	case tx.Validator.Wght < backend.Config.MinValidatorStake:
+	case tx.Validator.Wght < minValidatorStake:
 		// Ensure validator is staking at least the minimum amount
 		return nil, ErrWeightTooSmall
 
-	case tx.Validator.Wght > backend.Config.MaxValidatorStake:
+	case tx.Validator.Wght > maxValidatorStake:
 		// Ensure validator isn't staking too much
 		return nil, ErrWeightTooLarge
 
-	case tx.DelegationShares < backend.Config.MinDelegationFee:
+	case tx.DelegationShares < minDelegationFee:
 		// Ensure the validator fee is at least the minimum amount
 		return nil, ErrInsufficientDelegationFee
 
-	case duration < backend.Config.MinStakeDuration:
+	case duration < minStakeDuration:
 		// Ensure staking length is not too short
 		return nil, ErrStakeTooShort
 
-	case duration > backend.Config.MaxStakeDuration:
+	case duration > maxStakeDuration:
 		// Ensure staking length is not too long
 		return nil, ErrStakeTooLong
 	}
@@ -143,7 +146,7 @@ func verifyAddValidatorTx(
 		return outs, nil
 	}
 
-	if err := verifyStakerStartTime(false /*=isDurangoActive*/, currentTimestamp, startTime); err != nil {
+	if err := verifyStakerStartTime(false /*=isDurangoActive*/, currentTimestamp, startTime, &minStakeStartTime); err != nil {
 		return nil, err
 	}
 
@@ -179,7 +182,7 @@ func verifyAddValidatorTx(
 
 	// verifyStakerStartsSoon is checked last to allow
 	// the verifier visitor to explicitly check for this error.
-	return outs, verifyStakerStartsSoon(false /*=isDurangoActive*/, currentTimestamp, startTime)
+	return outs, verifyStakerStartsSoon(false /*=isDurangoActive*/, currentTimestamp, startTime, minFutureStartTimeOffset)
 }
 
 // verifyAddSubnetValidatorTx carries out the validation for an
@@ -193,6 +196,11 @@ func verifyAddSubnetValidatorTx(
 	// Verify the tx is well-formed
 	if err := sTx.SyntacticVerify(backend.Ctx); err != nil {
 		return err
+	}
+
+	// Flare does not allow creation of subnets
+	if constants.IsFlareNetworkID(backend.Ctx.NetworkID) || constants.IsSgbNetworkID(backend.Ctx.NetworkID) {
+		return ErrSubnetNotSupported
 	}
 
 	var (
@@ -223,7 +231,7 @@ func verifyAddSubnetValidatorTx(
 		return nil
 	}
 
-	if err := verifyStakerStartTime(isDurangoActive, currentTimestamp, startTime); err != nil {
+	if err := verifyStakerStartTime(isDurangoActive, currentTimestamp, startTime, nil); err != nil {
 		return err
 	}
 
@@ -269,7 +277,7 @@ func verifyAddSubnetValidatorTx(
 
 	// verifyStakerStartsSoon is checked last to allow
 	// the verifier visitor to explicitly check for this error.
-	return verifyStakerStartsSoon(isDurangoActive, currentTimestamp, startTime)
+	return verifyStakerStartsSoon(isDurangoActive, currentTimestamp, startTime, MaxFutureStartTime)
 }
 
 // Returns the representation of [tx.NodeID] validating [tx.Subnet].
@@ -373,21 +381,23 @@ func verifyAddDelegatorTx(
 		return nil, err
 	}
 
+	_, maxValidatorStake, minDelegatorStake, _, _, minStakeDuration, maxStakeDuration, minFutureStartTimeOffset, maxValidatorWeightFactor, _ := GetCurrentInflationSettings(currentTimestamp, backend.Ctx.NetworkID, backend.Config)
+
 	var (
 		endTime   = tx.EndTime()
 		startTime = tx.StartTime()
 		duration  = endTime.Sub(startTime)
 	)
 	switch {
-	case duration < backend.Config.MinStakeDuration:
+	case duration < minStakeDuration:
 		// Ensure staking length is not too short
 		return nil, ErrStakeTooShort
 
-	case duration > backend.Config.MaxStakeDuration:
+	case duration > maxStakeDuration:
 		// Ensure staking length is not too long
 		return nil, ErrStakeTooLong
 
-	case tx.Validator.Wght < backend.Config.MinDelegatorStake:
+	case tx.Validator.Wght < minDelegatorStake:
 		// Ensure validator is staking at least the minimum amount
 		return nil, ErrWeightTooSmall
 	}
@@ -400,7 +410,7 @@ func verifyAddDelegatorTx(
 		return outs, nil
 	}
 
-	if err := verifyStakerStartTime(false /*=isDurangoActive*/, currentTimestamp, startTime); err != nil {
+	if err := verifyStakerStartTime(false /*=isDurangoActive*/, currentTimestamp, startTime, nil); err != nil {
 		return nil, err
 	}
 
@@ -413,13 +423,13 @@ func verifyAddDelegatorTx(
 		)
 	}
 
-	maximumWeight, err := safemath.Mul64(MaxValidatorWeightFactor, primaryNetworkValidator.Weight)
+	maximumWeight, err := safemath.Mul64(maxValidatorWeightFactor, primaryNetworkValidator.Weight)
 	if err != nil {
 		return nil, ErrStakeOverflow
 	}
 
 	if backend.Config.IsApricotPhase3Activated(currentTimestamp) {
-		maximumWeight = min(maximumWeight, backend.Config.MaxValidatorStake)
+		maximumWeight = min(maximumWeight, maxValidatorStake)
 	}
 
 	if !txs.BoundedBy(
@@ -461,7 +471,7 @@ func verifyAddDelegatorTx(
 
 	// verifyStakerStartsSoon is checked last to allow
 	// the verifier visitor to explicitly check for this error.
-	return outs, verifyStakerStartsSoon(false /*=isDurangoActive*/, currentTimestamp, startTime)
+	return outs, verifyStakerStartsSoon(false /*=isDurangoActive*/, currentTimestamp, startTime, minFutureStartTimeOffset)
 }
 
 // verifyAddPermissionlessValidatorTx carries out the validation for an
@@ -495,12 +505,12 @@ func verifyAddPermissionlessValidatorTx(
 	}
 	duration := tx.EndTime().Sub(startTime)
 
-	if err := verifyStakerStartTime(isDurangoActive, currentTimestamp, startTime); err != nil {
+	validatorRules, err := getValidatorRules(currentTimestamp, backend, chainState, tx.Subnet)
+	if err != nil {
 		return err
 	}
 
-	validatorRules, err := getValidatorRules(backend, chainState, tx.Subnet)
-	if err != nil {
+	if err := verifyStakerStartTime(isDurangoActive, currentTimestamp, startTime, &validatorRules.minStakeStartTime); err != nil {
 		return err
 	}
 
@@ -585,7 +595,7 @@ func verifyAddPermissionlessValidatorTx(
 
 	// verifyStakerStartsSoon is checked last to allow
 	// the verifier visitor to explicitly check for this error.
-	return verifyStakerStartsSoon(isDurangoActive, currentTimestamp, startTime)
+	return verifyStakerStartsSoon(isDurangoActive, currentTimestamp, startTime, MaxFutureStartTime)
 }
 
 // verifyAddPermissionlessDelegatorTx carries out the validation for an
@@ -622,11 +632,11 @@ func verifyAddPermissionlessDelegatorTx(
 	}
 	duration := endTime.Sub(startTime)
 
-	if err := verifyStakerStartTime(isDurangoActive, currentTimestamp, startTime); err != nil {
+	if err := verifyStakerStartTime(isDurangoActive, currentTimestamp, startTime, nil); err != nil {
 		return err
 	}
 
-	delegatorRules, err := getDelegatorRules(backend, chainState, tx.Subnet)
+	delegatorRules, err := getDelegatorRules(currentTimestamp, backend, chainState, tx.Subnet)
 	if err != nil {
 		return err
 	}
@@ -734,7 +744,7 @@ func verifyAddPermissionlessDelegatorTx(
 
 	// verifyStakerStartsSoon is checked last to allow
 	// the verifier visitor to explicitly check for this error.
-	return verifyStakerStartsSoon(isDurangoActive, currentTimestamp, startTime)
+	return verifyStakerStartsSoon(isDurangoActive, currentTimestamp, startTime, MaxFutureStartTime)
 }
 
 // Returns an error if the given tx is invalid.
@@ -789,7 +799,16 @@ func verifyTransferSubnetOwnershipTx(
 }
 
 // Ensure the proposed validator starts after the current time
-func verifyStakerStartTime(isDurangoActive bool, chainTime, stakerTime time.Time) error {
+func verifyStakerStartTime(isDurangoActive bool, chainTime, stakerTime time.Time, minStakerTime *time.Time) error {
+	// Flare and Songbird specific
+	if minStakerTime != nil && !minStakerTime.Before(stakerTime) {
+		return fmt.Errorf(
+			"validator's start time (%s) at or before minStakeStartTime (%s)",
+			stakerTime,
+			minStakerTime,
+		)
+	}
+
 	// Pre Durango activation, start time must be after current chain time.
 	// Post Durango activation, start time is not validated
 	if isDurangoActive {
@@ -807,7 +826,7 @@ func verifyStakerStartTime(isDurangoActive bool, chainTime, stakerTime time.Time
 	return nil
 }
 
-func verifyStakerStartsSoon(isDurangoActive bool, chainTime, stakerStartTime time.Time) error {
+func verifyStakerStartsSoon(isDurangoActive bool, chainTime, stakerStartTime time.Time, minFutureStartTimeOffset time.Duration) error {
 	if isDurangoActive {
 		return nil
 	}
@@ -817,6 +836,15 @@ func verifyStakerStartsSoon(isDurangoActive bool, chainTime, stakerStartTime tim
 	maxStartTime := chainTime.Add(MaxFutureStartTime)
 	if stakerStartTime.After(maxStartTime) {
 		return ErrFutureStakeTime
+	}
+
+	minStartTime := maxStartTime.Add(-minFutureStartTimeOffset)
+	if stakerStartTime.Before(minStartTime) {
+		return fmt.Errorf(
+			"validator's start time (%s) at or before minStartTime (%s)",
+			stakerStartTime,
+			minStartTime,
+		)
 	}
 	return nil
 }

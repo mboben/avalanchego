@@ -38,7 +38,7 @@ func (a *Application) initString() {
 	a.str = fmt.Sprintf(
 		"%s/%d.%d.%d",
 		a.Name,
-		a.Major,sss
+		a.Major,
 		a.Minor,
 		a.Patch,
 	)

@@ -173,3 +173,11 @@ func NetworkID(networkName string) (uint32, error) {
 	}
 	return uint32(id), nil
 }
+
+func IsFlareNetworkID(networkID uint32) bool {
+	return networkID == FlareID || networkID == CostwoID || networkID == StagingID || networkID == LocalFlareID
+}
+
+func IsSgbNetworkID(networkID uint32) bool {
+	return networkID == SongbirdID || networkID == CostonID || networkID == LocalID
+}

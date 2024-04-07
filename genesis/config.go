@@ -239,39 +239,49 @@ func init() {
 	}
 
 	localConfig, err := unparsedLocalConfig.Parse()
+	if err != nil {
+		panic(err)
+	}
 	localConfig.CChainGenesis = localCChainGenesis
-	errs.Add(err)
 	LocalConfig = localConfig
 
 	flareConfig, err := unparsedFlareConfig.Parse()
-	errs.Add(err)
+	if err != nil {
+		panic(err)
+	}
 	FlareConfig = flareConfig
 
 	costwoConfig, err := unparsedCostwoConfig.Parse()
-	errs.Add(err)
+	if err != nil {
+		panic(err)
+	}
 	CostwoConfig = costwoConfig
 
 	stagingConfig, err := unparsedStagingConfig.Parse()
-	errs.Add(err)
+	if err != nil {
+		panic(err)
+	}
 	StagingConfig = stagingConfig
 
 	localFlareConfig, err := unparsedLocalFlareConfig.Parse()
-	errs.Add(err)
+	if err != nil {
+		panic(err)
+	}
 	LocalFlareConfig = localFlareConfig
 
 	songbirdConfig, err := unparsedSongbirdConfig.Parse()
+	if err != nil {
+		panic(err)
+	}
 	songbirdConfig.CChainGenesis = songbirdCChainGenesis
-	errs.Add(err)
 	SongbirdConfig = songbirdConfig
 
 	costonConfig, err := unparsedCostonConfig.Parse()
-	costonConfig.CChainGenesis = costonCChainGenesis
-	errs.Add(err)
-	CostonConfig = costonConfig
-
-	if errs.Errored() {
-		panic(errs.Err)
+	if err != nil {
+		panic(err)
 	}
+	costonConfig.CChainGenesis = costonCChainGenesis
+	CostonConfig = costonConfig
 }
 
 func GetConfig(networkID uint32) *Config {

@@ -481,12 +481,14 @@ func New(
 	}
 
 	// SGB-MERGE set uptimes of default validators
-	for _, vdr := range validators.DefaultValidatorList() {
-		s.uptimes[vdr.ID()] = &uptimeAndReward{
-			txID:        ids.Empty,
-			lastUpdated: s.GetTimestamp(),
-		}
-	}
+	// AVA-MERGE: add here default validators and and update their uptimes
+	// for _, vdr := range validators.DefaultValidatorList() {
+	// 	s.SetUptime()
+	// 	s.uptimes[vdr.ID()] = &uptimeAndReward{
+	// 		txID:        ids.Empty,
+	// 		lastUpdated: s.GetTimestamp(),
+	// 	}
+	// }
 
 	// Before we start accepting new blocks, we check if the pruning process needs
 	// to be run.
@@ -2271,12 +2273,11 @@ func writePendingDiff(
 		}
 	}
 
-
-		// AVA-MERGE: Check
-		// SGB-MERGE skip default validator
-		// if validators.IsDefaultValidator(nodeID) {
-		//	continue
-		// }
+	// AVA-MERGE: Check
+	// SGB-MERGE skip default validator
+	// if validators.IsDefaultValidator(nodeID) {
+	//	continue
+	// }
 	addedDelegatorIterator := NewTreeIterator(validatorDiff.addedDelegators)
 	defer addedDelegatorIterator.Release()
 	for addedDelegatorIterator.Next() {

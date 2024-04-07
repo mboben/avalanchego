@@ -35,6 +35,31 @@ func GetCurrentInflationSettings(currentTimestamp time.Time, networkID uint32, c
 	return s.MinValidatorStake, s.MaxValidatorStake, s.MinDelegatorStake, s.MinDelegationFee, s.MinStakeDuration, s.MinDelegateDuration, s.MaxStakeDuration, s.MinFutureStartTimeOffset, s.MaxValidatorWeightFactor, s.MinStakeStartTime
 }
 
+func GetCurrentValidatorRules(currentTimestamp time.Time, backend *Backend) *addValidatorRules {
+	s := inflationSettingsVariants.GetValue(backend.Ctx.NetworkID)(currentTimestamp, backend.Config)
+	return &addValidatorRules{
+		assetID:           backend.Ctx.AVAXAssetID,
+		minValidatorStake: s.MinValidatorStake,
+		maxValidatorStake: s.MaxValidatorStake,
+		minStakeDuration:  s.MinStakeDuration,
+		maxStakeDuration:  s.MaxStakeDuration,
+		minDelegationFee:  s.MinDelegationFee,
+		minStakeStartTime: s.MinStakeStartTime,
+	}
+}
+
+func GetCurrentDelegatorRules(currentTimestamp time.Time, backend *Backend) *addDelegatorRules {
+	s := inflationSettingsVariants.GetValue(backend.Ctx.NetworkID)(currentTimestamp, backend.Config)
+	return &addDelegatorRules{
+		assetID:                  backend.Ctx.AVAXAssetID,
+		minDelegatorStake:        s.MinDelegatorStake,
+		maxValidatorStake:        s.MaxValidatorStake,
+		minStakeDuration:         s.MinDelegateDuration,
+		maxStakeDuration:         s.MaxStakeDuration,
+		maxValidatorWeightFactor: byte(s.MaxValidatorWeightFactor),
+	}
+}
+
 func getFlareInflationSettings(currentTimestamp time.Time, _ *config.Config) InflationSettings {
 	switch {
 	case currentTimestamp.Before(time.Date(2023, time.October, 1, 0, 0, 0, 0, time.UTC)):

@@ -1,26 +1,8 @@
 #!/usr/bin/env bash
 
-set -euo pipefail
-
-print_usage() {
-  printf "Usage: build_avalanche [OPTIONS]
-
-  Build avalanchego
-
-  Options:
-
-    -r  Build with race detector
-"
-}
-
-race=''
-while getopts 'r' flag; do
-  case "${flag}" in
-    r) race='-race' ;;
-    *) print_usage
-      exit 1 ;;
-  esac
-done
+set -o errexit
+set -o nounset
+set -o pipefail
 
 # Changes to the minimum golang version must also be replicated in
 # scripts/build_avalanche.sh (here)
@@ -52,9 +34,10 @@ fi
 
 # Avalanchego root folder
 AVALANCHE_PATH=$( cd "$( dirname "${BASH_SOURCE[0]}" )"; cd .. && pwd )
+# Load the versions
+source "$AVALANCHE_PATH"/scripts/versions.sh
 # Load the constants
 source "$AVALANCHE_PATH"/scripts/constants.sh
 
-build_args="$race"
 echo "Building AvalancheGo..."
 go build -modcacherw -ldflags "-X github.com/ava-labs/avalanchego/version.GitCommit=$git_commit $static_ld_flags" -o "$avalanchego_path" "$AVALANCHE_PATH/main/"*.go

@@ -16,7 +16,11 @@ GOPATH="$(go env GOPATH)"
 coreth_path="$AVALANCHE_PATH/../coreth"
 
 # Where AvalancheGo binary goes
-avalanchego_path="$AVALANCHE_PATH/build/avalanchego"
+# avalanchego_path="$AVALANCHE_PATH/build/avalanchego"
+build_dir="$AVALANCHE_PATH/build"
+avalanchego_path="$build_dir/avalanchego"
+plugin_dir="$build_dir/plugins"
+evm_path="$plugin_dir/evm"
 
 # Avalabs docker hub
 # avaplatform/avalanchego - defaults to local as to avoid unintentional pushes
@@ -25,7 +29,7 @@ avalanchego_dockerhub_repo=${DOCKER_REPO:-"avalanchego"}
 
 # Current branch
 # TODO: fix "fatal: No names found, cannot describe anything" in github CI
-current_branch=$(git symbolic-ref -q --short HEAD || git describe --tags --exact-match || true)
+current_branch=$(git symbolic-ref -q --short HEAD || git describe --tags || true)
 
 git_commit=${AVALANCHEGO_COMMIT:-$( git rev-list -1 HEAD )}
 

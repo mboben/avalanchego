@@ -167,6 +167,11 @@ func verifyAddSubnetValidatorTx(
 		return err
 	}
 
+	// Flare does not allow creation of subnets
+	if constants.IsFlareNetworkID(backend.Ctx.NetworkID) || constants.IsSgbNetworkID(backend.Ctx.NetworkID) {
+		return errWrongTxType
+	}
+
 	duration := tx.Validator.Duration()
 	switch {
 	case duration < backend.Config.MinStakeDuration:

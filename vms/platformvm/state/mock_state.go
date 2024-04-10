@@ -334,6 +334,20 @@ func (mr *MockStateMockRecorder) GetLastAccepted() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLastAccepted", reflect.TypeOf((*MockState)(nil).GetLastAccepted))
 }
 
+// GetNetworkID mocks base method.
+func (m *MockChain) GetNetworkID() uint32 {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetNetworkID")
+	ret0, _ := ret[0].(uint32)
+	return ret0
+}
+
+// GetNetworkID indicates an expected call of GetNetworkID.
+func (mr *MockChainMockRecorder) GetNetworkID() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNetworkID", reflect.TypeOf((*MockChain)(nil).GetNetworkID))
+}
+
 // GetPendingDelegatorIterator mocks base method.
 func (m *MockState) GetPendingDelegatorIterator(arg0 ids.ID, arg1 ids.NodeID) (StakerIterator, error) {
 	m.ctrl.T.Helper()

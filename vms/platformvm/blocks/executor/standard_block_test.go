@@ -338,7 +338,7 @@ func TestBlueberryStandardBlockUpdatePrimaryNetworkStakers(t *testing.T) {
 	currentValidator, err := updatedState.GetCurrentValidator(constants.PrimaryNetworkID, nodeID)
 	require.NoError(err)
 	require.True(currentValidator.TxID == addPendingValidatorTx.ID(), "Added the wrong tx to the validator set")
-	require.EqualValues(1370, currentValidator.PotentialReward) // See rewards tests to explain why 1370
+	require.EqualValues(0, currentValidator.PotentialReward) // Rewards are 0 on Flare
 
 	_, err = updatedState.GetPendingValidator(constants.PrimaryNetworkID, nodeID)
 	require.ErrorIs(err, database.ErrNotFound)

@@ -345,7 +345,7 @@ func TestGenesis(t *testing.T) {
 		},
 		{
 			networkID:  constants.SongbirdID,
-			expectedID: "wehzwSstW6ChWVj356tLr6sJfSb8PaZMhcerXUyxsAUzia1Gr",
+			expectedID: "2r5gyF26aYN9BHaFYaDDFGpx2tiq4bz3GCiYUGo4QzKpzHeX9g",
 		},
 		{
 			networkID:  constants.LocalID,
@@ -397,7 +397,7 @@ func TestVMGenesis(t *testing.T) {
 				},
 				{
 					vmID:       constants.EVMID,
-					expectedID: "2aamPVJ7SXz7DBUxFNY1Lyga52KWaVUH2Gz9Fetxo5gwjY5a29",
+					expectedID: "n5Q3QkMnpoq9h6nA36WrL5sH7fDNcyCBkMtP1r9He7AcQeR7y",
 				},
 			},
 		},

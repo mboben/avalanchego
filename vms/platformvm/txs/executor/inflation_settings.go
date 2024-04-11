@@ -24,7 +24,7 @@ type InflationSettings struct {
 	MinStakeDuration         time.Duration
 	MinDelegateDuration      time.Duration
 	MaxStakeDuration         time.Duration
-	MinFutureStartTimeOffset time.Duration
+	MinFutureStartTimeOffset time.Duration // Will not be checked when addPermissionlessValidator tx is used
 	MaxValidatorWeightFactor uint64
 	MinStakeStartTime        time.Time
 }
@@ -33,6 +33,31 @@ type InflationSettings struct {
 func GetCurrentInflationSettings(currentTimestamp time.Time, networkID uint32, config *config.Config) (uint64, uint64, uint64, uint32, time.Duration, time.Duration, time.Duration, time.Duration, uint64, time.Time) {
 	s := inflationSettingsVariants.GetValue(networkID)(currentTimestamp, config)
 	return s.MinValidatorStake, s.MaxValidatorStake, s.MinDelegatorStake, s.MinDelegationFee, s.MinStakeDuration, s.MinDelegateDuration, s.MaxStakeDuration, s.MinFutureStartTimeOffset, s.MaxValidatorWeightFactor, s.MinStakeStartTime
+}
+
+func getCurrentValidatorRules(currentTimestamp time.Time, backend *Backend) *addValidatorRules {
+	s := inflationSettingsVariants.GetValue(backend.Ctx.NetworkID)(currentTimestamp, backend.Config)
+	return &addValidatorRules{
+		assetID:           backend.Ctx.AVAXAssetID,
+		minValidatorStake: s.MinValidatorStake,
+		maxValidatorStake: s.MaxValidatorStake,
+		minStakeDuration:  s.MinStakeDuration,
+		maxStakeDuration:  s.MaxStakeDuration,
+		minDelegationFee:  s.MinDelegationFee,
+		minStakeStartTime: s.MinStakeStartTime,
+	}
+}
+
+func getCurrentDelegatorRules(currentTimestamp time.Time, backend *Backend) *addDelegatorRules {
+	s := inflationSettingsVariants.GetValue(backend.Ctx.NetworkID)(currentTimestamp, backend.Config)
+	return &addDelegatorRules{
+		assetID:                  backend.Ctx.AVAXAssetID,
+		minDelegatorStake:        s.MinDelegatorStake,
+		maxValidatorStake:        s.MaxValidatorStake,
+		minStakeDuration:         s.MinDelegateDuration,
+		maxStakeDuration:         s.MaxStakeDuration,
+		maxValidatorWeightFactor: byte(s.MaxValidatorWeightFactor),
+	}
 }
 
 func getFlareInflationSettings(currentTimestamp time.Time, _ *config.Config) InflationSettings {

@@ -338,17 +338,20 @@ func verifyAddDelegatorTx(
 		return nil, err
 	}
 
+	currentTimestamp := chainState.GetTimestamp()
+	_, maxValidatorStake, minDelegatorStake, _, _, minStakeDuration, maxStakeDuration, minFutureStartTimeOffset, maxValidatorWeightFactor, _ := GetCurrentInflationSettings(currentTimestamp, backend.Ctx.NetworkID, backend.Config)
+
 	duration := tx.Validator.Duration()
 	switch {
-	case duration < backend.Config.MinStakeDuration:
+	case duration < minStakeDuration:
 		// Ensure staking length is not too short
 		return nil, errStakeTooShort
 
-	case duration > backend.Config.MaxStakeDuration:
+	case duration > maxStakeDuration:
 		// Ensure staking length is not too long
 		return nil, errStakeTooLong
 
-	case tx.Validator.Wght < backend.Config.MinDelegatorStake:
+	case tx.Validator.Wght < minDelegatorStake:
 		// Ensure validator is staking at least the minimum amount
 		return nil, errWeightTooSmall
 	}
@@ -361,7 +364,6 @@ func verifyAddDelegatorTx(
 		return outs, nil
 	}
 
-	currentTimestamp := chainState.GetTimestamp()
 	// Ensure the proposed validator starts after the current timestamp
 	validatorStartTime := tx.StartTime()
 	if !currentTimestamp.Before(validatorStartTime) {
@@ -382,13 +384,13 @@ func verifyAddDelegatorTx(
 		)
 	}
 
-	maximumWeight, err := math.Mul64(MaxValidatorWeightFactor, primaryNetworkValidator.Weight)
+	maximumWeight, err := math.Mul64(maxValidatorWeightFactor, primaryNetworkValidator.Weight)
 	if err != nil {
 		return nil, errStakeOverflow
 	}
 
 	if backend.Config.IsApricotPhase3Activated(currentTimestamp) {
-		maximumWeight = math.Min64(maximumWeight, backend.Config.MaxValidatorStake)
+		maximumWeight = math.Min64(maximumWeight, maxValidatorStake)
 	}
 
 	txID := sTx.ID()
@@ -422,7 +424,14 @@ func verifyAddDelegatorTx(
 	if validatorStartTime.After(maxStartTime) {
 		return nil, errFutureStakeTime
 	}
-
+	minStartTime := maxStartTime.Add(-minFutureStartTimeOffset)
+	if validatorStartTime.Before(minStartTime) {
+		return nil, fmt.Errorf(
+			"validator's start time (%s) at or before minStartTime (%s)",
+			validatorStartTime,
+			minStartTime,
+		)
+	}
 	return outs, nil
 }
 
@@ -455,9 +464,17 @@ func verifyAddPermissionlessValidatorTx(
 		)
 	}
 
-	validatorRules, err := getValidatorRules(backend, chainState, tx.Subnet)
+	validatorRules, err := getValidatorRules(currentTimestamp, backend, chainState, tx.Subnet)
 	if err != nil {
 		return err
+	}
+
+	if !validatorRules.minStakeStartTime.Before(startTime) {
+		return fmt.Errorf(
+			"validator's start time (%s) at or before minStakeStartTime (%s)",
+			startTime,
+			validatorRules.minStakeStartTime,
+		)
 	}
 
 	duration := tx.Validator.Duration()
@@ -557,7 +574,6 @@ func verifyAddPermissionlessValidatorTx(
 	if startTime.After(maxStartTime) {
 		return errFutureStakeTime
 	}
-
 	return nil
 }
 
@@ -568,22 +584,17 @@ type addValidatorRules struct {
 	minStakeDuration  time.Duration
 	maxStakeDuration  time.Duration
 	minDelegationFee  uint32
+	minStakeStartTime time.Time
 }
 
 func getValidatorRules(
+	timestamp time.Time,
 	backend *Backend,
 	chainState state.Chain,
 	subnetID ids.ID,
 ) (*addValidatorRules, error) {
 	if subnetID == constants.PrimaryNetworkID {
-		return &addValidatorRules{
-			assetID:           backend.Ctx.AVAXAssetID,
-			minValidatorStake: backend.Config.MinValidatorStake,
-			maxValidatorStake: backend.Config.MaxValidatorStake,
-			minStakeDuration:  backend.Config.MinStakeDuration,
-			maxStakeDuration:  backend.Config.MaxStakeDuration,
-			minDelegationFee:  backend.Config.MinDelegationFee,
-		}, nil
+		return getCurrentValidatorRules(timestamp, backend), nil
 	}
 
 	transformSubnetIntf, err := chainState.GetSubnetTransformation(subnetID)
@@ -633,7 +644,7 @@ func verifyAddPermissionlessDelegatorTx(
 		)
 	}
 
-	delegatorRules, err := getDelegatorRules(backend, chainState, tx.Subnet)
+	delegatorRules, err := getDelegatorRules(currentTimestamp, backend, chainState, tx.Subnet)
 	if err != nil {
 		return err
 	}
@@ -748,19 +759,13 @@ type addDelegatorRules struct {
 }
 
 func getDelegatorRules(
+	timestamp time.Time,
 	backend *Backend,
 	chainState state.Chain,
 	subnetID ids.ID,
 ) (*addDelegatorRules, error) {
 	if subnetID == constants.PrimaryNetworkID {
-		return &addDelegatorRules{
-			assetID:                  backend.Ctx.AVAXAssetID,
-			minDelegatorStake:        backend.Config.MinDelegatorStake,
-			maxValidatorStake:        backend.Config.MaxValidatorStake,
-			minStakeDuration:         backend.Config.MinStakeDuration,
-			maxStakeDuration:         backend.Config.MaxStakeDuration,
-			maxValidatorWeightFactor: MaxValidatorWeightFactor,
-		}, nil
+		return getCurrentDelegatorRules(timestamp, backend), nil
 	}
 
 	transformSubnetIntf, err := chainState.GetSubnetTransformation(subnetID)

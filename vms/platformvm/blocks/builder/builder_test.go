@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/ava-labs/avalanchego/ids"
-	"github.com/ava-labs/avalanchego/snow/validators"
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/utils/timer/mockable"
 	"github.com/ava-labs/avalanchego/vms/platformvm/blocks/executor"
@@ -25,7 +24,6 @@ import (
 func TestBlockBuilderAddLocalTx(t *testing.T) {
 	require := require.New(t)
 
-	validators.InitializeDefaultValidators(0)
 	env := newEnvironment(t)
 	env.ctx.Lock.Lock()
 	defer func() {

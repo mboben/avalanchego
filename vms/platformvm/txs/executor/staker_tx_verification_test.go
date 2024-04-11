@@ -558,6 +558,7 @@ func TestGetValidatorRules(t *testing.T) {
 				minStakeDuration:  config.MinStakeDuration,
 				maxStakeDuration:  config.MaxStakeDuration,
 				minDelegationFee:  config.MinDelegationFee,
+				minStakeStartTime: time.Date(1970, time.January, 1, 0, 0, 0, 0, time.UTC),
 			},
 		},
 		{
@@ -625,7 +626,7 @@ func TestGetValidatorRules(t *testing.T) {
 			defer ctrl.Finish()
 
 			chainState := tt.chainStateF(ctrl)
-			rules, err := getValidatorRules(tt.backend, chainState, tt.subnetID)
+			rules, err := getValidatorRules(time.Time{}, tt.backend, chainState, tt.subnetID)
 			if tt.expectedErr != nil {
 				require.ErrorIs(tt.expectedErr, err)
 				return
@@ -745,7 +746,7 @@ func TestGetDelegatorRules(t *testing.T) {
 			defer ctrl.Finish()
 
 			chainState := tt.chainStateF(ctrl)
-			rules, err := getDelegatorRules(tt.backend, chainState, tt.subnetID)
+			rules, err := getDelegatorRules(time.Time{}, tt.backend, chainState, tt.subnetID)
 			if tt.expectedErr != nil {
 				require.ErrorIs(tt.expectedErr, err)
 				return

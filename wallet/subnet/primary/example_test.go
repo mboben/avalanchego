@@ -1,4 +1,4 @@
-// Copyright (C) 2019-2022, Ava Labs, Inc. All rights reserved.
+// Copyright (C) 2019-2023, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
 package primary
@@ -16,7 +16,7 @@ import (
 	"github.com/ava-labs/avalanchego/vms/components/verify"
 	"github.com/ava-labs/avalanchego/vms/platformvm/reward"
 	"github.com/ava-labs/avalanchego/vms/platformvm/signer"
-	"github.com/ava-labs/avalanchego/vms/platformvm/validator"
+	"github.com/ava-labs/avalanchego/vms/platformvm/txs"
 	"github.com/ava-labs/avalanchego/vms/secp256k1fx"
 )
 
@@ -68,7 +68,7 @@ func ExampleWallet() {
 	}
 	log.Printf("created X-chain asset %s in %s\n", createAssetTxID, time.Since(createAssetStartTime))
 
-	// Send 100 schmeckles to the P-chain.
+	// Send 100 MegaAvax to the P-chain.
 	exportStartTime := time.Now()
 	exportTxID, err := xWallet.IssueExportTx(
 		constants.PlatformChainID,
@@ -90,7 +90,7 @@ func ExampleWallet() {
 	}
 	log.Printf("issued X->P export %s in %s\n", exportTxID, time.Since(exportStartTime))
 
-	// Import the 100 schmeckles from the X-chain into the P-chain.
+	// Import the 100 MegaAvax from the X-chain into the P-chain.
 	importStartTime := time.Now()
 	importTxID, err := pWallet.IssueImportTx(xChainID, owner)
 	if err != nil {
@@ -133,8 +133,8 @@ func ExampleWallet() {
 	addPermissionlessValidatorStartTime := time.Now()
 	startTime := time.Now().Add(time.Minute)
 	addSubnetValidatorTxID, err := pWallet.IssueAddPermissionlessValidatorTx(
-		&validator.SubnetValidator{
-			Validator: validator.Validator{
+		&txs.SubnetValidator{
+			Validator: txs.Validator{
 				NodeID: genesis.LocalConfig.InitialStakers[0].NodeID,
 				Start:  uint64(startTime.Unix()),
 				End:    uint64(startTime.Add(5 * time.Second).Unix()),
@@ -156,8 +156,8 @@ func ExampleWallet() {
 
 	addPermissionlessDelegatorStartTime := time.Now()
 	addSubnetDelegatorTxID, err := pWallet.IssueAddPermissionlessDelegatorTx(
-		&validator.SubnetValidator{
-			Validator: validator.Validator{
+		&txs.SubnetValidator{
+			Validator: txs.Validator{
 				NodeID: genesis.LocalConfig.InitialStakers[0].NodeID,
 				Start:  uint64(startTime.Unix()),
 				End:    uint64(startTime.Add(5 * time.Second).Unix()),

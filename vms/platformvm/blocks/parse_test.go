@@ -1,4 +1,4 @@
-// Copyright (C) 2019-2022, Ava Labs, Inc. All rights reserved.
+// Copyright (C) 2019-2023, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
 package blocks
@@ -11,13 +11,13 @@ import (
 
 	"github.com/ava-labs/avalanchego/codec"
 	"github.com/ava-labs/avalanchego/ids"
-	"github.com/ava-labs/avalanchego/utils/crypto"
+	"github.com/ava-labs/avalanchego/utils/crypto/secp256k1"
 	"github.com/ava-labs/avalanchego/vms/components/avax"
 	"github.com/ava-labs/avalanchego/vms/platformvm/txs"
 	"github.com/ava-labs/avalanchego/vms/secp256k1fx"
 )
 
-var preFundedKeys = crypto.BuildTestKeys()
+var preFundedKeys = secp256k1.TestKeys()
 
 func TestStandardBlocks(t *testing.T) {
 	// check Apricot standard block can be built and parsed
@@ -47,28 +47,28 @@ func TestStandardBlocks(t *testing.T) {
 		require.True(ok)
 		require.Equal(txs, parsed.Txs())
 
-		// check that blueberry standard block can be built and parsed
-		blueberryStandardBlk, err := NewBlueberryStandardBlock(blkTimestamp, parentID, height, txs)
+		// check that banff standard block can be built and parsed
+		banffStandardBlk, err := NewBanffStandardBlock(blkTimestamp, parentID, height, txs)
 		require.NoError(err)
 
 		// parse block
-		parsed, err = Parse(cdc, blueberryStandardBlk.Bytes())
+		parsed, err = Parse(cdc, banffStandardBlk.Bytes())
 		require.NoError(err)
 
 		// compare content
-		require.Equal(blueberryStandardBlk.ID(), parsed.ID())
-		require.Equal(blueberryStandardBlk.Bytes(), parsed.Bytes())
-		require.Equal(blueberryStandardBlk.Parent(), parsed.Parent())
-		require.Equal(blueberryStandardBlk.Height(), parsed.Height())
-		parsedBlueberryStandardBlk, ok := parsed.(*BlueberryStandardBlock)
+		require.Equal(banffStandardBlk.ID(), parsed.ID())
+		require.Equal(banffStandardBlk.Bytes(), parsed.Bytes())
+		require.Equal(banffStandardBlk.Parent(), parsed.Parent())
+		require.Equal(banffStandardBlk.Height(), parsed.Height())
+		parsedBanffStandardBlk, ok := parsed.(*BanffStandardBlock)
 		require.True(ok)
-		require.Equal(txs, parsedBlueberryStandardBlk.Txs())
+		require.Equal(txs, parsedBanffStandardBlk.Txs())
 
-		// timestamp check for blueberry blocks only
-		require.Equal(blueberryStandardBlk.Timestamp(), parsedBlueberryStandardBlk.Timestamp())
+		// timestamp check for banff blocks only
+		require.Equal(banffStandardBlk.Timestamp(), parsedBanffStandardBlk.Timestamp())
 
 		// backward compatibility check
-		require.Equal(parsed.Txs(), parsedBlueberryStandardBlk.Txs())
+		require.Equal(parsed.Txs(), parsedBanffStandardBlk.Txs())
 	}
 }
 
@@ -104,8 +104,8 @@ func TestProposalBlocks(t *testing.T) {
 		require.True(ok)
 		require.Equal([]*txs.Tx{tx}, parsedApricotProposalBlk.Txs())
 
-		// check that blueberry proposal block can be built and parsed
-		blueberryProposalBlk, err := NewBlueberryProposalBlock(
+		// check that banff proposal block can be built and parsed
+		banffProposalBlk, err := NewBanffProposalBlock(
 			blkTimestamp,
 			parentID,
 			height,
@@ -114,23 +114,23 @@ func TestProposalBlocks(t *testing.T) {
 		require.NoError(err)
 
 		// parse block
-		parsed, err = Parse(cdc, blueberryProposalBlk.Bytes())
+		parsed, err = Parse(cdc, banffProposalBlk.Bytes())
 		require.NoError(err)
 
 		// compare content
-		require.Equal(blueberryProposalBlk.ID(), parsed.ID())
-		require.Equal(blueberryProposalBlk.Bytes(), parsed.Bytes())
-		require.Equal(blueberryProposalBlk.Parent(), blueberryProposalBlk.Parent())
-		require.Equal(blueberryProposalBlk.Height(), parsed.Height())
-		parsedBlueberryProposalBlk, ok := parsed.(*BlueberryProposalBlock)
+		require.Equal(banffProposalBlk.ID(), parsed.ID())
+		require.Equal(banffProposalBlk.Bytes(), parsed.Bytes())
+		require.Equal(banffProposalBlk.Parent(), banffProposalBlk.Parent())
+		require.Equal(banffProposalBlk.Height(), parsed.Height())
+		parsedBanffProposalBlk, ok := parsed.(*BanffProposalBlock)
 		require.True(ok)
-		require.Equal([]*txs.Tx{tx}, parsedBlueberryProposalBlk.Txs())
+		require.Equal([]*txs.Tx{tx}, parsedBanffProposalBlk.Txs())
 
-		// timestamp check for blueberry blocks only
-		require.Equal(blueberryProposalBlk.Timestamp(), parsedBlueberryProposalBlk.Timestamp())
+		// timestamp check for banff blocks only
+		require.Equal(banffProposalBlk.Timestamp(), parsedBanffProposalBlk.Timestamp())
 
 		// backward compatibility check
-		require.Equal(parsedApricotProposalBlk.Txs(), parsedBlueberryProposalBlk.Txs())
+		require.Equal(parsedApricotProposalBlk.Txs(), parsedBanffProposalBlk.Txs())
 	}
 }
 
@@ -156,24 +156,24 @@ func TestCommitBlock(t *testing.T) {
 		require.Equal(apricotCommitBlk.Parent(), parsed.Parent())
 		require.Equal(apricotCommitBlk.Height(), parsed.Height())
 
-		// check that blueberry commit block can be built and parsed
-		blueberryCommitBlk, err := NewBlueberryCommitBlock(blkTimestamp, parentID, height)
+		// check that banff commit block can be built and parsed
+		banffCommitBlk, err := NewBanffCommitBlock(blkTimestamp, parentID, height)
 		require.NoError(err)
 
 		// parse block
-		parsed, err = Parse(cdc, blueberryCommitBlk.Bytes())
+		parsed, err = Parse(cdc, banffCommitBlk.Bytes())
 		require.NoError(err)
 
 		// compare content
-		require.Equal(blueberryCommitBlk.ID(), parsed.ID())
-		require.Equal(blueberryCommitBlk.Bytes(), parsed.Bytes())
-		require.Equal(blueberryCommitBlk.Parent(), blueberryCommitBlk.Parent())
-		require.Equal(blueberryCommitBlk.Height(), parsed.Height())
+		require.Equal(banffCommitBlk.ID(), parsed.ID())
+		require.Equal(banffCommitBlk.Bytes(), parsed.Bytes())
+		require.Equal(banffCommitBlk.Parent(), banffCommitBlk.Parent())
+		require.Equal(banffCommitBlk.Height(), parsed.Height())
 
-		// timestamp check for blueberry blocks only
-		parsedBlueberryCommitBlk, ok := parsed.(*BlueberryCommitBlock)
+		// timestamp check for banff blocks only
+		parsedBanffCommitBlk, ok := parsed.(*BanffCommitBlock)
 		require.True(ok)
-		require.Equal(blueberryCommitBlk.Timestamp(), parsedBlueberryCommitBlk.Timestamp())
+		require.Equal(banffCommitBlk.Timestamp(), parsedBanffCommitBlk.Timestamp())
 	}
 }
 
@@ -199,24 +199,24 @@ func TestAbortBlock(t *testing.T) {
 		require.Equal(apricotAbortBlk.Parent(), parsed.Parent())
 		require.Equal(apricotAbortBlk.Height(), parsed.Height())
 
-		// check that blueberry abort block can be built and parsed
-		blueberryAbortBlk, err := NewBlueberryAbortBlock(blkTimestamp, parentID, height)
+		// check that banff abort block can be built and parsed
+		banffAbortBlk, err := NewBanffAbortBlock(blkTimestamp, parentID, height)
 		require.NoError(err)
 
 		// parse block
-		parsed, err = Parse(cdc, blueberryAbortBlk.Bytes())
+		parsed, err = Parse(cdc, banffAbortBlk.Bytes())
 		require.NoError(err)
 
 		// compare content
-		require.Equal(blueberryAbortBlk.ID(), parsed.ID())
-		require.Equal(blueberryAbortBlk.Bytes(), parsed.Bytes())
-		require.Equal(blueberryAbortBlk.Parent(), blueberryAbortBlk.Parent())
-		require.Equal(blueberryAbortBlk.Height(), parsed.Height())
+		require.Equal(banffAbortBlk.ID(), parsed.ID())
+		require.Equal(banffAbortBlk.Bytes(), parsed.Bytes())
+		require.Equal(banffAbortBlk.Parent(), banffAbortBlk.Parent())
+		require.Equal(banffAbortBlk.Height(), parsed.Height())
 
-		// timestamp check for blueberry blocks only
-		parsedBlueberryAbortBlk, ok := parsed.(*BlueberryAbortBlock)
+		// timestamp check for banff blocks only
+		parsedBanffAbortBlk, ok := parsed.(*BanffAbortBlock)
 		require.True(ok)
-		require.Equal(blueberryAbortBlk.Timestamp(), parsedBlueberryAbortBlk.Timestamp())
+		require.Equal(banffAbortBlk.Timestamp(), parsedBanffAbortBlk.Timestamp())
 	}
 }
 
@@ -294,7 +294,7 @@ func testAtomicTx() (*txs.Tx, error) {
 			},
 		}},
 	}
-	signers := [][]*crypto.PrivateKeySECP256K1R{{preFundedKeys[0]}}
+	signers := [][]*secp256k1.PrivateKey{{preFundedKeys[0]}}
 	return txs.NewSigned(utx, txs.Codec, signers)
 }
 
@@ -338,7 +338,7 @@ func testDecisionTxs() ([]*txs.Tx, error) {
 			SubnetAuth:  &secp256k1fx.Input{SigIndices: []uint32{1}},
 		}
 
-		signers := [][]*crypto.PrivateKeySECP256K1R{{preFundedKeys[0]}}
+		signers := [][]*secp256k1.PrivateKey{{preFundedKeys[0]}}
 		tx, err := txs.NewSigned(utx, txs.Codec, signers)
 		if err != nil {
 			return nil, err
@@ -353,6 +353,6 @@ func testProposalTx() (*txs.Tx, error) {
 		TxID: ids.ID{'r', 'e', 'w', 'a', 'r', 'd', 'I', 'D'},
 	}
 
-	signers := [][]*crypto.PrivateKeySECP256K1R{{preFundedKeys[0]}}
+	signers := [][]*secp256k1.PrivateKey{{preFundedKeys[0]}}
 	return txs.NewSigned(utx, txs.Codec, signers)
 }

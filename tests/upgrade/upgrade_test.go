@@ -1,4 +1,4 @@
-// Copyright (C) 2019-2022, Ava Labs, Inc. All rights reserved.
+// Copyright (C) 2019-2023, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
 // Runs upgrade tests.
@@ -95,7 +95,7 @@ var _ = ginkgo.BeforeSuite(func() {
 	)
 	cancel()
 	gomega.Expect(err).Should(gomega.BeNil())
-	tests.Outf("{{green}}successfully started network-runner :{{/}} %+v\n", resp.ClusterInfo.NodeNames)
+	tests.Outf("{{green}}successfully started network-runner: {{/}} %+v\n", resp.ClusterInfo.NodeNames)
 
 	// start is async, so wait some time for cluster health
 	time.Sleep(time.Minute)

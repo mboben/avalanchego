@@ -1,4 +1,4 @@
-// Copyright (C) 2019-2022, Ava Labs, Inc. All rights reserved.
+// Copyright (C) 2019-2023, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
 package executor
@@ -10,7 +10,7 @@ import (
 	"github.com/ava-labs/avalanchego/vms/platformvm/blocks"
 )
 
-var _ blocks.Visitor = &verifier{}
+var _ blocks.Visitor = (*verifier)(nil)
 
 // options supports build new option blocks
 type options struct {
@@ -19,21 +19,21 @@ type options struct {
 	abortBlock  blocks.Block
 }
 
-func (*options) BlueberryAbortBlock(*blocks.BlueberryAbortBlock) error {
+func (*options) BanffAbortBlock(*blocks.BanffAbortBlock) error {
 	return snowman.ErrNotOracle
 }
 
-func (*options) BlueberryCommitBlock(*blocks.BlueberryCommitBlock) error {
+func (*options) BanffCommitBlock(*blocks.BanffCommitBlock) error {
 	return snowman.ErrNotOracle
 }
 
-func (o *options) BlueberryProposalBlock(b *blocks.BlueberryProposalBlock) error {
+func (o *options) BanffProposalBlock(b *blocks.BanffProposalBlock) error {
 	timestamp := b.Timestamp()
 	blkID := b.ID()
 	nextHeight := b.Height() + 1
 
 	var err error
-	o.commitBlock, err = blocks.NewBlueberryCommitBlock(timestamp, blkID, nextHeight)
+	o.commitBlock, err = blocks.NewBanffCommitBlock(timestamp, blkID, nextHeight)
 	if err != nil {
 		return fmt.Errorf(
 			"failed to create commit block: %w",
@@ -41,7 +41,7 @@ func (o *options) BlueberryProposalBlock(b *blocks.BlueberryProposalBlock) error
 		)
 	}
 
-	o.abortBlock, err = blocks.NewBlueberryAbortBlock(timestamp, blkID, nextHeight)
+	o.abortBlock, err = blocks.NewBanffAbortBlock(timestamp, blkID, nextHeight)
 	if err != nil {
 		return fmt.Errorf(
 			"failed to create abort block: %w",
@@ -51,7 +51,7 @@ func (o *options) BlueberryProposalBlock(b *blocks.BlueberryProposalBlock) error
 	return nil
 }
 
-func (*options) BlueberryStandardBlock(*blocks.BlueberryStandardBlock) error {
+func (*options) BanffStandardBlock(*blocks.BanffStandardBlock) error {
 	return snowman.ErrNotOracle
 }
 

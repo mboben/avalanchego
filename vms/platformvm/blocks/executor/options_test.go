@@ -1,4 +1,4 @@
-// Copyright (C) 2019-2022, Ava Labs, Inc. All rights reserved.
+// Copyright (C) 2019-2023, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
 package executor
@@ -15,9 +15,9 @@ import (
 
 func TestOptionsUnexpectedBlockType(t *testing.T) {
 	tests := []blocks.Block{
-		&blocks.BlueberryAbortBlock{},
-		&blocks.BlueberryCommitBlock{},
-		&blocks.BlueberryStandardBlock{},
+		&blocks.BanffAbortBlock{},
+		&blocks.BanffCommitBlock{},
+		&blocks.BanffStandardBlock{},
 		&blocks.ApricotAbortBlock{},
 		&blocks.ApricotCommitBlock{},
 		&blocks.ApricotStandardBlock{},

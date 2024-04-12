@@ -1,4 +1,4 @@
-// Copyright (C) 2019-2022, Ava Labs, Inc. All rights reserved.
+// Copyright (C) 2019-2023, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
 package poll
@@ -13,6 +13,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/ava-labs/avalanchego/ids"
+	"github.com/ava-labs/avalanchego/utils/bag"
 	"github.com/ava-labs/avalanchego/utils/linkedhashmap"
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/utils/metric"
@@ -42,7 +43,7 @@ type set struct {
 	durPolls metric.Averager
 	factory  Factory
 	// maps requestID -> poll
-	polls linkedhashmap.LinkedHashmap
+	polls linkedhashmap.LinkedHashmap[uint32, pollHolder]
 }
 
 // NewSet returns a new empty set of polls
@@ -80,14 +81,14 @@ func NewSet(
 		numPolls: numPolls,
 		durPolls: durPolls,
 		factory:  factory,
-		polls:    linkedhashmap.New(),
+		polls:    linkedhashmap.New[uint32, pollHolder](),
 	}
 }
 
 // Add to the current set of polls
 // Returns true if the poll was registered correctly and the network sample
-//         should be made.
-func (s *set) Add(requestID uint32, vdrs ids.NodeIDBag) bool {
+// should be made.
+func (s *set) Add(requestID uint32, vdrs bag.Bag[ids.NodeID]) bool {
 	if _, exists := s.polls.Get(requestID); exists {
 		s.log.Debug("dropping poll",
 			zap.String("reason", "duplicated request"),
@@ -111,8 +112,8 @@ func (s *set) Add(requestID uint32, vdrs ids.NodeIDBag) bool {
 
 // Vote registers the connections response to a query for [id]. If there was no
 // query, or the response has already be registered, nothing is performed.
-func (s *set) Vote(requestID uint32, vdr ids.NodeID, vote ids.ID) []ids.Bag {
-	pollHolderIntf, exists := s.polls.Get(requestID)
+func (s *set) Vote(requestID uint32, vdr ids.NodeID, vote ids.ID) []bag.Bag[ids.ID] {
+	holder, exists := s.polls.Get(requestID)
 	if !exists {
 		s.log.Verbo("dropping vote",
 			zap.String("reason", "unknown poll"),
@@ -122,7 +123,6 @@ func (s *set) Vote(requestID uint32, vdr ids.NodeID, vote ids.ID) []ids.Bag {
 		return nil
 	}
 
-	holder := pollHolderIntf.(pollHolder)
 	p := holder.GetPoll()
 
 	s.log.Verbo("processing vote",
@@ -140,13 +140,13 @@ func (s *set) Vote(requestID uint32, vdr ids.NodeID, vote ids.ID) []ids.Bag {
 }
 
 // processFinishedPolls checks for other dependent finished polls and returns them all if finished
-func (s *set) processFinishedPolls() []ids.Bag {
-	var results []ids.Bag
+func (s *set) processFinishedPolls() []bag.Bag[ids.ID] {
+	var results []bag.Bag[ids.ID]
 
 	// iterate from oldest to newest
 	iter := s.polls.NewIterator()
 	for iter.Next() {
-		holder := iter.Value().(pollHolder)
+		holder := iter.Value()
 		p := holder.GetPoll()
 		if !p.Finished() {
 			// since we're iterating from oldest to newest, if the next poll has not finished,
@@ -155,7 +155,7 @@ func (s *set) processFinishedPolls() []ids.Bag {
 		}
 
 		s.log.Verbo("poll finished",
-			zap.Any("requestID", iter.Key()),
+			zap.Uint32("requestID", iter.Key()),
 			zap.Stringer("poll", holder.GetPoll()),
 		)
 		s.durPolls.Observe(float64(time.Since(holder.StartTime())))
@@ -172,8 +172,8 @@ func (s *set) processFinishedPolls() []ids.Bag {
 
 // Drop registers the connections response to a query for [id]. If there was no
 // query, or the response has already be registered, nothing is performed.
-func (s *set) Drop(requestID uint32, vdr ids.NodeID) []ids.Bag {
-	pollHolderIntf, exists := s.polls.Get(requestID)
+func (s *set) Drop(requestID uint32, vdr ids.NodeID) []bag.Bag[ids.ID] {
+	holder, exists := s.polls.Get(requestID)
 	if !exists {
 		s.log.Verbo("dropping vote",
 			zap.String("reason", "unknown poll"),
@@ -188,8 +188,7 @@ func (s *set) Drop(requestID uint32, vdr ids.NodeID) []ids.Bag {
 		zap.Uint32("requestID", requestID),
 	)
 
-	pollHolder := pollHolderIntf.(pollHolder)
-	poll := pollHolder.GetPoll()
+	poll := holder.GetPoll()
 
 	poll.Drop(vdr)
 	if !poll.Finished() {
@@ -200,7 +199,9 @@ func (s *set) Drop(requestID uint32, vdr ids.NodeID) []ids.Bag {
 }
 
 // Len returns the number of outstanding polls
-func (s *set) Len() int { return s.polls.Len() }
+func (s *set) Len() int {
+	return s.polls.Len()
+}
 
 func (s *set) String() string {
 	sb := strings.Builder{}

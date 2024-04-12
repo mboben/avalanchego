@@ -1,20 +1,19 @@
-// Copyright (C) 2019-2022, Ava Labs, Inc. All rights reserved.
+// Copyright (C) 2019-2023, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
 package builder
 
 import (
+	"context"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/ava-labs/avalanchego/chains/atomic"
 	"github.com/ava-labs/avalanchego/database/prefixdb"
 	"github.com/ava-labs/avalanchego/ids"
-	"github.com/ava-labs/avalanchego/utils/crypto"
+	"github.com/ava-labs/avalanchego/utils/crypto/secp256k1"
 	"github.com/ava-labs/avalanchego/vms/components/avax"
-	"github.com/ava-labs/avalanchego/vms/platformvm/blocks"
 	"github.com/ava-labs/avalanchego/vms/platformvm/status"
 	"github.com/ava-labs/avalanchego/vms/platformvm/txs"
 	"github.com/ava-labs/avalanchego/vms/secp256k1fx"
@@ -26,9 +25,7 @@ func TestAtomicTxImports(t *testing.T) {
 	env := newEnvironment(t)
 	env.ctx.Lock.Lock()
 	defer func() {
-		if err := shutdownEnvironment(env); err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(shutdownEnvironment(env))
 	}()
 
 	utxoID := avax.UTXOID{
@@ -53,7 +50,7 @@ func TestAtomicTxImports(t *testing.T) {
 			},
 		},
 	}
-	utxoBytes, err := blocks.Codec.Marshal(txs.Version, utxo)
+	utxoBytes, err := txs.Codec.Marshal(txs.Version, utxo)
 	require.NoError(err)
 
 	inputID := utxo.InputID()
@@ -71,19 +68,17 @@ func TestAtomicTxImports(t *testing.T) {
 	tx, err := env.txBuilder.NewImportTx(
 		env.ctx.XChainID,
 		recipientKey.PublicKey().Address(),
-		[]*crypto.PrivateKeySECP256K1R{recipientKey},
+		[]*secp256k1.PrivateKey{recipientKey},
 		ids.ShortEmpty, // change addr
 	)
 	require.NoError(err)
 
-	env.state.SetTimestamp(env.config.ApricotPhase5Time.Add(100 * time.Second))
-
 	require.NoError(env.Builder.Add(tx))
-	b, err := env.Builder.BuildBlock()
+	b, err := env.Builder.BuildBlock(context.Background())
 	require.NoError(err)
 	// Test multiple verify calls work
-	require.NoError(b.Verify())
-	require.NoError(b.Accept())
+	require.NoError(b.Verify(context.Background()))
+	require.NoError(b.Accept(context.Background()))
 	_, txStatus, err := env.state.GetTx(tx.ID())
 	require.NoError(err)
 	// Ensure transaction is in the committed state

@@ -1,4 +1,4 @@
-// Copyright (C) 2019-2022, Ava Labs, Inc. All rights reserved.
+// Copyright (C) 2019-2023, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
 package blocks
@@ -12,24 +12,29 @@ import (
 )
 
 var (
-	_ BlueberryBlock = &BlueberryCommitBlock{}
-	_ Block          = &ApricotCommitBlock{}
+	_ BanffBlock = (*BanffCommitBlock)(nil)
+	_ Block      = (*ApricotCommitBlock)(nil)
 )
 
-type BlueberryCommitBlock struct {
+type BanffCommitBlock struct {
 	Time               uint64 `serialize:"true" json:"time"`
 	ApricotCommitBlock `serialize:"true"`
 }
 
-func (b *BlueberryCommitBlock) Timestamp() time.Time  { return time.Unix(int64(b.Time), 0) }
-func (b *BlueberryCommitBlock) Visit(v Visitor) error { return v.BlueberryCommitBlock(b) }
+func (b *BanffCommitBlock) Timestamp() time.Time {
+	return time.Unix(int64(b.Time), 0)
+}
 
-func NewBlueberryCommitBlock(
+func (b *BanffCommitBlock) Visit(v Visitor) error {
+	return v.BanffCommitBlock(b)
+}
+
+func NewBanffCommitBlock(
 	timestamp time.Time,
 	parentID ids.ID,
 	height uint64,
-) (*BlueberryCommitBlock, error) {
-	blk := &BlueberryCommitBlock{
+) (*BanffCommitBlock, error) {
+	blk := &BanffCommitBlock{
 		Time: uint64(timestamp.Unix()),
 		ApricotCommitBlock: ApricotCommitBlock{
 			CommonBlock: CommonBlock{
@@ -50,10 +55,15 @@ func (b *ApricotCommitBlock) initialize(bytes []byte) error {
 	return nil
 }
 
-func (*ApricotCommitBlock) InitCtx(ctx *snow.Context) {}
+func (*ApricotCommitBlock) InitCtx(*snow.Context) {}
 
-func (*ApricotCommitBlock) Txs() []*txs.Tx          { return nil }
-func (b *ApricotCommitBlock) Visit(v Visitor) error { return v.ApricotCommitBlock(b) }
+func (*ApricotCommitBlock) Txs() []*txs.Tx {
+	return nil
+}
+
+func (b *ApricotCommitBlock) Visit(v Visitor) error {
+	return v.ApricotCommitBlock(b)
+}
 
 func NewApricotCommitBlock(
 	parentID ids.ID,

@@ -1,4 +1,4 @@
-// Copyright (C) 2019-2022, Ava Labs, Inc. All rights reserved.
+// Copyright (C) 2019-2023, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
 package blocks
@@ -31,7 +31,7 @@ type Block interface {
 	initialize(bytes []byte) error
 }
 
-type BlueberryBlock interface {
+type BanffBlock interface {
 	Block
 	Timestamp() time.Time
 }
@@ -39,7 +39,7 @@ type BlueberryBlock interface {
 func initialize(blk Block) error {
 	// We serialize this block as a pointer so that it can be deserialized into
 	// a Block
-	bytes, err := Codec.Marshal(txs.Version, &blk)
+	bytes, err := Codec.Marshal(Version, &blk)
 	if err != nil {
 		return fmt.Errorf("couldn't marshal block: %w", err)
 	}

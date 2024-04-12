@@ -1,4 +1,4 @@
-// Copyright (C) 2019-2022, Ava Labs, Inc. All rights reserved.
+// Copyright (C) 2019-2023, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
 package executor
@@ -10,7 +10,7 @@ import (
 	"github.com/ava-labs/avalanchego/vms/platformvm/blocks"
 )
 
-var _ blocks.Visitor = &rejector{}
+var _ blocks.Visitor = (*rejector)(nil)
 
 // rejector handles the logic for rejecting a block.
 // All errors returned by this struct are fatal and should result in the chain
@@ -19,20 +19,20 @@ type rejector struct {
 	*backend
 }
 
-func (r *rejector) BlueberryAbortBlock(b *blocks.BlueberryAbortBlock) error {
-	return r.rejectBlock(b, "blueberry abort")
+func (r *rejector) BanffAbortBlock(b *blocks.BanffAbortBlock) error {
+	return r.rejectBlock(b, "banff abort")
 }
 
-func (r *rejector) BlueberryCommitBlock(b *blocks.BlueberryCommitBlock) error {
-	return r.rejectBlock(b, "blueberry commit")
+func (r *rejector) BanffCommitBlock(b *blocks.BanffCommitBlock) error {
+	return r.rejectBlock(b, "banff commit")
 }
 
-func (r *rejector) BlueberryProposalBlock(b *blocks.BlueberryProposalBlock) error {
-	return r.rejectBlock(b, "blueberry proposal")
+func (r *rejector) BanffProposalBlock(b *blocks.BanffProposalBlock) error {
+	return r.rejectBlock(b, "banff proposal")
 }
 
-func (r *rejector) BlueberryStandardBlock(b *blocks.BlueberryStandardBlock) error {
-	return r.rejectBlock(b, "blueberry standard")
+func (r *rejector) BanffStandardBlock(b *blocks.BanffStandardBlock) error {
+	return r.rejectBlock(b, "banff standard")
 }
 
 func (r *rejector) ApricotAbortBlock(b *blocks.ApricotAbortBlock) error {

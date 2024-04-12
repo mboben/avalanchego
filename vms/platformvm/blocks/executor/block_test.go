@@ -1,9 +1,10 @@
-// Copyright (C) 2019-2022, Ava Labs, Inc. All rights reserved.
+// Copyright (C) 2019-2023, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
 package executor
 
 import (
+	"context"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -115,12 +116,11 @@ func TestStatus(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			require := require.New(t)
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
 			blk := tt.blockF(ctrl)
-			require.Equal(tt.expectedStatus, blk.Status())
+			require.Equal(t, tt.expectedStatus, blk.Status())
 		})
 	}
 }
@@ -181,9 +181,9 @@ func TestBlockOptions(t *testing.T) {
 			expectedPreferenceType: &blocks.ApricotAbortBlock{},
 		},
 		{
-			name: "blueberry proposal block; commit preferred",
+			name: "banff proposal block; commit preferred",
 			blkF: func() *Block {
-				innerBlk := &blocks.BlueberryProposalBlock{}
+				innerBlk := &blocks.BanffProposalBlock{}
 				blkID := innerBlk.ID()
 
 				manager := &manager{
@@ -203,12 +203,12 @@ func TestBlockOptions(t *testing.T) {
 					manager: manager,
 				}
 			},
-			expectedPreferenceType: &blocks.BlueberryCommitBlock{},
+			expectedPreferenceType: &blocks.BanffCommitBlock{},
 		},
 		{
-			name: "blueberry proposal block; abort preferred",
+			name: "banff proposal block; abort preferred",
 			blkF: func() *Block {
-				innerBlk := &blocks.BlueberryProposalBlock{}
+				innerBlk := &blocks.BanffProposalBlock{}
 				blkID := innerBlk.ID()
 
 				manager := &manager{
@@ -224,13 +224,13 @@ func TestBlockOptions(t *testing.T) {
 					manager: manager,
 				}
 			},
-			expectedPreferenceType: &blocks.BlueberryAbortBlock{},
+			expectedPreferenceType: &blocks.BanffAbortBlock{},
 		},
 		{
 			name: "non oracle block",
 			blkF: func() *Block {
 				return &Block{
-					Block:   &blocks.BlueberryStandardBlock{},
+					Block:   &blocks.BanffStandardBlock{},
 					manager: &manager{},
 				}
 			},
@@ -245,7 +245,7 @@ func TestBlockOptions(t *testing.T) {
 			defer ctrl.Finish()
 
 			blk := tt.blkF()
-			options, err := blk.Options()
+			options, err := blk.Options(context.Background())
 			if tt.expectedErr != nil {
 				require.ErrorIs(err, tt.expectedErr)
 				return

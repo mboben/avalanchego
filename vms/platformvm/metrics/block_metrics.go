@@ -1,4 +1,4 @@
-// Copyright (C) 2019-2022, Ava Labs, Inc. All rights reserved.
+// Copyright (C) 2019-2023, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
 package metrics
@@ -12,7 +12,7 @@ import (
 	"github.com/ava-labs/avalanchego/vms/platformvm/blocks"
 )
 
-var _ blocks.Visitor = &blockMetrics{}
+var _ blocks.Visitor = (*blockMetrics)(nil)
 
 type blockMetrics struct {
 	txMetrics *txMetrics
@@ -56,17 +56,17 @@ func newBlockMetric(
 	return blockMetric
 }
 
-func (m *blockMetrics) BlueberryAbortBlock(*blocks.BlueberryAbortBlock) error {
+func (m *blockMetrics) BanffAbortBlock(*blocks.BanffAbortBlock) error {
 	m.numAbortBlocks.Inc()
 	return nil
 }
 
-func (m *blockMetrics) BlueberryCommitBlock(*blocks.BlueberryCommitBlock) error {
+func (m *blockMetrics) BanffCommitBlock(*blocks.BanffCommitBlock) error {
 	m.numCommitBlocks.Inc()
 	return nil
 }
 
-func (m *blockMetrics) BlueberryProposalBlock(b *blocks.BlueberryProposalBlock) error {
+func (m *blockMetrics) BanffProposalBlock(b *blocks.BanffProposalBlock) error {
 	m.numProposalBlocks.Inc()
 	for _, tx := range b.Transactions {
 		if err := tx.Unsigned.Visit(m.txMetrics); err != nil {
@@ -76,7 +76,7 @@ func (m *blockMetrics) BlueberryProposalBlock(b *blocks.BlueberryProposalBlock) 
 	return b.Tx.Unsigned.Visit(m.txMetrics)
 }
 
-func (m *blockMetrics) BlueberryStandardBlock(b *blocks.BlueberryStandardBlock) error {
+func (m *blockMetrics) BanffStandardBlock(b *blocks.BanffStandardBlock) error {
 	m.numStandardBlocks.Inc()
 	for _, tx := range b.Transactions {
 		if err := tx.Unsigned.Visit(m.txMetrics); err != nil {

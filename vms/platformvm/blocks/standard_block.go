@@ -1,4 +1,4 @@
-// Copyright (C) 2019-2022, Ava Labs, Inc. All rights reserved.
+// Copyright (C) 2019-2023, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
 package blocks
@@ -13,25 +13,30 @@ import (
 )
 
 var (
-	_ BlueberryBlock = &BlueberryStandardBlock{}
-	_ Block          = &ApricotStandardBlock{}
+	_ BanffBlock = (*BanffStandardBlock)(nil)
+	_ Block      = (*ApricotStandardBlock)(nil)
 )
 
-type BlueberryStandardBlock struct {
+type BanffStandardBlock struct {
 	Time                 uint64 `serialize:"true" json:"time"`
 	ApricotStandardBlock `serialize:"true"`
 }
 
-func (b *BlueberryStandardBlock) Timestamp() time.Time  { return time.Unix(int64(b.Time), 0) }
-func (b *BlueberryStandardBlock) Visit(v Visitor) error { return v.BlueberryStandardBlock(b) }
+func (b *BanffStandardBlock) Timestamp() time.Time {
+	return time.Unix(int64(b.Time), 0)
+}
 
-func NewBlueberryStandardBlock(
+func (b *BanffStandardBlock) Visit(v Visitor) error {
+	return v.BanffStandardBlock(b)
+}
+
+func NewBanffStandardBlock(
 	timestamp time.Time,
 	parentID ids.ID,
 	height uint64,
 	txs []*txs.Tx,
-) (*BlueberryStandardBlock, error) {
-	blk := &BlueberryStandardBlock{
+) (*BanffStandardBlock, error) {
+	blk := &BanffStandardBlock{
 		Time: uint64(timestamp.Unix()),
 		ApricotStandardBlock: ApricotStandardBlock{
 			CommonBlock: CommonBlock{
@@ -52,7 +57,7 @@ type ApricotStandardBlock struct {
 func (b *ApricotStandardBlock) initialize(bytes []byte) error {
 	b.CommonBlock.initialize(bytes)
 	for _, tx := range b.Transactions {
-		if err := tx.Sign(txs.Codec, nil); err != nil {
+		if err := tx.Initialize(txs.Codec); err != nil {
 			return fmt.Errorf("failed to sign block: %w", err)
 		}
 	}
@@ -65,9 +70,17 @@ func (b *ApricotStandardBlock) InitCtx(ctx *snow.Context) {
 	}
 }
 
-func (b *ApricotStandardBlock) Txs() []*txs.Tx        { return b.Transactions }
-func (b *ApricotStandardBlock) Visit(v Visitor) error { return v.ApricotStandardBlock(b) }
+func (b *ApricotStandardBlock) Txs() []*txs.Tx {
+	return b.Transactions
+}
 
+func (b *ApricotStandardBlock) Visit(v Visitor) error {
+	return v.ApricotStandardBlock(b)
+}
+
+// NewApricotStandardBlock is kept for testing purposes only.
+// Following Banff activation and subsequent code cleanup, Apricot Standard blocks
+// should be only verified (upon bootstrap), never created anymore
 func NewApricotStandardBlock(
 	parentID ids.ID,
 	height uint64,

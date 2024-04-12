@@ -1,4 +1,4 @@
-// Copyright (C) 2019-2022, Ava Labs, Inc. All rights reserved.
+// Copyright (C) 2019-2023, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
 package blocks
@@ -11,6 +11,9 @@ import (
 	"github.com/ava-labs/avalanchego/utils/wrappers"
 	"github.com/ava-labs/avalanchego/vms/platformvm/txs"
 )
+
+// Version is the current default codec version
+const Version = txs.Version
 
 // GenesisCode allows blocks of larger than usual size to be parsed.
 // While this gives flexibility in accommodating large genesis blocks
@@ -32,12 +35,12 @@ func init() {
 		errs.Add(
 			RegisterApricotBlockTypes(c),
 			txs.RegisterUnsignedTxsTypes(c),
-			RegisterBlueberryBlockTypes(c),
+			RegisterBanffBlockTypes(c),
 		)
 	}
 	errs.Add(
-		Codec.RegisterCodec(txs.Version, c),
-		GenesisCodec.RegisterCodec(txs.Version, gc),
+		Codec.RegisterCodec(Version, c),
+		GenesisCodec.RegisterCodec(Version, gc),
 	)
 	if errs.Errored() {
 		panic(errs.Err)
@@ -60,13 +63,13 @@ func RegisterApricotBlockTypes(targetCodec codec.Registry) error {
 	return errs.Err
 }
 
-func RegisterBlueberryBlockTypes(targetCodec codec.Registry) error {
+func RegisterBanffBlockTypes(targetCodec codec.Registry) error {
 	errs := wrappers.Errs{}
 	errs.Add(
-		targetCodec.RegisterType(&BlueberryProposalBlock{}),
-		targetCodec.RegisterType(&BlueberryAbortBlock{}),
-		targetCodec.RegisterType(&BlueberryCommitBlock{}),
-		targetCodec.RegisterType(&BlueberryStandardBlock{}),
+		targetCodec.RegisterType(&BanffProposalBlock{}),
+		targetCodec.RegisterType(&BanffAbortBlock{}),
+		targetCodec.RegisterType(&BanffCommitBlock{}),
+		targetCodec.RegisterType(&BanffStandardBlock{}),
 	)
 	return errs.Err
 }

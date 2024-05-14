@@ -345,7 +345,7 @@ func TestGenesis(t *testing.T) {
 		},
 		{
 			networkID:  constants.SongbirdID,
-			expectedID: "2r5gyF26aYN9BHaFYaDDFGpx2tiq4bz3GCiYUGo4QzKpzHeX9g",
+			expectedID: "2ACyRqRc8H5VT7DDGn4qadKfct4iTPe9buQKhAjiDyotSVkeoi",
 		},
 		{
 			networkID:  constants.LocalID,

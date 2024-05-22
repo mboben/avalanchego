@@ -39,10 +39,6 @@ func TestValidateConfig(t *testing.T) {
 			networkID: 1,
 			config:    &MainnetConfig,
 		},
-		"fuji": {
-			networkID: 5,
-			config:    &FujiConfig,
-		},
 		"local": {
 			networkID: 162,
 			config:    &LocalFlareConfig,
@@ -115,15 +111,6 @@ func TestValidateConfig(t *testing.T) {
 			}(),
 			err: "duplicated in initial staked funds",
 		},
-		"initial staked funds not in allocations": {
-			networkID: 5,
-			config: func() *Config {
-				thisConfig := FujiConfig
-				thisConfig.InitialStakedFunds = append(thisConfig.InitialStakedFunds, LocalFlareConfig.InitialStakedFunds[0])
-				return &thisConfig
-			}(),
-			err: "does not have an allocation to stake",
-		},
 		"empty C-Chain genesis": {
 			networkID: 162,
 			config: func() *Config {
@@ -166,10 +153,10 @@ func TestGenesisFromFile(t *testing.T) {
 		err             string
 		expected        string
 	}{
-		"mainnet": {
-			networkID:    constants.MainnetID,
+		"flare": {
+			networkID:    constants.FlareID,
 			customConfig: customGenesisConfigJSON,
-			err:          "cannot override genesis config for standard network mainnet (1)",
+			err:          "cannot override genesis config for standard network flare (14)",
 		},
 		"songbird": {
 			networkID:    constants.SongbirdID,
@@ -252,9 +239,9 @@ func TestGenesisFromFlag(t *testing.T) {
 		err          string
 		expected     string
 	}{
-		"mainnet": {
-			networkID: constants.MainnetID,
-			err:       "cannot override genesis config for standard network mainnet (1)",
+		"flare": {
+			networkID: constants.FlareID,
+			err:       "cannot override genesis config for standard network flare (14)",
 		},
 		"songbird": {
 			networkID: constants.SongbirdID,
@@ -303,8 +290,8 @@ func TestGenesisFromFlag(t *testing.T) {
 				case constants.MainnetID:
 					genBytes, err = json.Marshal(&MainnetConfig)
 					require.NoError(err)
-				case constants.TestnetID:
-					genBytes, err = json.Marshal(&FujiConfig)
+				case constants.SongbirdID:
+					genBytes, err = json.Marshal(&SongbirdConfig)
 					require.NoError(err)
 				case constants.LocalID:
 					genBytes, err = json.Marshal(&LocalConfig)
@@ -340,8 +327,8 @@ func TestGenesis(t *testing.T) {
 		expectedID string
 	}{
 		{
-			networkID:  constants.MainnetID,
-			expectedID: "UUvXi6j7QhVvgpbKM89MP5HdrxKm9CaJeHc187TsDNf8nZdLk",
+			networkID:  constants.FlareID,
+			expectedID: "frq8jezXkuL4PmuBt6FDcpULh2sCsFHPgWq3ZGP1G8R8UnnoU",
 		},
 		{
 			networkID:  constants.SongbirdID,

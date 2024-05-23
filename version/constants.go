@@ -34,8 +34,8 @@ var (
 
 	CurrentSgb = &Semantic{
 		Major: 0,
-		Minor: 6,
-		Patch: 6,
+		Minor: 7,
+		Patch: 0,
 	}
 	CurrentSgbApp = &Application{
 		Major: CurrentSgb.Major,
@@ -45,12 +45,12 @@ var (
 	MinimumCompatibleSgbVersion = &Application{
 		Major: 0,
 		Minor: 6,
-		Patch: 5,
+		Patch: 6,
 	}
 	PrevMinimumCompatibleSgbVersion = &Application{
 		Major: 0,
 		Minor: 6,
-		Patch: 4,
+		Patch: 6,
 	}
 
 	CurrentDatabase = DatabaseVersion1_4_5
@@ -124,6 +124,7 @@ var (
 		constants.LocalFlareID: time.Date(10000, time.December, 1, 0, 0, 0, 0, time.UTC),
 		constants.CostonID:     time.Date(10000, time.December, 1, 0, 0, 0, 0, time.UTC),
 		constants.SongbirdID:   time.Date(10000, time.December, 1, 0, 0, 0, 0, time.UTC),
+		constants.LocalID:      time.Date(10000, time.December, 1, 0, 0, 0, 0, time.UTC),
 	}
 	BanffDefaultTime = time.Date(2020, time.December, 5, 5, 0, 0, 0, time.UTC)
 

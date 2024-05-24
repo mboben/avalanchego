@@ -124,7 +124,6 @@ func (sn *snLookup) SubnetID(chainID ids.ID) (ids.ID, error) {
 func newEnvironment() *environment {
 	var isBootstrapped utils.AtomicBool
 	isBootstrapped.SetValue(true)
-	validators.InitializeDefaultValidators(0)
 
 	config := defaultConfig()
 	clk := defaultClock()

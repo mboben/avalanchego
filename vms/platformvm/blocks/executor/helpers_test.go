@@ -146,7 +146,6 @@ func newEnvironment(t *testing.T, ctrl *gomock.Controller) *environment {
 		clk:            defaultClock(),
 	}
 	res.isBootstrapped.SetValue(true)
-	validators.InitializeDefaultValidators(0)
 
 	baseDBManager := db_manager.NewMemDB(version.Semantic1_0_0)
 	res.baseDB = versiondb.New(baseDBManager.Current().Database)

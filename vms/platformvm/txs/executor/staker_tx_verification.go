@@ -454,6 +454,11 @@ func verifyAddPermissionlessValidatorTx(
 		return err
 	}
 
+	// Flare does not (yet) allow adding permissionless validator tx
+	if constants.IsFlareNetworkID(backend.Ctx.NetworkID) || constants.IsSgbNetworkID(backend.Ctx.NetworkID) {
+		return errWrongTxType
+	}
+
 	if !backend.Bootstrapped.GetValue() {
 		return nil
 	}
@@ -633,6 +638,11 @@ func verifyAddPermissionlessDelegatorTx(
 	// Verify the tx is well-formed
 	if err := sTx.SyntacticVerify(backend.Ctx); err != nil {
 		return err
+	}
+
+	// Flare does not (yet) allow adding permissionless delegator tx
+	if constants.IsFlareNetworkID(backend.Ctx.NetworkID) || constants.IsSgbNetworkID(backend.Ctx.NetworkID) {
+		return errWrongTxType
 	}
 
 	if !backend.Bootstrapped.GetValue() {

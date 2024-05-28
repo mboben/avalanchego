@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/ava-labs/avalanchego/utils/units"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -132,45 +133,3 @@ func TestRewards(t *testing.T) {
 		})
 	}
 }
-
-// func TestRewardsOverflow(t *testing.T) {
-// 	require := require.New(t)
-
-// 	var (
-// 		maxSupply     uint64 = math.MaxUint64
-// 		initialSupply uint64 = 1
-// 	)
-// 	c := NewCalculator(Config{
-// 		MaxConsumptionRate: PercentDenominator,
-// 		MinConsumptionRate: PercentDenominator,
-// 		MintingPeriod:      defaultMinStakingDuration,
-// 		SupplyCap:          maxSupply,
-// 	})
-// 	rewards := c.Calculate(
-// 		defaultMinStakingDuration,
-// 		maxSupply, // The staked amount is larger than the current supply
-// 		initialSupply,
-// 	)
-// 	require.Equal(maxSupply-initialSupply, rewards)
-// }
-
-// func TestRewardsMint(t *testing.T) {
-// 	require := require.New(t)
-
-// 	var (
-// 		maxSupply     uint64 = 1000
-// 		initialSupply uint64 = 1
-// 	)
-// 	c := NewCalculator(Config{
-// 		MaxConsumptionRate: PercentDenominator,
-// 		MinConsumptionRate: PercentDenominator,
-// 		MintingPeriod:      defaultMinStakingDuration,
-// 		SupplyCap:          maxSupply,
-// 	})
-// 	rewards := c.Calculate(
-// 		defaultMinStakingDuration,
-// 		maxSupply, // The staked amount is larger than the current supply
-// 		initialSupply,
-// 	)
-// 	require.Equal(maxSupply-initialSupply, rewards)
-// }

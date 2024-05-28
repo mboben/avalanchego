@@ -89,6 +89,8 @@ type Chain interface {
 	avax.UTXOGetter
 	avax.UTXODeleter
 
+	GetNetworkID() uint32
+
 	GetTimestamp() time.Time
 	SetTimestamp(tm time.Time)
 
@@ -556,6 +558,10 @@ func new(
 
 		singletonDB: prefixdb.New(singletonPrefix, baseDB),
 	}, nil
+}
+
+func (s *state) GetNetworkID() uint32 {
+	return s.ctx.NetworkID
 }
 
 func (s *state) GetCurrentValidator(subnetID ids.ID, nodeID ids.NodeID) (*Staker, error) {

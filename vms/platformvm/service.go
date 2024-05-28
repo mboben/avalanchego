@@ -2352,8 +2352,8 @@ func (s *Service) GetMinStake(_ *http.Request, args *GetMinStakeArgs, reply *Get
 	)
 
 	if args.SubnetID == constants.PrimaryNetworkID {
-		timestamp := service.vm.state.GetTimestamp()
-		minValidatorStake, _, minDelegatorStake, _, _, _, _, _, _, _ := executor.GetCurrentInflationSettings(timestamp, service.vm.ctx.NetworkID, &service.vm.Config)
+		timestamp := s.vm.state.GetTimestamp()
+		minValidatorStake, _, minDelegatorStake, _, _, _, _, _, _, _ := executor.GetCurrentInflationSettings(timestamp, s.vm.ctx.NetworkID, &s.vm.Config)
 		reply.MinValidatorStake = json.Uint64(minValidatorStake)
 		reply.MinDelegatorStake = json.Uint64(minDelegatorStake)
 		return nil

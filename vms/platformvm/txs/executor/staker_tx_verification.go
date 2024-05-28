@@ -396,7 +396,7 @@ func verifyAddDelegatorTx(
 	}
 
 	if backend.Config.IsApricotPhase3Activated(currentTimestamp) {
-		maximumWeight = math.Min64(maximumWeight, maxValidatorStake)
+		maximumWeight = math.Min(maximumWeight, maxValidatorStake)
 	}
 
 	txID := sTx.ID()
@@ -462,7 +462,7 @@ func verifyAddPermissionlessValidatorTx(
 		return errWrongTxType
 	}
 
-	if !backend.Bootstrapped.GetValue() {
+	if !backend.Bootstrapped.Get() {
 		return nil
 	}
 
@@ -648,7 +648,7 @@ func verifyAddPermissionlessDelegatorTx(
 		return errWrongTxType
 	}
 
-	if !backend.Bootstrapped.GetValue() {
+	if !backend.Bootstrapped.Get() {
 		return nil
 	}
 

@@ -119,7 +119,7 @@ var (
 		SongbirdHRP:   SongbirdID,
 		CostonHRP:     CostonID,
 	}
-	ProductionNetworkIDs = set.Of(MainnetID, FujiID)
+	ProductionNetworkIDs = set.Of(MainnetID, FlareID, SongbirdID, CostwoID, CostonID)
 
 	ValidNetworkPrefix = "network-"
 

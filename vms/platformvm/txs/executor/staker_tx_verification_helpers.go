@@ -15,27 +15,33 @@ import (
 )
 
 type addValidatorRules struct {
-	assetID           ids.ID
-	minValidatorStake uint64
-	maxValidatorStake uint64
-	minStakeDuration  time.Duration
-	maxStakeDuration  time.Duration
-	minDelegationFee  uint32
+	assetID                  ids.ID
+	minValidatorStake        uint64
+	maxValidatorStake        uint64
+	minStakeDuration         time.Duration
+	maxStakeDuration         time.Duration
+	minDelegationFee         uint32
+	minStakeStartTime        time.Time
+	minFutureStartTimeOffset time.Duration
 }
 
 func getValidatorRules(
 	backend *Backend,
 	chainState state.Chain,
 	subnetID ids.ID,
+	currentTimestamp time.Time,
 ) (*addValidatorRules, error) {
 	if subnetID == constants.PrimaryNetworkID {
+		minValidatorStake, maxValidatorStake, _, minDelegationFee, minStakeDuration, _, maxStakeDuration, minFutureStartTimeOffset, _, minStakeStartTime := GetCurrentInflationSettings(currentTimestamp, backend.Ctx.NetworkID, backend.Config)
 		return &addValidatorRules{
-			assetID:           backend.Ctx.AVAXAssetID,
-			minValidatorStake: backend.Config.MinValidatorStake,
-			maxValidatorStake: backend.Config.MaxValidatorStake,
-			minStakeDuration:  backend.Config.MinStakeDuration,
-			maxStakeDuration:  backend.Config.MaxStakeDuration,
-			minDelegationFee:  backend.Config.MinDelegationFee,
+			assetID:                  backend.Ctx.AVAXAssetID,
+			minValidatorStake:        minValidatorStake,
+			maxValidatorStake:        maxValidatorStake,
+			minStakeDuration:         minStakeDuration,
+			maxStakeDuration:         maxStakeDuration,
+			minDelegationFee:         minDelegationFee,
+			minStakeStartTime:        minStakeStartTime,
+			minFutureStartTimeOffset: minFutureStartTimeOffset,
 		}, nil
 	}
 
@@ -45,12 +51,13 @@ func getValidatorRules(
 	}
 
 	return &addValidatorRules{
-		assetID:           transformSubnet.AssetID,
-		minValidatorStake: transformSubnet.MinValidatorStake,
-		maxValidatorStake: transformSubnet.MaxValidatorStake,
-		minStakeDuration:  time.Duration(transformSubnet.MinStakeDuration) * time.Second,
-		maxStakeDuration:  time.Duration(transformSubnet.MaxStakeDuration) * time.Second,
-		minDelegationFee:  transformSubnet.MinDelegationFee,
+		assetID:                  transformSubnet.AssetID,
+		minValidatorStake:        transformSubnet.MinValidatorStake,
+		maxValidatorStake:        transformSubnet.MaxValidatorStake,
+		minStakeDuration:         time.Duration(transformSubnet.MinStakeDuration) * time.Second,
+		maxStakeDuration:         time.Duration(transformSubnet.MaxStakeDuration) * time.Second,
+		minDelegationFee:         transformSubnet.MinDelegationFee,
+		minFutureStartTimeOffset: MaxFutureStartTime,
 	}, nil
 }
 
@@ -61,21 +68,25 @@ type addDelegatorRules struct {
 	minStakeDuration         time.Duration
 	maxStakeDuration         time.Duration
 	maxValidatorWeightFactor byte
+	minFutureStartTimeOffset time.Duration
 }
 
 func getDelegatorRules(
 	backend *Backend,
 	chainState state.Chain,
 	subnetID ids.ID,
+	currentTimestamp time.Time,
 ) (*addDelegatorRules, error) {
 	if subnetID == constants.PrimaryNetworkID {
+		_, maxValidatorStake, minDelegatorStake, _, _, minStakeDuration, maxStakeDuration, minFutureStartTimeOffset, maxValidatorWeightFactor, _ := GetCurrentInflationSettings(currentTimestamp, backend.Ctx.NetworkID, backend.Config)
 		return &addDelegatorRules{
 			assetID:                  backend.Ctx.AVAXAssetID,
-			minDelegatorStake:        backend.Config.MinDelegatorStake,
-			maxValidatorStake:        backend.Config.MaxValidatorStake,
-			minStakeDuration:         backend.Config.MinStakeDuration,
-			maxStakeDuration:         backend.Config.MaxStakeDuration,
-			maxValidatorWeightFactor: MaxValidatorWeightFactor,
+			minDelegatorStake:        minDelegatorStake,
+			maxValidatorStake:        maxValidatorStake,
+			minStakeDuration:         minStakeDuration,
+			maxStakeDuration:         maxStakeDuration,
+			maxValidatorWeightFactor: maxValidatorWeightFactor,
+			minFutureStartTimeOffset: minFutureStartTimeOffset,
 		}, nil
 	}
 
@@ -91,6 +102,7 @@ func getDelegatorRules(
 		minStakeDuration:         time.Duration(transformSubnet.MinStakeDuration) * time.Second,
 		maxStakeDuration:         time.Duration(transformSubnet.MaxStakeDuration) * time.Second,
 		maxValidatorWeightFactor: transformSubnet.MaxValidatorWeightFactor,
+		minFutureStartTimeOffset: MaxFutureStartTime,
 	}, nil
 }
 

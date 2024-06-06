@@ -15,6 +15,7 @@ import (
 	"github.com/ava-labs/avalanchego/database"
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/snow"
+	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/utils/set"
 	"github.com/ava-labs/avalanchego/utils/timer/mockable"
@@ -40,6 +41,7 @@ func TestVerifierVisitProposalBlock(t *testing.T) {
 	timestamp := time.Now()
 	// One call for each of onCommitState and onAbortState.
 	parentOnAcceptState.EXPECT().GetTimestamp().Return(timestamp).Times(2)
+	parentOnAcceptState.EXPECT().GetNetworkID().Return(constants.MainnetID).AnyTimes()
 
 	backend := &backend{
 		lastAccepted: parentID,
@@ -284,6 +286,8 @@ func TestVerifierVisitStandardBlock(t *testing.T) {
 	// Set expectations for dependencies.
 	timestamp := time.Now()
 	parentState.EXPECT().GetTimestamp().Return(timestamp).Times(1)
+	parentState.EXPECT().GetNetworkID().Return(constants.MainnetID).AnyTimes()
+
 	parentStatelessBlk.EXPECT().Height().Return(uint64(1)).Times(1)
 	mempool.EXPECT().Remove(apricotBlk.Txs()).Times(1)
 
@@ -552,6 +556,7 @@ func TestBanffAbortBlockTimestampChecks(t *testing.T) {
 			parentTime := defaultGenesisTime
 			s.EXPECT().GetLastAccepted().Return(parentID).Times(3)
 			s.EXPECT().GetTimestamp().Return(parentTime).Times(3)
+			s.EXPECT().GetNetworkID().Return(constants.MainnetID).AnyTimes()
 
 			onDecisionState, err := state.NewDiff(parentID, backend)
 			require.NoError(err)
@@ -648,6 +653,7 @@ func TestBanffCommitBlockTimestampChecks(t *testing.T) {
 			parentTime := defaultGenesisTime
 			s.EXPECT().GetLastAccepted().Return(parentID).Times(3)
 			s.EXPECT().GetTimestamp().Return(parentTime).Times(3)
+			s.EXPECT().GetNetworkID().Return(constants.MainnetID).AnyTimes()
 
 			onDecisionState, err := state.NewDiff(parentID, backend)
 			require.NoError(err)
@@ -763,6 +769,7 @@ func TestVerifierVisitStandardBlockWithDuplicateInputs(t *testing.T) {
 	timestamp := time.Now()
 	parentStatelessBlk.EXPECT().Height().Return(uint64(1)).Times(1)
 	parentState.EXPECT().GetTimestamp().Return(timestamp).Times(1)
+	parentState.EXPECT().GetNetworkID().Return(constants.MainnetID).AnyTimes()
 	parentStatelessBlk.EXPECT().Parent().Return(grandParentID).Times(1)
 
 	err = verifier.ApricotStandardBlock(blk)

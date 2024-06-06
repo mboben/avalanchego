@@ -107,12 +107,11 @@ func verifyAddValidatorTx(
 		return nil, err
 	}
 
-	currentTimestamp := chainState.GetTimestamp()
-	minValidatorStake, maxValidatorStake, _, minDelegationFee, minStakeDuration, _, maxStakeDuration, minFutureStartTimeOffset, _, minStakeStartTime := GetCurrentInflationSettings(currentTimestamp, backend.Ctx.NetworkID, backend.Config)
-	duration := tx.Validator.Duration()
 	if err := avax.VerifyMemoFieldLength(tx.Memo, false /*=isDurangoActive*/); err != nil {
 		return nil, err
 	}
+
+	minValidatorStake, maxValidatorStake, _, minDelegationFee, minStakeDuration, _, maxStakeDuration, minFutureStartTimeOffset, _, minStakeStartTime := GetCurrentInflationSettings(currentTimestamp, backend.Ctx.NetworkID, backend.Config)
 
 	startTime := tx.StartTime()
 	duration := tx.EndTime().Sub(startTime)
@@ -146,19 +145,11 @@ func verifyAddValidatorTx(
 		return outs, nil
 	}
 
-	// Ensure the proposed validator starts after the current time
-	startTime := tx.StartTime()
-	if !currentTimestamp.Before(startTime) {
-		return nil, fmt.Errorf(
-			"%w: %s >= %s",
-			errTimestampNotBeforeStartTime,
-			currentTimestamp,
-			startTime,
-		)
 	if err := verifyStakerStartTime(false /*=isDurangoActive*/, currentTimestamp, startTime); err != nil {
 		return nil, err
 	}
 
+	// Flare-specific
 	if !minStakeStartTime.Before(startTime) {
 		return nil, fmt.Errorf(
 			"validator's start time (%s) at or before minStakeStartTime (%s)",
@@ -197,12 +188,8 @@ func verifyAddValidatorTx(
 		return nil, fmt.Errorf("%w: %w", ErrFlowCheckFailed, err)
 	}
 
-	// Make sure the tx doesn't start too far in the future. This is done last
-	// to allow the verifier visitor to explicitly check for this error.
+	// Flare-specific
 	maxStartTime := currentTimestamp.Add(MaxFutureStartTime)
-	if startTime.After(maxStartTime) {
-		return nil, errFutureStakeTime
-	}
 	minStartTime := maxStartTime.Add(-minFutureStartTimeOffset)
 	if startTime.Before(minStartTime) {
 		return nil, fmt.Errorf(
@@ -211,7 +198,7 @@ func verifyAddValidatorTx(
 			minStartTime,
 		)
 	}
-	return outs, nil
+
 	// verifyStakerStartsSoon is checked last to allow
 	// the verifier visitor to explicitly check for this error.
 	return outs, verifyStakerStartsSoon(false /*=isDurangoActive*/, currentTimestamp, startTime)
@@ -232,10 +219,9 @@ func verifyAddSubnetValidatorTx(
 
 	// Flare does not allow creation of subnets
 	if constants.IsFlareNetworkID(backend.Ctx.NetworkID) || constants.IsSgbNetworkID(backend.Ctx.NetworkID) {
-		return errWrongTxType
+		return ErrWrongTxType
 	}
 
-	duration := tx.Validator.Duration()
 	var (
 		currentTimestamp = chainState.GetTimestamp()
 		isDurangoActive  = backend.Config.IsDurangoActivated(currentTimestamp)
@@ -410,13 +396,11 @@ func verifyAddDelegatorTx(
 		return nil, err
 	}
 
-	currentTimestamp := chainState.GetTimestamp()
-	_, maxValidatorStake, minDelegatorStake, _, _, minStakeDuration, maxStakeDuration, minFutureStartTimeOffset, maxValidatorWeightFactor, _ := GetCurrentInflationSettings(currentTimestamp, backend.Ctx.NetworkID, backend.Config)
-
-	duration := tx.Validator.Duration()
 	if err := avax.VerifyMemoFieldLength(tx.Memo, false /*=isDurangoActive*/); err != nil {
 		return nil, err
 	}
+
+	_, maxValidatorStake, minDelegatorStake, _, _, minStakeDuration, maxStakeDuration, minFutureStartTimeOffset, maxValidatorWeightFactor, _ := GetCurrentInflationSettings(currentTimestamp, backend.Ctx.NetworkID, backend.Config)
 
 	var (
 		endTime   = tx.EndTime()
@@ -445,15 +429,6 @@ func verifyAddDelegatorTx(
 		return outs, nil
 	}
 
-	// Ensure the proposed validator starts after the current timestamp
-	validatorStartTime := tx.StartTime()
-	if !currentTimestamp.Before(validatorStartTime) {
-		return nil, fmt.Errorf(
-			"%w: %s >= %s",
-			errTimestampNotBeforeStartTime,
-			currentTimestamp,
-			validatorStartTime,
-		)
 	if err := verifyStakerStartTime(false /*=isDurangoActive*/, currentTimestamp, startTime); err != nil {
 		return nil, err
 	}
@@ -467,7 +442,7 @@ func verifyAddDelegatorTx(
 		)
 	}
 
-	maximumWeight, err := safemath.Mul64(MaxValidatorWeightFactor, primaryNetworkValidator.Weight)
+	maximumWeight, err := safemath.Mul64(uint64(maxValidatorWeightFactor), primaryNetworkValidator.Weight)
 	if err != nil {
 		return nil, ErrStakeOverflow
 	}
@@ -513,21 +488,17 @@ func verifyAddDelegatorTx(
 		return nil, fmt.Errorf("%w: %w", ErrFlowCheckFailed, err)
 	}
 
-	// Make sure the tx doesn't start too far in the future. This is done last
-	// to allow the verifier visitor to explicitly check for this error.
+	// Flare-specific
 	maxStartTime := currentTimestamp.Add(MaxFutureStartTime)
-	if validatorStartTime.After(maxStartTime) {
-		return nil, errFutureStakeTime
-	}
 	minStartTime := maxStartTime.Add(-minFutureStartTimeOffset)
-	if validatorStartTime.Before(minStartTime) {
+	if startTime.Before(minStartTime) {
 		return nil, fmt.Errorf(
 			"validator's start time (%s) at or before minStartTime (%s)",
-			validatorStartTime,
+			startTime,
 			minStartTime,
 		)
 	}
-	return outs, nil
+
 	// verifyStakerStartsSoon is checked last to allow
 	// the verifier visitor to explicitly check for this error.
 	return outs, verifyStakerStartsSoon(false /*=isDurangoActive*/, currentTimestamp, startTime)
@@ -546,9 +517,9 @@ func verifyAddPermissionlessValidatorTx(
 		return err
 	}
 
-	// Flare does not (yet) allow adding permissionless validator tx
-	if constants.IsFlareNetworkID(backend.Ctx.NetworkID) || constants.IsSgbNetworkID(backend.Ctx.NetworkID) {
-		return errWrongTxType
+	// Flare does not support subnets
+	if tx.Subnet != constants.PrimaryNetworkID && (constants.IsFlareNetworkID(backend.Ctx.NetworkID) || constants.IsSgbNetworkID(backend.Ctx.NetworkID)) {
+		return ErrWrongTxType
 	}
 
 	var (
@@ -573,11 +544,12 @@ func verifyAddPermissionlessValidatorTx(
 		return err
 	}
 
-	validatorRules, err := getValidatorRules(backend, chainState, tx.Subnet)
+	validatorRules, err := getValidatorRules(backend, chainState, tx.Subnet, currentTimestamp)
 	if err != nil {
 		return err
 	}
 
+	// Flare-specific
 	if !validatorRules.minStakeStartTime.Before(startTime) {
 		return fmt.Errorf(
 			"validator's start time (%s) at or before minStakeStartTime (%s)",
@@ -586,7 +558,6 @@ func verifyAddPermissionlessValidatorTx(
 		)
 	}
 
-	duration := tx.Validator.Duration()
 	stakedAssetID := tx.StakeOuts[0].AssetID()
 	switch {
 	case tx.Validator.Wght < validatorRules.minValidatorStake:
@@ -666,13 +637,17 @@ func verifyAddPermissionlessValidatorTx(
 		return fmt.Errorf("%w: %w", ErrFlowCheckFailed, err)
 	}
 
-	// Make sure the tx doesn't start too far in the future. This is done last
-	// to allow the verifier visitor to explicitly check for this error.
+	// Flare-specific
 	maxStartTime := currentTimestamp.Add(MaxFutureStartTime)
-	if startTime.After(maxStartTime) {
-		return errFutureStakeTime
+	minStartTime := maxStartTime.Add(-validatorRules.minFutureStartTimeOffset)
+	if startTime.Before(minStartTime) {
+		return fmt.Errorf(
+			"validator's start time (%s) at or before minStartTime (%s)",
+			startTime,
+			minStartTime,
+		)
 	}
-	return nil
+
 	// verifyStakerStartsSoon is checked last to allow
 	// the verifier visitor to explicitly check for this error.
 	return verifyStakerStartsSoon(isDurangoActive, currentTimestamp, startTime)
@@ -691,9 +666,9 @@ func verifyAddPermissionlessDelegatorTx(
 		return err
 	}
 
-	// Flare does not (yet) allow adding permissionless delegator tx
-	if constants.IsFlareNetworkID(backend.Ctx.NetworkID) || constants.IsSgbNetworkID(backend.Ctx.NetworkID) {
-		return errWrongTxType
+	// Flare does not support subnets
+	if tx.Subnet != constants.PrimaryNetworkID && (constants.IsFlareNetworkID(backend.Ctx.NetworkID) || constants.IsSgbNetworkID(backend.Ctx.NetworkID)) {
+		return ErrWrongTxType
 	}
 
 	var (
@@ -721,7 +696,7 @@ func verifyAddPermissionlessDelegatorTx(
 		return err
 	}
 
-	delegatorRules, err := getDelegatorRules(backend, chainState, tx.Subnet)
+	delegatorRules, err := getDelegatorRules(backend, chainState, tx.Subnet, currentTimestamp)
 	if err != nil {
 		return err
 	}
@@ -827,6 +802,17 @@ func verifyAddPermissionlessDelegatorTx(
 		return fmt.Errorf("%w: %w", ErrFlowCheckFailed, err)
 	}
 
+	// Flare-specific
+	maxStartTime := currentTimestamp.Add(MaxFutureStartTime)
+	minStartTime := maxStartTime.Add(-delegatorRules.minFutureStartTimeOffset)
+	if startTime.Before(minStartTime) {
+		return fmt.Errorf(
+			"delegator's start time (%s) at or before minStartTime (%s)",
+			startTime,
+			minStartTime,
+		)
+	}
+
 	// verifyStakerStartsSoon is checked last to allow
 	// the verifier visitor to explicitly check for this error.
 	return verifyStakerStartsSoon(isDurangoActive, currentTimestamp, startTime)
@@ -838,7 +824,6 @@ func verifyAddPermissionlessDelegatorTx(
 // * [sTx]'s creds authorize it to transfer ownership of [tx.Subnet].
 // * The flow checker passes.
 func verifyTransferSubnetOwnershipTx(
-	timestamp time.Time,
 	backend *Backend,
 	chainState state.Chain,
 	sTx *txs.Tx,

@@ -27,12 +27,12 @@ type InflationSettings struct {
 	MinDelegateDuration      time.Duration
 	MaxStakeDuration         time.Duration
 	MinFutureStartTimeOffset time.Duration // Will not be checked when addPermissionlessValidator tx is used
-	MaxValidatorWeightFactor uint64
+	MaxValidatorWeightFactor byte
 	MinStakeStartTime        time.Time
 }
 
 // The value of currentTimestamp is used to return new inflation settings over time
-func GetCurrentInflationSettings(currentTimestamp time.Time, networkID uint32, config *config.Config) (uint64, uint64, uint64, uint32, time.Duration, time.Duration, time.Duration, time.Duration, uint64, time.Time) {
+func GetCurrentInflationSettings(currentTimestamp time.Time, networkID uint32, config *config.Config) (uint64, uint64, uint64, uint32, time.Duration, time.Duration, time.Duration, time.Duration, byte, time.Time) {
 	s := inflationSettingsVariants.GetValue(networkID)(currentTimestamp, config)
 	return s.MinValidatorStake, s.MaxValidatorStake, s.MinDelegatorStake, s.MinDelegationFee, s.MinStakeDuration, s.MinDelegateDuration, s.MaxStakeDuration, s.MinFutureStartTimeOffset, s.MaxValidatorWeightFactor, s.MinStakeStartTime
 }
@@ -58,7 +58,7 @@ func getCurrentDelegatorRules(currentTimestamp time.Time, backend *Backend) *add
 		maxValidatorStake:        s.MaxValidatorStake,
 		minStakeDuration:         s.MinDelegateDuration,
 		maxStakeDuration:         s.MaxStakeDuration,
-		maxValidatorWeightFactor: byte(s.MaxValidatorWeightFactor),
+		maxValidatorWeightFactor: s.MaxValidatorWeightFactor,
 	}
 }
 

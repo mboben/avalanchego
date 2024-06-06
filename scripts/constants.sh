@@ -11,7 +11,10 @@ set -euo pipefail
 AVALANCHE_PATH=$( cd "$( dirname "${BASH_SOURCE[0]}" )"; cd .. && pwd ) # Directory above this script
 
 # Where AvalancheGo binary goes
+build_dir="$AVALANCHE_PATH/build"
 avalanchego_path="$AVALANCHE_PATH/build/avalanchego"
+plugin_dir="$build_dir/plugins"
+evm_path="$plugin_dir/evm"
 
 # Set the PATHS
 GOPATH="$(go env GOPATH)"

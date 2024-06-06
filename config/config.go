@@ -815,7 +815,7 @@ func getStakingConfig(v *viper.Viper, networkID uint32) (node.StakingConfig, err
 		return node.StakingConfig{}, errSybilProtectionDisabledStakerWeights
 	}
 
-	if !config.SybilProtectionEnabled && (networkID == constants.MainnetID || networkID == constants.FujiID) {
+	if !config.SybilProtectionEnabled && (networkID == constants.MainnetID || networkID == constants.FlareID || networkID == constants.SongbirdID) {
 		return node.StakingConfig{}, errSybilProtectionDisabledOnPublicNetwork
 	}
 

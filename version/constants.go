@@ -49,7 +49,7 @@ var (
 
 	CurrentSgb = &Semantic{
 		Major: 0,
-		Minor: 8,
+		Minor: 9,
 		Patch: 0,
 	}
 	CurrentSgbApp = &Application{
@@ -59,12 +59,12 @@ var (
 	}
 	MinimumCompatibleSgbVersion = &Application{
 		Major: 0,
-		Minor: 7,
+		Minor: 9,
 		Patch: 0,
 	}
 	PrevMinimumCompatibleSgbVersion = &Application{
 		Major: 0,
-		Minor: 7,
+		Minor: 8,
 		Patch: 0,
 	}
 
@@ -93,12 +93,10 @@ var (
 
 	ApricotPhase1Times = map[uint32]time.Time{
 		constants.MainnetID: time.Date(2021, time.March, 31, 14, 0, 0, 0, time.UTC),
-		constants.FujiID:    time.Date(2021, time.March, 26, 14, 0, 0, 0, time.UTC),
 	}
 
 	ApricotPhase2Times = map[uint32]time.Time{
 		constants.MainnetID: time.Date(2021, time.May, 10, 11, 0, 0, 0, time.UTC),
-		constants.FujiID:    time.Date(2021, time.May, 5, 14, 0, 0, 0, time.UTC),
 	}
 
 	ApricotPhase3Times = map[uint32]time.Time{
@@ -136,7 +134,6 @@ var (
 
 	ApricotPhasePre6Times = map[uint32]time.Time{
 		constants.MainnetID: time.Date(2022, time.September, 5, 1, 30, 0, 0, time.UTC),
-		constants.FujiID:    time.Date(2022, time.September, 6, 20, 0, 0, 0, time.UTC),
 	}
 
 	ApricotPhase6Times = map[uint32]time.Time{
@@ -151,7 +148,6 @@ var (
 
 	ApricotPhasePost6Times = map[uint32]time.Time{
 		constants.MainnetID: time.Date(2022, time.September, 7, 3, 0, 0, 0, time.UTC),
-		constants.FujiID:    time.Date(2022, time.September, 7, 6, 0, 0, 0, time.UTC),
 	}
 
 	// FIXME: update this before release
@@ -183,16 +179,18 @@ var (
 		//
 		// Ref: https://subnets.avax.network/x-chain/block/0
 		constants.MainnetID: ids.FromStringOrPanic("jrGWDh5Po9FMj54depyunNixpia5PN4aAYxfmNzU8n752Rjga"),
-		// The fuji stop vertex is well known. It can be verified on any fully
-		// synced node by looking at the parentID of the genesis block.
-		//
-		// Ref: https://subnets-test.avax.network/x-chain/block/0
-		constants.FujiID: ids.FromStringOrPanic("2D1cmbiG36BqQMRyHt4kFhWarmatA1ighSpND3FeFgz3vFVtCZ"),
+		// TODO: Specify X-Chain stop vertex for other networks
 	}
 
 	DurangoTimes = map[uint32]time.Time{
-		constants.MainnetID: time.Date(2024, time.March, 6, 16, 0, 0, 0, time.UTC),
-		constants.FujiID:    time.Date(2024, time.February, 13, 16, 0, 0, 0, time.UTC),
+		constants.MainnetID:    time.Date(2024, time.March, 6, 16, 0, 0, 0, time.UTC),
+		constants.FlareID:      time.Date(10000, time.December, 1, 0, 0, 0, 0, time.UTC),
+		constants.CostwoID:     time.Date(10000, time.December, 1, 0, 0, 0, 0, time.UTC),
+		constants.StagingID:    time.Date(10000, time.December, 1, 0, 0, 0, 0, time.UTC),
+		constants.LocalFlareID: time.Date(10000, time.December, 1, 0, 0, 0, 0, time.UTC),
+		constants.CostonID:     time.Date(10000, time.December, 1, 0, 0, 0, 0, time.UTC),
+		constants.SongbirdID:   time.Date(10000, time.December, 1, 0, 0, 0, 0, time.UTC),
+		constants.LocalID:      time.Date(10000, time.December, 1, 0, 0, 0, 0, time.UTC),
 	}
 )
 

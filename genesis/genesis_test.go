@@ -167,17 +167,17 @@ func TestGenesisFromFile(t *testing.T) {
 		"flare": {
 			networkID:    constants.FlareID,
 			customConfig: customGenesisConfigJSON,
-			err:          "cannot override genesis config for standard network flare (14)",
+			expectedErr:  errOverridesStandardNetworkConfig,
 		},
 		"songbird": {
 			networkID:    constants.SongbirdID,
 			customConfig: customGenesisConfigJSON,
-			err:          "cannot override genesis config for standard network songbird (5)",
+			expectedErr:  errOverridesStandardNetworkConfig,
 		},
 		"songbird (with custom specified)": {
 			networkID:    constants.SongbirdID,
 			customConfig: []byte(localGenesisConfigJSON), // won't load
-			err:          "cannot override genesis config for standard network songbird (5)",
+			expectedErr:  errOverridesStandardNetworkConfig,
 		},
 		"local": {
 			networkID:    constants.LocalID,
@@ -248,11 +248,11 @@ func TestGenesisFromFlag(t *testing.T) {
 		expectedHash string
 	}{
 		"flare": {
-			networkID: constants.FlareID,
+			networkID:   constants.FlareID,
 			expectedErr: errOverridesStandardNetworkConfig,
 		},
 		"songbird": {
-			networkID: constants.SongbirdID,
+			networkID:   constants.SongbirdID,
 			expectedErr: errOverridesStandardNetworkConfig,
 		},
 		"local": {

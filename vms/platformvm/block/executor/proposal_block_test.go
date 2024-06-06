@@ -101,6 +101,7 @@ func TestApricotProposalBlockTimeVerification(t *testing.T) {
 	onParentAccept.EXPECT().GetTx(addValTx.ID()).Return(addValTx, status.Committed, nil)
 	onParentAccept.EXPECT().GetCurrentSupply(constants.PrimaryNetworkID).Return(uint64(1000), nil).AnyTimes()
 	onParentAccept.EXPECT().GetDelegateeReward(constants.PrimaryNetworkID, utx.NodeID()).Return(uint64(0), nil).AnyTimes()
+	onParentAccept.EXPECT().GetNetworkID().Return(constants.MainnetID).AnyTimes()
 
 	env.mockedState.EXPECT().GetUptime(gomock.Any(), constants.PrimaryNetworkID).Return(
 		time.Microsecond, /*upDuration*/
@@ -158,6 +159,7 @@ func TestBanffProposalBlockTimeVerification(t *testing.T) {
 	onParentAccept := state.NewMockDiff(ctrl)
 	onParentAccept.EXPECT().GetTimestamp().Return(parentTime).AnyTimes()
 	onParentAccept.EXPECT().GetCurrentSupply(constants.PrimaryNetworkID).Return(uint64(1000), nil).AnyTimes()
+	onParentAccept.EXPECT().GetNetworkID().Return(constants.MainnetID).AnyTimes()
 
 	env.blkManager.(*manager).blkIDToState[parentID] = &blockState{
 		statelessBlock: banffParentBlk,
@@ -1453,7 +1455,7 @@ func TestAddValidatorProposalBlock(t *testing.T) {
 
 	rewardUTXOs, err := env.state.GetRewardUTXOs(addValidatorTx.ID())
 	require.NoError(err)
-	require.NotEmpty(rewardUTXOs)
+	require.Empty(rewardUTXOs)
 }
 
 func newRewardValidatorTx(t testing.TB, txID ids.ID) (*txs.Tx, error) {

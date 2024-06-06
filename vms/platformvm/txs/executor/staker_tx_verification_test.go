@@ -222,6 +222,7 @@ func TestVerifyAddPermissionlessValidatorTx(t *testing.T) {
 			stateF: func(ctrl *gomock.Controller) state.Chain {
 				state := state.NewMockChain(ctrl)
 				state.EXPECT().GetTimestamp().Return(now) // chain time is after latest fork activation since now.After(activeForkTime)
+				state.EXPECT().GetNetworkID().Return(constants.MainnetID).AnyTimes()
 				state.EXPECT().GetSubnetTransformation(subnetID).Return(&transformTx, nil)
 				return state
 			},
@@ -556,6 +557,7 @@ func TestVerifyAddPermissionlessValidatorTx(t *testing.T) {
 			stateF: func(ctrl *gomock.Controller) state.Chain {
 				mockState := state.NewMockChain(ctrl)
 				mockState.EXPECT().GetTimestamp().Return(now).Times(2) // chain time is after Durango fork activation since now.After(activeForkTime)
+				mockState.EXPECT().GetNetworkID().Return(constants.MainnetID).AnyTimes()
 				mockState.EXPECT().GetSubnetTransformation(subnetID).Return(&transformTx, nil)
 				mockState.EXPECT().GetCurrentValidator(subnetID, verifiedTx.NodeID()).Return(nil, database.ErrNotFound)
 				mockState.EXPECT().GetPendingValidator(subnetID, verifiedTx.NodeID()).Return(nil, database.ErrNotFound)
@@ -629,13 +631,14 @@ func TestGetValidatorRules(t *testing.T) {
 				return nil
 			},
 			expectedRules: &addValidatorRules{
-				assetID:           avaxAssetID,
-				minValidatorStake: config.MinValidatorStake,
-				maxValidatorStake: config.MaxValidatorStake,
-				minStakeDuration:  config.MinStakeDuration,
-				maxStakeDuration:  config.MaxStakeDuration,
-				minDelegationFee:  config.MinDelegationFee,
-				minStakeStartTime: time.Date(1970, time.January, 1, 0, 0, 0, 0, time.UTC),
+				assetID:                  avaxAssetID,
+				minValidatorStake:        config.MinValidatorStake,
+				maxValidatorStake:        config.MaxValidatorStake,
+				minStakeDuration:         config.MinStakeDuration,
+				maxStakeDuration:         config.MaxStakeDuration,
+				minDelegationFee:         config.MinDelegationFee,
+				minStakeStartTime:        time.Date(1970, time.January, 1, 0, 0, 0, 0, time.UTC),
+				minFutureStartTimeOffset: MaxFutureStartTime,
 			},
 		},
 		{
@@ -685,12 +688,13 @@ func TestGetValidatorRules(t *testing.T) {
 				return state
 			},
 			expectedRules: &addValidatorRules{
-				assetID:           customAssetID,
-				minValidatorStake: config.MinValidatorStake,
-				maxValidatorStake: config.MaxValidatorStake,
-				minStakeDuration:  1337 * time.Second,
-				maxStakeDuration:  42 * time.Second,
-				minDelegationFee:  config.MinDelegationFee,
+				assetID:                  customAssetID,
+				minValidatorStake:        config.MinValidatorStake,
+				maxValidatorStake:        config.MaxValidatorStake,
+				minStakeDuration:         1337 * time.Second,
+				maxStakeDuration:         42 * time.Second,
+				minDelegationFee:         config.MinDelegationFee,
+				minFutureStartTimeOffset: MaxFutureStartTime,
 			},
 			expectedErr: nil,
 		},
@@ -702,7 +706,7 @@ func TestGetValidatorRules(t *testing.T) {
 			ctrl := gomock.NewController(t)
 
 			chainState := tt.chainStateF(ctrl)
-			rules, err := getValidatorRules(time.Time{}, tt.backend, chainState, tt.subnetID)
+			rules, err := getValidatorRules(tt.backend, chainState, tt.subnetID, time.Time{})
 			if tt.expectedErr != nil {
 				require.ErrorIs(err, tt.expectedErr)
 				return
@@ -753,6 +757,7 @@ func TestGetDelegatorRules(t *testing.T) {
 				minStakeDuration:         config.MinStakeDuration,
 				maxStakeDuration:         config.MaxStakeDuration,
 				maxValidatorWeightFactor: MaxValidatorWeightFactor,
+				minFutureStartTimeOffset: MaxFutureStartTime,
 			},
 		},
 		{
@@ -810,6 +815,7 @@ func TestGetDelegatorRules(t *testing.T) {
 				minStakeDuration:         1337 * time.Second,
 				maxStakeDuration:         42 * time.Second,
 				maxValidatorWeightFactor: 21,
+				minFutureStartTimeOffset: MaxFutureStartTime,
 			},
 			expectedErr: nil,
 		},
@@ -820,7 +826,7 @@ func TestGetDelegatorRules(t *testing.T) {
 			ctrl := gomock.NewController(t)
 
 			chainState := tt.chainStateF(ctrl)
-			rules, err := getDelegatorRules(time.Time{}, tt.backend, chainState, tt.subnetID)
+			rules, err := getDelegatorRules(tt.backend, chainState, tt.subnetID, time.Time{})
 			if tt.expectedErr != nil {
 				require.ErrorIs(err, tt.expectedErr)
 				return

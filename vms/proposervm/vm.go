@@ -760,8 +760,8 @@ func (vm *VM) getForkHeight() (uint64, error) {
 		switch vm.ctx.NetworkID {
 		case constants.MainnetID:
 			return 805732, nil // https://subnets.avax.network/p-chain/block/805732
-		case constants.FujiID:
-			return 47529, nil // https://subnets-test.avax.network/p-chain/block/47529
+			// case constants.FujiID:
+			// 	return 47529, nil // https://subnets-test.avax.network/p-chain/block/47529
 		}
 	case mainnetXChainID:
 		return 1, nil // https://subnets.avax.network/x-chain/block/1

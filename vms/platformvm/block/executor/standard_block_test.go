@@ -55,6 +55,7 @@ func TestApricotStandardBlockTimeVerification(t *testing.T) {
 	env.mockedState.EXPECT().GetLastAccepted().Return(parentID).AnyTimes()
 	env.mockedState.EXPECT().GetTimestamp().Return(chainTime).AnyTimes()
 	onParentAccept.EXPECT().GetTimestamp().Return(chainTime).AnyTimes()
+	onParentAccept.EXPECT().GetNetworkID().Return(constants.MainnetID).AnyTimes()
 
 	// wrong height
 	apricotChildBlk, err := block.NewApricotStandardBlock(
@@ -133,6 +134,7 @@ func TestBanffStandardBlockTimeVerification(t *testing.T) {
 	onParentAccept.EXPECT().GetPendingStakerIterator().Return(pendingIt, nil).AnyTimes()
 
 	onParentAccept.EXPECT().GetTimestamp().Return(chainTime).AnyTimes()
+	onParentAccept.EXPECT().GetNetworkID().Return(constants.MainnetID).AnyTimes()
 
 	txID := ids.GenerateTestID()
 	utxo := &avax.UTXO{

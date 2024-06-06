@@ -16,6 +16,14 @@ var (
 	EWOQKey *secp256k1.PrivateKey
 )
 
+const (
+	VMRQKeyStr          = "vmRQiZeXEXYMyJhEiqdC2z5JhuDbxL8ix9UVvjgMu2Er1NepE"
+	VMRQKeyFormattedStr = secp256k1.PrivateKeyPrefix + VMRQKeyStr
+
+	EWOQKeyStr          = "ewoqjP7PxY4yr3iLTpLisriqt94hdyDFNgchSxGGztUrTXtNN"
+	EWOQKeyFormattedStr = secp256k1.PrivateKeyPrefix + EWOQKeyStr
+)
+
 var (
 	localGenesisConfigJSON = `{
 		"networkID": 12345,

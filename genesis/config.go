@@ -227,40 +227,43 @@ func init() {
 		panic(err)
 	}
 
-	localConfig, err := unparsedLocalConfig.Parse()
-	localConfig.CChainGenesis = localCChainGenesis
-	errs.Add(err)
-	LocalConfig = localConfig
-
-	flareConfig, err := unparsedFlareConfig.Parse()
-	errs.Add(err)
-	FlareConfig = flareConfig
-
-	costwoConfig, err := unparsedCostwoConfig.Parse()
-	errs.Add(err)
-	CostwoConfig = costwoConfig
-
-	stagingConfig, err := unparsedStagingConfig.Parse()
-	errs.Add(err)
-	StagingConfig = stagingConfig
-
-	localFlareConfig, err := unparsedLocalFlareConfig.Parse()
-	errs.Add(err)
-	LocalFlareConfig = localFlareConfig
-
-	songbirdConfig, err := unparsedSongbirdConfig.Parse()
-	songbirdConfig.CChainGenesis = songbirdCChainGenesis
-	errs.Add(err)
-	SongbirdConfig = songbirdConfig
-
-	costonConfig, err := unparsedCostonConfig.Parse()
-	costonConfig.CChainGenesis = costonCChainGenesis
-	errs.Add(err)
-	CostonConfig = costonConfig
-
-	if errs.Errored() {
-		panic(errs.Err)
+	LocalConfig, err = unparsedLocalConfig.Parse()
+	if err != nil {
+		panic(err)
 	}
+	LocalConfig.CChainGenesis = localCChainGenesis
+
+	FlareConfig, err = unparsedFlareConfig.Parse()
+	if err != nil {
+		panic(err)
+	}
+
+	CostwoConfig, err = unparsedCostwoConfig.Parse()
+	if err != nil {
+		panic(err)
+	}
+
+	StagingConfig, err = unparsedStagingConfig.Parse()
+	if err != nil {
+		panic(err)
+	}
+
+	LocalFlareConfig, err = unparsedLocalFlareConfig.Parse()
+	if err != nil {
+		panic(err)
+	}
+
+	SongbirdConfig, err = unparsedSongbirdConfig.Parse()
+	if err != nil {
+		panic(err)
+	}
+	SongbirdConfig.CChainGenesis = songbirdCChainGenesis
+
+	CostonConfig, err = unparsedCostonConfig.Parse()
+	if err != nil {
+		panic(err)
+	}
+	CostonConfig.CChainGenesis = costonCChainGenesis
 }
 
 func GetConfig(networkID uint32) *Config {

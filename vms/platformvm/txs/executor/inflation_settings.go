@@ -138,9 +138,9 @@ func getLocalFlareInflationSettings(currentTimestamp time.Time, _ *config.Config
 			MinDelegatorStake:        10 * units.KiloAvax,
 			MinDelegationFee:         0,
 			MinStakeDuration:         2 * 7 * 24 * time.Hour,
-			MinDelegateDuration:      2 * 7 * 24 * time.Hour,
+			MinDelegateDuration:      1 * time.Hour,
 			MaxStakeDuration:         365 * 24 * time.Hour,
-			MinFutureStartTimeOffset: 24 * time.Hour,
+			MinFutureStartTimeOffset: MaxFutureStartTime,
 			MaxValidatorWeightFactor: MaxValidatorWeightFactor,
 			MinStakeStartTime:        time.Date(2023, time.April, 10, 15, 0, 0, 0, time.UTC),
 		}
@@ -152,7 +152,7 @@ func getLocalFlareInflationSettings(currentTimestamp time.Time, _ *config.Config
 			MinDelegatorStake:        10 * units.KiloAvax,
 			MinDelegationFee:         0,
 			MinStakeDuration:         2 * 7 * 24 * time.Hour,
-			MinDelegateDuration:      2 * 7 * 24 * time.Hour,
+			MinDelegateDuration:      1 * time.Hour,
 			MaxStakeDuration:         365 * 24 * time.Hour,
 			MinFutureStartTimeOffset: MaxFutureStartTime,
 			MaxValidatorWeightFactor: MaxValidatorWeightFactor,
@@ -193,7 +193,7 @@ func getSongbirdInflationSettings(currentTimestamp time.Time, config *config.Con
 			MaxStakeDuration:         365 * 24 * time.Hour,
 			MinFutureStartTimeOffset: MaxFutureStartTime,
 			MaxValidatorWeightFactor: 15,
-			MinStakeStartTime:        time.Date(2024, time.October, 1, 0, 0, 0, 0, time.UTC),
+			MinStakeStartTime:        time.Date(2024, time.September, 3, 0, 0, 0, 0, time.UTC),
 		}
 	}
 }
@@ -213,7 +213,7 @@ func getCostonInflationSettings(currentTimestamp time.Time, config *config.Confi
 			MaxStakeDuration:         365 * 24 * time.Hour,
 			MinFutureStartTimeOffset: MaxFutureStartTime,
 			MaxValidatorWeightFactor: 15,
-			MinStakeStartTime:        time.Date(2024, time.April, 24, 15, 0, 0, 0, time.UTC),
+			MinStakeStartTime:        time.Date(2024, time.July, 30, 0, 0, 0, 0, time.UTC),
 		}
 	}
 }

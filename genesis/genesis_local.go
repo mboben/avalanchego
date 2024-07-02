@@ -9,6 +9,7 @@ import (
 	"github.com/ava-labs/avalanchego/utils/crypto/secp256k1"
 	"github.com/ava-labs/avalanchego/utils/units"
 	"github.com/ava-labs/avalanchego/vms/platformvm/reward"
+	"github.com/ava-labs/avalanchego/vms/platformvm/txs/fee"
 )
 
 var (
@@ -93,7 +94,7 @@ var (
 
 	// LocalParams are the params used for local networks
 	LocalParams = Params{
-		TxFeeConfig: TxFeeConfig{
+		StaticConfig: fee.StaticConfig{
 			TxFee:                         units.MilliAvax,
 			CreateAssetTxFee:              units.MilliAvax,
 			CreateSubnetTxFee:             100 * units.MilliAvax,

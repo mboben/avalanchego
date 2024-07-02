@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func UnarySnowflakeStateTest(t *testing.T, sf *unarySnowflake, expectedConfidence int, expectedFinalized bool) {
+func UnarySnowflakeStateTest(t *testing.T, sf *unarySnowflake, expectedConfidence []int, expectedFinalized bool) {
 	require := require.New(t)
 
 	require.Equal(expectedConfidence, sf.confidence)
@@ -19,44 +19,45 @@ func UnarySnowflakeStateTest(t *testing.T, sf *unarySnowflake, expectedConfidenc
 func TestUnarySnowflake(t *testing.T) {
 	require := require.New(t)
 
+	alphaPreference, alphaConfidence := 1, 2
 	beta := 2
 
-	sf := newUnarySnowflake(beta)
+	sf := newUnarySnowflake(alphaPreference, alphaConfidence, beta)
 
-	sf.RecordSuccessfulPoll()
-	UnarySnowflakeStateTest(t, &sf, 1, false)
+	sf.RecordPoll(alphaConfidence)
+	UnarySnowflakeStateTest(t, &sf, []int{1}, false)
 
 	sf.RecordUnsuccessfulPoll()
-	UnarySnowflakeStateTest(t, &sf, 0, false)
+	UnarySnowflakeStateTest(t, &sf, []int{0}, false)
 
-	sf.RecordSuccessfulPoll()
-	UnarySnowflakeStateTest(t, &sf, 1, false)
+	sf.RecordPoll(alphaConfidence)
+	UnarySnowflakeStateTest(t, &sf, []int{1}, false)
 
 	sfCloneIntf := sf.Clone()
 	require.IsType(&unarySnowflake{}, sfCloneIntf)
 	sfClone := sfCloneIntf.(*unarySnowflake)
 
-	UnarySnowflakeStateTest(t, sfClone, 1, false)
+	UnarySnowflakeStateTest(t, sfClone, []int{1}, false)
 
-	binarySnowflake := sfClone.Extend(beta, 0)
+	binarySnowflake := sfClone.Extend(0)
 
 	binarySnowflake.RecordUnsuccessfulPoll()
 
-	binarySnowflake.RecordSuccessfulPoll(1)
+	binarySnowflake.RecordPoll(alphaConfidence, 1)
 
 	require.False(binarySnowflake.Finalized())
 
-	binarySnowflake.RecordSuccessfulPoll(1)
+	binarySnowflake.RecordPoll(alphaConfidence, 1)
 
 	require.Equal(1, binarySnowflake.Preference())
 	require.True(binarySnowflake.Finalized())
 
-	sf.RecordSuccessfulPoll()
-	UnarySnowflakeStateTest(t, &sf, 2, true)
+	sf.RecordPoll(alphaConfidence)
+	UnarySnowflakeStateTest(t, &sf, []int{2}, true)
 
 	sf.RecordUnsuccessfulPoll()
-	UnarySnowflakeStateTest(t, &sf, 0, true)
+	UnarySnowflakeStateTest(t, &sf, []int{0}, true)
 
-	sf.RecordSuccessfulPoll()
-	UnarySnowflakeStateTest(t, &sf, 1, true)
+	sf.RecordPoll(alphaConfidence)
+	UnarySnowflakeStateTest(t, &sf, []int{1}, true)
 }

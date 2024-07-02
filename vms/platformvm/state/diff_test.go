@@ -261,14 +261,14 @@ func TestDiffSubnet(t *testing.T) {
 			Owner: fx.NewMockOwner(ctrl),
 		},
 	}
-	state.AddSubnet(parentStateCreateSubnetTx)
+	state.AddSubnet(parentStateCreateSubnetTx.ID())
 
 	// Verify parent returns one subnet
-	subnets, err := state.GetSubnets()
+	subnetIDs, err := state.GetSubnetIDs()
 	require.NoError(err)
-	require.Equal([]*txs.Tx{
-		parentStateCreateSubnetTx,
-	}, subnets)
+	require.Equal([]ids.ID{
+		parentStateCreateSubnetTx.ID(),
+	}, subnetIDs)
 
 	states := NewMockVersions(ctrl)
 	lastAcceptedID := ids.GenerateTestID()
@@ -283,18 +283,18 @@ func TestDiffSubnet(t *testing.T) {
 			Owner: fx.NewMockOwner(ctrl),
 		},
 	}
-	diff.AddSubnet(createSubnetTx)
+	diff.AddSubnet(createSubnetTx.ID())
 
 	// Apply diff to parent state
 	require.NoError(diff.Apply(state))
 
 	// Verify parent now returns two subnets
-	subnets, err = state.GetSubnets()
+	subnetIDs, err = state.GetSubnetIDs()
 	require.NoError(err)
-	require.Equal([]*txs.Tx{
-		parentStateCreateSubnetTx,
-		createSubnetTx,
-	}, subnets)
+	require.Equal([]ids.ID{
+		parentStateCreateSubnetTx.ID(),
+		createSubnetTx.ID(),
+	}, subnetIDs)
 }
 
 func TestDiffChain(t *testing.T) {
@@ -553,7 +553,7 @@ func TestDiffSubnetOwner(t *testing.T) {
 	require.ErrorIs(err, database.ErrNotFound)
 	require.Nil(owner)
 
-	state.AddSubnet(createSubnetTx)
+	state.AddSubnet(subnetID)
 	state.SetSubnetOwner(subnetID, owner1)
 
 	owner, err = state.GetSubnetOwner(subnetID)
@@ -616,7 +616,7 @@ func TestDiffStacking(t *testing.T) {
 	require.ErrorIs(err, database.ErrNotFound)
 	require.Nil(owner)
 
-	state.AddSubnet(createSubnetTx)
+	state.AddSubnet(subnetID)
 	state.SetSubnetOwner(subnetID, owner1)
 
 	owner, err = state.GetSubnetOwner(subnetID)

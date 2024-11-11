@@ -46,3 +46,4 @@ type fxVM struct {
 func (vm *fxVM) Clock() *mockable.Clock        { return vm.clock }
 func (vm *fxVM) CodecRegistry() codec.Registry { return vm.codecRegistry }
 func (vm *fxVM) Logger() logging.Logger        { return vm.log }
+func (vm *fxVM) EthVerificationEnabled() bool  { return false }

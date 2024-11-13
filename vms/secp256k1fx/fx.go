@@ -231,7 +231,7 @@ func (fx *Fx) VerifyCredentials(utx UnsignedTx, in *Input, cred *Credential, out
 			}
 		}
 
-		return fmt.Errorf("expected signature from %s", expectedAddress)
+		return ErrWrongSig
 	}
 
 	return nil

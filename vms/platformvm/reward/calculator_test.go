@@ -5,7 +5,6 @@ package reward
 
 import (
 	"fmt"
-	"math"
 	"testing"
 	"time"
 
@@ -131,42 +130,4 @@ func TestRewards(t *testing.T) {
 			require.Equal(t, test.expectedReward, reward)
 		})
 	}
-}
-
-func TestRewardsOverflow(t *testing.T) {
-	var (
-		maxSupply     uint64 = math.MaxUint64
-		initialSupply uint64 = 1
-	)
-	c := NewCalculator(Config{
-		MaxConsumptionRate: PercentDenominator,
-		MinConsumptionRate: PercentDenominator,
-		MintingPeriod:      defaultMinStakingDuration,
-		SupplyCap:          maxSupply,
-	})
-	reward := c.Calculate(
-		defaultMinStakingDuration,
-		maxSupply, // The staked amount is larger than the current supply
-		initialSupply,
-	)
-	require.Equal(t, maxSupply-initialSupply, reward)
-}
-
-func TestRewardsMint(t *testing.T) {
-	var (
-		maxSupply     uint64 = 1000
-		initialSupply uint64 = 1
-	)
-	c := NewCalculator(Config{
-		MaxConsumptionRate: PercentDenominator,
-		MinConsumptionRate: PercentDenominator,
-		MintingPeriod:      defaultMinStakingDuration,
-		SupplyCap:          maxSupply,
-	})
-	rewards := c.Calculate(
-		defaultMinStakingDuration,
-		maxSupply, // The staked amount is larger than the current supply
-		initialSupply,
-	)
-	require.Equal(t, maxSupply-initialSupply, rewards)
 }

@@ -42,7 +42,10 @@ rsync -ar --delete $AVALANCHE_PATH/* $GOPATH/pkg/mod/github.com/ava-labs/avalanc
 rsync -ar --delete $CORETH_PATH/* $GOPATH/pkg/mod/github.com/ava-labs/coreth@$coreth_version
 
 # Build avalanchego
-"$AVALANCHE_PATH"/scripts/build_avalanche.sh $build_args
+"$AVALANCHE_PATH"/scripts/build_avalanche.sh
+
+# Build coreth
+"$AVALANCHE_PATH"/scripts/build_coreth.sh
 
 # Exit build successfully if the AvalancheGo binary is created successfully
 if [[ -f "$avalanchego_path" ]]; then

@@ -42,7 +42,7 @@ var (
 	CurrentSgb = &Semantic{
 		Major: 0,
 		Minor: 7,
-		Patch: 0,
+		Patch: 1,
 	}
 	CurrentSgbApp = &Application{
 		Major: CurrentSgb.Major,
@@ -51,8 +51,8 @@ var (
 	}
 	MinimumCompatibleSgbVersion = &Application{
 		Major: 0,
-		Minor: 6,
-		Patch: 6,
+		Minor: 7,
+		Patch: 0,
 	}
 	PrevMinimumCompatibleSgbVersion = &Application{
 		Major: 0,
@@ -232,7 +232,7 @@ func GetCompatibility(networkID uint32) Compatibility {
 		return NewCompatibility(
 			CurrentSgbApp,
 			MinimumCompatibleSgbVersion,
-			GetApricotPhase5Time(networkID),
+			GetBanffTime(networkID),
 			PrevMinimumCompatibleSgbVersion,
 		)
 	}

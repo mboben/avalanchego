@@ -581,7 +581,7 @@ func TestAddValidatorCommit(t *testing.T) {
 		uint64(endTime.Unix()),
 		nodeID,
 		rewardAddress,
-		0,
+		reward.PercentDenominator,
 		[]*secp256k1.PrivateKey{keys[0]},
 		ids.ShortEmpty, // change addr
 	)
@@ -628,7 +628,7 @@ func TestInvalidAddValidatorCommit(t *testing.T) {
 		uint64(endTime.Unix()),
 		nodeID,
 		ids.ShortID(nodeID),
-		0,
+		reward.PercentDenominator,
 		[]*secp256k1.PrivateKey{keys[0]},
 		ids.ShortEmpty, // change addr
 	)
@@ -685,7 +685,7 @@ func TestAddValidatorReject(t *testing.T) {
 		uint64(endTime.Unix()),
 		nodeID,
 		rewardAddress,
-		0,
+		reward.PercentDenominator,
 		[]*secp256k1.PrivateKey{keys[0]},
 		ids.ShortEmpty, // change addr
 	)
@@ -731,7 +731,7 @@ func TestAddValidatorInvalidNotReissued(t *testing.T) {
 		uint64(endTime.Unix()),
 		repeatNodeID,
 		ids.ShortID(repeatNodeID),
-		0,
+		reward.PercentDenominator,
 		[]*secp256k1.PrivateKey{keys[0]},
 		ids.ShortEmpty, // change addr
 	)
@@ -1721,7 +1721,7 @@ func TestBootstrapPartiallyAccepted(t *testing.T) {
 	chainRouter := &router.ChainRouter{}
 
 	metrics := prometheus.NewRegistry()
-	mc, err := message.NewCreator(metrics, "dummyNamespace", true, 10*time.Second)
+	mc, err := message.NewCreator(logging.NoLog{}, metrics, "dummyNamespace", constants.DefaultNetworkCompressionType, 10*time.Second)
 	require.NoError(err)
 
 	err = chainRouter.Initialize(
@@ -1827,6 +1827,7 @@ func TestBootstrapPartiallyAccepted(t *testing.T) {
 		beacons,
 		msgChan,
 		time.Hour,
+		2,
 		cpuTracker,
 		vm,
 		subnets.New(ctx.NodeID, subnets.Config{}),

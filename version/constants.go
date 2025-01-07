@@ -14,13 +14,13 @@ import (
 
 // RPCChainVMProtocol should be bumped anytime changes are made which require
 // the plugin vm to upgrade to latest avalanchego release to be compatible.
-const RPCChainVMProtocol uint = 24
+const RPCChainVMProtocol uint = 25
 
 // These are globals that describe network upgrades and node versions
 var (
 	Current = &Semantic{
 		Major: 1,
-		Minor: 9,
+		Minor: 10,
 		Patch: 16,
 	}
 	CurrentApp = &Application{
@@ -30,19 +30,17 @@ var (
 	}
 	MinimumCompatibleVersion = &Application{
 		Major: 1,
-		Minor: 9,
+		Minor: 10,
 		Patch: 0,
 	}
 	PrevMinimumCompatibleVersion = &Application{
 		Major: 1,
-		Minor: 7,
-		Patch: 1806,
-	}
+		Minor: 9,
 
 	CurrentSgb = &Semantic{
 		Major: 0,
-		Minor: 7,
-		Patch: 1,
+		Minor: 8,
+		Patch: 0,
 	}
 	CurrentSgbApp = &Application{
 		Major: CurrentSgb.Major,
@@ -51,13 +49,13 @@ var (
 	}
 	MinimumCompatibleSgbVersion = &Application{
 		Major: 0,
-		Minor: 7,
+		Minor: 8,
 		Patch: 0,
 	}
 	PrevMinimumCompatibleSgbVersion = &Application{
 		Major: 0,
-		Minor: 6,
-		Patch: 6,
+		Minor: 7,
+		Patch: 0,
 	}
 
 	CurrentDatabase = DatabaseVersion1_4_5
@@ -143,7 +141,7 @@ var (
 	}
 	BanffDefaultTime = time.Date(2020, time.December, 5, 5, 0, 0, 0, time.UTC)
 
-	// TODO: update this before release
+
 	CortinaTimes = map[uint32]time.Time{
 		constants.MainnetID:    time.Date(10000, time.December, 1, 0, 0, 0, 0, time.UTC),
 		constants.FlareID:      time.Date(10000, time.December, 1, 0, 0, 0, 0, time.UTC),
@@ -239,7 +237,7 @@ func GetCompatibility(networkID uint32) Compatibility {
 	return NewCompatibility(
 		CurrentApp,
 		MinimumCompatibleVersion,
-		GetBanffTime(networkID),
+		GetCortinaTime(networkID),
 		PrevMinimumCompatibleVersion,
 	)
 }

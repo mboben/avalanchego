@@ -93,7 +93,7 @@ func ExampleNewTestNetwork() {
 
 	network, err := NewTestNetwork(
 		log,
-		constants.CostwoID,
+		constants.FujiID,
 		validators,
 		trackedSubnets,
 		handler,
@@ -108,7 +108,7 @@ func ExampleNewTestNetwork() {
 
 	// We need to initially connect to some nodes in the network before peer
 	// gossip will enable connecting to all the remaining nodes in the network.
-	beaconIPs, beaconIDs := genesis.SampleBeacons(constants.CostwoID, 5)
+	beaconIPs, beaconIDs := genesis.SampleBeacons(constants.FujiID, 5)
 	for i, beaconIDStr := range beaconIDs {
 		beaconID, err := ids.NodeIDFromString(beaconIDStr)
 		if err != nil {

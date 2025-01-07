@@ -54,7 +54,3 @@ func (vm *fxVM) CodecRegistry() codec.Registry {
 func (vm *fxVM) Logger() logging.Logger {
 	return vm.log
 }
-
-func (vm *fxVM) EthVerificationEnabled() bool  { 
-	return false
-}

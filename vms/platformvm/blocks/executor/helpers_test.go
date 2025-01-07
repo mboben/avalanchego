@@ -266,7 +266,9 @@ func addSubnet(env *environment) {
 	}
 
 	stateDiff.AddTx(testSubnet1, status.Committed)
-	stateDiff.Apply(env.state)
+	if err := stateDiff.Apply(env.state); err != nil {
+		panic(err)
+	}
 }
 
 func defaultState(
@@ -375,7 +377,6 @@ type fxVMInt struct {
 func (fvi *fxVMInt) CodecRegistry() codec.Registry {
 	return fvi.registry
 }
-func (fvi *fxVMInt) EthVerificationEnabled() bool  { return false }
 
 func (fvi *fxVMInt) Clock() *mockable.Clock {
 	return fvi.clk

@@ -822,6 +822,25 @@ func (s *Service) GetCurrentValidators(_ *http.Request, args *GetCurrentValidato
 			NodeID:      nodeID,
 		}
 		potentialReward := json.Uint64(currentStaker.PotentialReward)
+		currentStakerIterator.Release()
+	} else {
+		for nodeID := range nodeIDs {
+			staker, err := s.vm.state.GetCurrentValidator(args.SubnetID, nodeID)
+			switch err {
+			case nil:
+			case database.ErrNotFound:
+				// nothing to do, continue
+				continue
+			default:
+				return err
+			}
+			targetStakers = append(targetStakers, staker)
+
+		delegateeReward, err := s.vm.state.GetDelegateeReward(currentStaker.SubnetID, currentStaker.NodeID)
+		if err != nil {
+			return err
+		}
+		jsonDelegateeReward := json.Uint64(delegateeReward)
 
 		switch currentStaker.Priority {
 		case txs.PrimaryNetworkValidatorCurrentPriority, txs.SubnetPermissionlessValidatorCurrentPriority:
@@ -859,15 +878,16 @@ func (s *Service) GetCurrentValidators(_ *http.Request, args *GetCurrentValidato
 			}
 
 			vdr := platformapi.PermissionlessValidator{
-				Staker:                apiStaker,
-				Uptime:                uptime,
-				Connected:             connected,
-				PotentialReward:       &potentialReward,
-				RewardOwner:           validationRewardOwner,
-				ValidationRewardOwner: validationRewardOwner,
-				DelegationRewardOwner: delegationRewardOwner,
-				DelegationFee:         delegationFee,
-				Signer:                attr.proofOfPossession,
+				Staker:                 apiStaker,
+				Uptime:                 uptime,
+				Connected:              connected,
+				PotentialReward:        &potentialReward,
+				AccruedDelegateeReward: &jsonDelegateeReward,
+				RewardOwner:            validationRewardOwner,
+				ValidationRewardOwner:  validationRewardOwner,
+				DelegationRewardOwner:  delegationRewardOwner,
+				DelegationFee:          delegationFee,
+				Signer:                 attr.proofOfPossession,
 			}
 			reply.Validators = append(reply.Validators, vdr)
 
@@ -2345,7 +2365,7 @@ func (s *Service) GetMinStake(_ *http.Request, args *GetMinStakeArgs, reply *Get
 	)
 
 	if args.SubnetID == constants.PrimaryNetworkID {
-		timestamp := s.vm.state.GetTimestamp()
+		timestamp := service.vm.state.GetTimestamp()
 		minValidatorStake, _, minDelegatorStake, _, _, _, _, _, _, _ := executor.GetCurrentInflationSettings(timestamp, s.vm.ctx.NetworkID, &s.vm.Config)
 		reply.MinValidatorStake = json.Uint64(minValidatorStake)
 		reply.MinDelegatorStake = json.Uint64(minDelegatorStake)

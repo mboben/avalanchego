@@ -37,7 +37,6 @@ func (vm *TestVM) CodecRegistry() codec.Registry {
 func (vm *TestVM) Logger() logging.Logger {
 	return vm.Log
 }
-
 func (vm *TestVM) EthVerificationEnabled() bool  { 
 	return false
 }

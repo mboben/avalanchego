@@ -42,7 +42,7 @@ rsync -ar --delete $AVALANCHE_PATH/* $GOPATH/pkg/mod/github.com/ava-labs/avalanc
 rsync -ar --delete $CORETH_PATH/* $GOPATH/pkg/mod/github.com/ava-labs/coreth@$coreth_version
 
 # Build avalanchego
-"$AVALANCHE_PATH"/scripts/build_avalanche.sh
+"$AVALANCHE_PATH"/scripts/build_avalanche.sh $build_args
 
 # Build coreth
 "$AVALANCHE_PATH"/scripts/build_coreth.sh

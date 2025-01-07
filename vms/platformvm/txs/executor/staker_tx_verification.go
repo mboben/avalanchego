@@ -396,7 +396,7 @@ func verifyAddDelegatorTx(
 	}
 
 	if backend.Config.IsApricotPhase3Activated(currentTimestamp) {
-		maximumWeight = math.Min(maximumWeight, backend.Config.MaxValidatorStake)
+		maximumWeight = math.Min(maximumWeight, maxValidatorStake)
 	}
 
 	txID := sTx.ID()

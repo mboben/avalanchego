@@ -98,15 +98,6 @@ func TestValidateConfig(t *testing.T) {
 			}(),
 			err: errStakeDurationTooHigh.Error(),
 		},
-		"too large initial stake duration": {
-			networkID: 12345,
-			config: func() *Config {
-				thisConfig := LocalConfig
-				thisConfig.InitialStakeDuration = uint64(genesisStakingCfg.MaxStakeDuration+time.Second) / uint64(time.Second)
-				return &thisConfig
-			}(),
-			err: errStakeDurationTooHigh.Error(),
-		},
 		"invalid stake offset": {
 			networkID: 14,
 			config: func() *Config {

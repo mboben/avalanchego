@@ -36,6 +36,8 @@ source "$AVALANCHE_PATH"/scripts/constants.sh
 echo "Downloading dependencies..."
 go mod download -modcacherw
 
+build_args="$race"
+
 echo "Syncing with sources at GOPATH: $GOPATH"
 
 rsync -ar --delete $AVALANCHE_PATH/* $GOPATH/pkg/mod/github.com/ava-labs/avalanchego@$avalanche_version

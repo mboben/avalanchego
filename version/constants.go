@@ -36,6 +36,8 @@ var (
 	PrevMinimumCompatibleVersion = &Application{
 		Major: 1,
 		Minor: 9,
+		Patch: 0,
+	}
 
 	CurrentSgb = &Semantic{
 		Major: 0,
@@ -128,7 +130,6 @@ var (
 	}
 	ApricotPhase6DefaultTime = time.Date(2020, time.December, 5, 5, 0, 0, 0, time.UTC)
 
-	// FIXME: update this before release
 	BanffTimes = map[uint32]time.Time{
 		constants.MainnetID:    time.Date(2022, time.October, 18, 16, 0, 0, 0, time.UTC),
 		constants.FlareID:      time.Date(2024, time.December, 17, 15, 0, 0, 0, time.UTC),
@@ -140,7 +141,6 @@ var (
 		constants.LocalID:      time.Date(2024, time.November, 5, 15, 0, 0, 0, time.UTC),
 	}
 	BanffDefaultTime = time.Date(2020, time.December, 5, 5, 0, 0, 0, time.UTC)
-
 
 	CortinaTimes = map[uint32]time.Time{
 		constants.MainnetID:    time.Date(10000, time.December, 1, 0, 0, 0, 0, time.UTC),
@@ -230,7 +230,7 @@ func GetCompatibility(networkID uint32) Compatibility {
 		return NewCompatibility(
 			CurrentSgbApp,
 			MinimumCompatibleSgbVersion,
-			GetBanffTime(networkID),
+			GetCortinaTime(networkID),
 			PrevMinimumCompatibleSgbVersion,
 		)
 	}

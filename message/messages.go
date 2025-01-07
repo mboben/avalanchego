@@ -260,6 +260,7 @@ func (mb *msgBuilder) marshal(
 	if err != nil {
 		return nil, 0, 0, err
 	}
+	compressTook := time.Since(startTime)
 
 	if compressTimeMetric, ok := opToCompressTimeMetrics[op]; ok {
 		compressTimeMetric.Observe(float64(compressTook))
@@ -270,7 +271,6 @@ func (mb *msgBuilder) marshal(
 			zap.Stringer("compressionType", compressionType),
 		)
 	}
-	compressTook := time.Since(startTime)
 
 	bytesSaved := len(uncompressedMsgBytes) - len(compressedMsgBytes)
 	return compressedMsgBytes, bytesSaved, op, nil

@@ -47,7 +47,6 @@ type ClientPermissionlessValidator struct {
 	Uptime                 *float32
 	Connected              *bool
 	Signer                 *signer.ProofOfPossession
-	Signer                *signer.ProofOfPossession
 	// The delegators delegating to this validator
 	DelegatorCount  *uint64
 	DelegatorWeight *uint64

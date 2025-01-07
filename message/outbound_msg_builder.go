@@ -179,7 +179,6 @@ func newOutboundBuilder(compressionType compression.Type, builder *msgBuilder) O
 	return &outMsgBuilder{
 		compressionType: compressionType,
 		builder:         builder,
-		builder:  builder,
 	}
 }
 
@@ -280,7 +279,6 @@ func (b *outMsgBuilder) PeerListAck(peerAcks []*p2p.PeerAck) (OutboundMessage, e
 		},
 		compression.TypeNone,
 		false,
-		false,
 	)
 }
 
@@ -300,7 +298,6 @@ func (b *outMsgBuilder) GetStateSummaryFrontier(
 			},
 		},
 		compression.TypeNone,
-		false,
 		false,
 	)
 }
@@ -388,7 +385,6 @@ func (b *outMsgBuilder) GetAcceptedFrontier(
 		},
 		compression.TypeNone,
 		false,
-		false,
 	)
 }
 
@@ -410,7 +406,6 @@ func (b *outMsgBuilder) AcceptedFrontier(
 			},
 		},
 		compression.TypeNone,
-		false,
 		false,
 	)
 }
@@ -438,7 +433,6 @@ func (b *outMsgBuilder) GetAccepted(
 		},
 		compression.TypeNone,
 		false,
-		false,
 	)
 }
 
@@ -460,7 +454,6 @@ func (b *outMsgBuilder) Accepted(
 			},
 		},
 		compression.TypeNone,
-		false,
 		false,
 	)
 }
@@ -485,7 +478,6 @@ func (b *outMsgBuilder) GetAncestors(
 			},
 		},
 		compression.TypeNone,
-		false,
 		false,
 	)
 }
@@ -530,7 +522,6 @@ func (b *outMsgBuilder) Get(
 			},
 		},
 		compression.TypeNone,
-		false,
 		false,
 	)
 }
@@ -602,7 +593,6 @@ func (b *outMsgBuilder) PullQuery(
 		},
 		compression.TypeNone,
 		false,
-		false,
 	)
 }
 
@@ -628,7 +618,6 @@ func (b *outMsgBuilder) Chits(
 			},
 		},
 		compression.TypeNone,
-		false,
 		false,
 	)
 }

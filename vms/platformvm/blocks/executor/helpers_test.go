@@ -386,6 +386,10 @@ func (fvi *fxVMInt) Logger() logging.Logger {
 	return fvi.log
 }
 
+func (fvi *fxVMInt) EthVerificationEnabled() bool {
+	return false
+}
+
 func defaultFx(clk *mockable.Clock, log logging.Logger, isBootstrapped bool) fx.Fx {
 	fxVMInt := &fxVMInt{
 		registry: linearcodec.NewDefault(),

@@ -13,6 +13,12 @@ AVALANCHE_PATH=$( cd "$( dirname "${BASH_SOURCE[0]}" )"; cd .. && pwd ) # Direct
 # Where AvalancheGo binary goes
 avalanchego_path="$AVALANCHE_PATH/build/avalanchego"
 
+# Settings for coreth
+coreth_version=${CORETH_VERSION:-'v0.13.0-rc.0'}
+plugin_dir=${PLUGIN_DIR:-$HOME/.avalanchego/plugins}
+evm_path=${EVM_PATH:-$plugin_dir/evm}
+coreth_path="$AVALANCHE_PATH/../coreth"
+
 # Avalabs docker hub
 # avaplatform/avalanchego - defaults to local as to avoid unintentional pushes
 # You should probably set it - export DOCKER_REPO='avaplatform/avalanchego'

@@ -558,6 +558,7 @@ func VMGenesis(genesisBytes []byte, vmID ids.ID) (*pchaintxs.Tx, error) {
 func AVAXAssetID(avmGenesisBytes []byte) (ids.ID, error) {
 	parser, err := xchaintxs.NewParser(
 		time.Time{},
+		time.Time{},
 		[]fxs.Fx{
 			&secp256k1fx.Fx{},
 		},

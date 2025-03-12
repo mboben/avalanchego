@@ -111,6 +111,7 @@ func TestImportTxSerialization(t *testing.T) {
 
 	parser, err := NewParser(
 		time.Time{},
+		time.Time{},
 		[]fxs.Fx{
 			&secp256k1fx.Fx{},
 		},

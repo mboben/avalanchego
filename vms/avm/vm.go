@@ -217,6 +217,7 @@ func (vm *VM) Initialize(
 
 	vm.typeToFxIndex = map[reflect.Type]int{}
 	vm.parser, err = block.NewCustomParser(
+		version.GetCortinaTime(ctx.NetworkID),
 		vm.DurangoTime,
 		vm.typeToFxIndex,
 		&vm.clock,

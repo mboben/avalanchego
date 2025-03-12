@@ -26,6 +26,7 @@ func init() {
 	var err error
 	Parser, err = block.NewParser(
 		time.Time{},
+		time.Time{},
 		[]fxs.Fx{
 			&secp256k1fx.Fx{},
 			&nftfx.Fx{},

@@ -35,6 +35,7 @@ func TestMarshaller(t *testing.T) {
 
 	parser, err := txs.NewParser(
 		time.Time{},
+		time.Time{},
 		[]fxs.Fx{
 			&secp256k1fx.Fx{},
 		},
@@ -65,7 +66,7 @@ func TestGossipMempoolAdd(t *testing.T) {
 	baseMempool, err := mempool.New("", metrics, toEngine)
 	require.NoError(err)
 
-	parser, err := txs.NewParser(time.Time{}, nil)
+	parser, err := txs.NewParser(time.Time{}, time.Time{}, nil)
 	require.NoError(err)
 
 	mempool, err := newGossipMempool(
@@ -102,7 +103,7 @@ func TestGossipMempoolAddVerified(t *testing.T) {
 	baseMempool, err := mempool.New("", metrics, toEngine)
 	require.NoError(err)
 
-	parser, err := txs.NewParser(time.Time{}, nil)
+	parser, err := txs.NewParser(time.Time{}, time.Time{}, nil)
 	require.NoError(err)
 
 	mempool, err := newGossipMempool(

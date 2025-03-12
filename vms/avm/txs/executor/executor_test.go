@@ -39,6 +39,7 @@ func TestBaseTxExecutor(t *testing.T) {
 	secpFx := &secp256k1fx.Fx{}
 	parser, err := block.NewParser(
 		time.Time{},
+		time.Time{},
 		[]fxs.Fx{secpFx},
 	)
 	require.NoError(err)
@@ -146,6 +147,7 @@ func TestCreateAssetTxExecutor(t *testing.T) {
 
 	secpFx := &secp256k1fx.Fx{}
 	parser, err := block.NewParser(
+		time.Time{},
 		time.Time{},
 		[]fxs.Fx{secpFx},
 	)
@@ -292,6 +294,7 @@ func TestOperationTxExecutor(t *testing.T) {
 
 	secpFx := &secp256k1fx.Fx{}
 	parser, err := block.NewParser(
+		time.Time{},
 		time.Time{},
 		[]fxs.Fx{secpFx},
 	)

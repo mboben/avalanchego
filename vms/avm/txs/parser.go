@@ -40,8 +40,9 @@ type parser struct {
 	gc  linearcodec.Codec
 }
 
-func NewParser(durangoTime time.Time, fxs []fxs.Fx) (Parser, error) {
+func NewParser(cortinaTime time.Time, durangoTime time.Time, fxs []fxs.Fx) (Parser, error) {
 	return NewCustomParser(
+		cortinaTime,
 		durangoTime,
 		make(map[reflect.Type]int),
 		&mockable.Clock{},
@@ -51,6 +52,7 @@ func NewParser(durangoTime time.Time, fxs []fxs.Fx) (Parser, error) {
 }
 
 func NewCustomParser(
+	cortinaTime time.Time,
 	durangoTime time.Time,
 	typeToFxIndex map[reflect.Type]int,
 	clock *mockable.Clock,
@@ -86,6 +88,7 @@ func NewCustomParser(
 		typeToFxIndex: typeToFxIndex,
 		clock:         clock,
 		log:           log,
+		cortinaTime:   cortinaTime,
 	}
 	for i, fx := range fxs {
 		vm.codecRegistry = &codecRegistry{

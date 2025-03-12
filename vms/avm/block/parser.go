@@ -31,8 +31,8 @@ type parser struct {
 	txs.Parser
 }
 
-func NewParser(durangoTime time.Time, fxs []fxs.Fx) (Parser, error) {
-	p, err := txs.NewParser(durangoTime, fxs)
+func NewParser(cortinaTime time.Time, durangoTime time.Time, fxs []fxs.Fx) (Parser, error) {
+	p, err := txs.NewParser(cortinaTime, durangoTime, fxs)
 	if err != nil {
 		return nil, err
 	}
@@ -49,13 +49,14 @@ func NewParser(durangoTime time.Time, fxs []fxs.Fx) (Parser, error) {
 }
 
 func NewCustomParser(
+	cortinaTime time.Time,
 	durangoTime time.Time,
 	typeToFxIndex map[reflect.Type]int,
 	clock *mockable.Clock,
 	log logging.Logger,
 	fxs []fxs.Fx,
 ) (Parser, error) {
-	p, err := txs.NewCustomParser(durangoTime, typeToFxIndex, clock, log, fxs)
+	p, err := txs.NewCustomParser(cortinaTime, durangoTime, typeToFxIndex, clock, log, fxs)
 	if err != nil {
 		return nil, err
 	}

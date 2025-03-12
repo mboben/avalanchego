@@ -188,7 +188,7 @@ func TestBuildBlockShouldReward(t *testing.T) {
 	// Staking rewards should have been issued
 	rewardUTXOs, err := env.state.GetRewardUTXOs(txID)
 	require.NoError(err)
-	require.NotEmpty(rewardUTXOs)
+	require.Empty(rewardUTXOs) // No rewards on Flare
 }
 
 func TestBuildBlockAdvanceTime(t *testing.T) {

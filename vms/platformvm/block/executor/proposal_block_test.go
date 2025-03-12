@@ -1453,7 +1453,7 @@ func TestAddValidatorProposalBlock(t *testing.T) {
 
 	rewardUTXOs, err := env.state.GetRewardUTXOs(addValidatorTx.ID())
 	require.NoError(err)
-	require.NotEmpty(rewardUTXOs)
+	require.Empty(rewardUTXOs) // No rewards on Flare
 }
 
 func newRewardValidatorTx(t testing.TB, txID ids.ID) (*txs.Tx, error) {

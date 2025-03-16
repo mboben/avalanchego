@@ -629,13 +629,14 @@ func TestGetValidatorRules(t *testing.T) {
 				return nil
 			},
 			expectedRules: &addValidatorRules{
-				assetID:           avaxAssetID,
-				minValidatorStake: config.MinValidatorStake,
-				maxValidatorStake: config.MaxValidatorStake,
-				minStakeDuration:  config.MinStakeDuration,
-				maxStakeDuration:  config.MaxStakeDuration,
-				minDelegationFee:  config.MinDelegationFee,
-				minStakeStartTime: time.Date(1970, time.January, 1, 0, 0, 0, 0, time.UTC),
+				assetID:                  avaxAssetID,
+				minValidatorStake:        config.MinValidatorStake,
+				maxValidatorStake:        config.MaxValidatorStake,
+				minStakeDuration:         config.MinStakeDuration,
+				maxStakeDuration:         config.MaxStakeDuration,
+				minDelegationFee:         config.MinDelegationFee,
+				minStakeStartTime:        time.Date(1970, time.January, 1, 0, 0, 0, 0, time.UTC),
+				minFutureStartTimeOffset: MaxFutureStartTime,
 			},
 		},
 		{
@@ -753,6 +754,7 @@ func TestGetDelegatorRules(t *testing.T) {
 				minStakeDuration:         config.MinStakeDuration,
 				maxStakeDuration:         config.MaxStakeDuration,
 				maxValidatorWeightFactor: MaxValidatorWeightFactor,
+				minFutureStartTimeOffset: MaxFutureStartTime,
 			},
 		},
 		{

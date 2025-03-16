@@ -1029,6 +1029,7 @@ func TestSemanticVerifierImportTx(t *testing.T) {
 				}
 				state.EXPECT().GetUTXO(utxoID.InputID()).Return(&utxo, nil).AnyTimes()
 				state.EXPECT().GetTx(asset.ID).Return(&createAssetTx, nil).AnyTimes()
+				state.EXPECT().GetTimestamp().Return(time.Time{})
 				return state
 			},
 			txFunc: func(*require.Assertions) *txs.Tx {
@@ -1068,6 +1069,7 @@ func TestSemanticVerifierImportTx(t *testing.T) {
 					Unsigned: &unsignedCreateAssetTx,
 				}
 				state.EXPECT().GetTx(asset.ID).Return(&createAssetTx, nil).AnyTimes()
+				state.EXPECT().GetTimestamp().Return(time.Time{})
 				return state
 			},
 			txFunc: func(require *require.Assertions) *txs.Tx {

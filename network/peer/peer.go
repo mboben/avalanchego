@@ -759,7 +759,7 @@ func (p *peer) shouldDisconnect() bool {
 		return false
 	}
 
-	postDurango := p.Clock.Time().After(version.GetDurangoTime(constants.MainnetID))
+	postDurango := p.Clock.Time().After(version.GetDurangoTime(p.Config.NetworkID))
 	if postDurango && p.ip.BLSSignature == nil {
 		p.Log.Debug("disconnecting from peer",
 			zap.String("reason", "missing BLS signature"),

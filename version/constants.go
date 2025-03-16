@@ -26,7 +26,7 @@ var (
 	Current = &Semantic{
 		Major: 1,
 		Minor: 11,
-		Patch: 1,
+		Patch: 0,
 	}
 	CurrentApp = &Application{
 		Name:  Client,

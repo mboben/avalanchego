@@ -4,11 +4,12 @@
 package merkledb
 
 import (
+	"errors"
 	"sync"
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/ava-labs/avalanchego/utils"
+	"github.com/ava-labs/avalanchego/utils/metric"
 )
 
 const (
@@ -94,11 +95,13 @@ type prometheusMetrics struct {
 	lookup *prometheus.CounterVec
 }
 
-func newMetrics(namespace string, reg prometheus.Registerer) (metrics, error) {
+func newMetrics(prefix string, reg prometheus.Registerer) (metrics, error) {
 	// TODO: Should we instead return an error if reg is nil?
 	if reg == nil {
 		return &mockMetrics{}, nil
 	}
+
+	namespace := metric.AppendNamespace(prefix, "merkledb")
 	m := prometheusMetrics{
 		hashes: prometheus.NewCounter(prometheus.CounterOpts{
 			Namespace: namespace,
@@ -116,7 +119,7 @@ func newMetrics(namespace string, reg prometheus.Registerer) (metrics, error) {
 			Help:      "cumulative number of in-memory lookups performed",
 		}, lookupLabels),
 	}
-	err := utils.Err(
+	err := errors.Join(
 		reg.Register(m.hashes),
 		reg.Register(m.io),
 		reg.Register(m.lookup),

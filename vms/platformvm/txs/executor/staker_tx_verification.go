@@ -30,7 +30,7 @@ var (
 	ErrNotValidator                    = errors.New("isn't a current or pending validator")
 	ErrRemovePermissionlessValidator   = errors.New("attempting to remove permissionless validator")
 	ErrStakeOverflow                   = errors.New("validator stake exceeds limit")
-	ErrPeriodMismatch                  = errors.New("proposed staking period is not inside dependant staking period")
+	ErrPeriodMismatch                  = errors.New("proposed staking period is not inside dependent staking period")
 	ErrOverDelegated                   = errors.New("validator would be over delegated")
 	ErrIsNotTransformSubnetTx          = errors.New("is not a transform subnet tx")
 	ErrTimestampNotBeforeStartTime     = errors.New("chain timestamp not before start time")
@@ -90,6 +90,7 @@ func verifySubnetValidatorPrimaryNetworkRequirements(
 // added to the staking set.
 func verifyAddValidatorTx(
 	backend *Backend,
+	feeCalculator fee.Calculator,
 	chainState state.Chain,
 	sTx *txs.Tx,
 	tx *txs.AddValidatorTx,
@@ -164,9 +165,10 @@ func verifyAddValidatorTx(
 	}
 
 	// Verify the flowcheck
-	feeCalculator := fee.NewStaticCalculator(backend.Config.StaticFeeConfig, backend.Config.UpgradeConfig)
-	fee := feeCalculator.CalculateFee(tx, currentTimestamp)
-
+	fee, err := feeCalculator.CalculateFee(tx)
+	if err != nil {
+		return nil, err
+	}
 	if err := backend.FlowChecker.VerifySpend(
 		tx,
 		chainState,
@@ -187,6 +189,7 @@ func verifyAddValidatorTx(
 // AddSubnetValidatorTx.
 func verifyAddSubnetValidatorTx(
 	backend *Backend,
+	feeCalculator fee.Calculator,
 	chainState state.Chain,
 	sTx *txs.Tx,
 	tx *txs.AddSubnetValidatorTx,
@@ -249,15 +252,16 @@ func verifyAddSubnetValidatorTx(
 		return err
 	}
 
-	baseTxCreds, err := verifyPoASubnetAuthorization(backend, chainState, sTx, tx.SubnetValidator.Subnet, tx.SubnetAuth)
+	baseTxCreds, err := verifyPoASubnetAuthorization(backend.Fx, chainState, sTx, tx.SubnetValidator.Subnet, tx.SubnetAuth)
 	if err != nil {
 		return err
 	}
 
 	// Verify the flowcheck
-	feeCalculator := fee.NewStaticCalculator(backend.Config.StaticFeeConfig, backend.Config.UpgradeConfig)
-	fee := feeCalculator.CalculateFee(tx, currentTimestamp)
-
+	fee, err := feeCalculator.CalculateFee(tx)
+	if err != nil {
+		return err
+	}
 	if err := backend.FlowChecker.VerifySpend(
 		tx,
 		chainState,
@@ -284,6 +288,7 @@ func verifyAddSubnetValidatorTx(
 // * The flow checker passes.
 func verifyRemoveSubnetValidatorTx(
 	backend *Backend,
+	feeCalculator fee.Calculator,
 	chainState state.Chain,
 	sTx *txs.Tx,
 	tx *txs.RemoveSubnetValidatorTx,
@@ -327,15 +332,16 @@ func verifyRemoveSubnetValidatorTx(
 		return vdr, isCurrentValidator, nil
 	}
 
-	baseTxCreds, err := verifySubnetAuthorization(backend, chainState, sTx, tx.Subnet, tx.SubnetAuth)
+	baseTxCreds, err := verifySubnetAuthorization(backend.Fx, chainState, sTx, tx.Subnet, tx.SubnetAuth)
 	if err != nil {
 		return nil, false, err
 	}
 
 	// Verify the flowcheck
-	feeCalculator := fee.NewStaticCalculator(backend.Config.StaticFeeConfig, backend.Config.UpgradeConfig)
-	fee := feeCalculator.CalculateFee(tx, currentTimestamp)
-
+	fee, err := feeCalculator.CalculateFee(tx)
+	if err != nil {
+		return nil, false, err
+	}
 	if err := backend.FlowChecker.VerifySpend(
 		tx,
 		chainState,
@@ -357,6 +363,7 @@ func verifyRemoveSubnetValidatorTx(
 // added to the staking set.
 func verifyAddDelegatorTx(
 	backend *Backend,
+	feeCalculator fee.Calculator,
 	chainState state.Chain,
 	sTx *txs.Tx,
 	tx *txs.AddDelegatorTx,
@@ -418,7 +425,7 @@ func verifyAddDelegatorTx(
 		)
 	}
 
-	maximumWeight, err := safemath.Mul64(MaxValidatorWeightFactor, primaryNetworkValidator.Weight)
+	maximumWeight, err := safemath.Mul(MaxValidatorWeightFactor, primaryNetworkValidator.Weight)
 	if err != nil {
 		return nil, ErrStakeOverflow
 	}
@@ -451,9 +458,10 @@ func verifyAddDelegatorTx(
 	}
 
 	// Verify the flowcheck
-	feeCalculator := fee.NewStaticCalculator(backend.Config.StaticFeeConfig, backend.Config.UpgradeConfig)
-	fee := feeCalculator.CalculateFee(tx, currentTimestamp)
-
+	fee, err := feeCalculator.CalculateFee(tx)
+	if err != nil {
+		return nil, err
+	}
 	if err := backend.FlowChecker.VerifySpend(
 		tx,
 		chainState,
@@ -474,6 +482,7 @@ func verifyAddDelegatorTx(
 // AddPermissionlessValidatorTx.
 func verifyAddPermissionlessValidatorTx(
 	backend *Backend,
+	feeCalculator fee.Calculator,
 	chainState state.Chain,
 	sTx *txs.Tx,
 	tx *txs.AddPermissionlessValidatorTx,
@@ -571,9 +580,10 @@ func verifyAddPermissionlessValidatorTx(
 	copy(outs[len(tx.Outs):], tx.StakeOuts)
 
 	// Verify the flowcheck
-	feeCalculator := fee.NewStaticCalculator(backend.Config.StaticFeeConfig, backend.Config.UpgradeConfig)
-	fee := feeCalculator.CalculateFee(tx, currentTimestamp)
-
+	fee, err := feeCalculator.CalculateFee(tx)
+	if err != nil {
+		return err
+	}
 	if err := backend.FlowChecker.VerifySpend(
 		tx,
 		chainState,
@@ -594,6 +604,7 @@ func verifyAddPermissionlessValidatorTx(
 // AddPermissionlessDelegatorTx.
 func verifyAddPermissionlessDelegatorTx(
 	backend *Backend,
+	feeCalculator fee.Calculator,
 	chainState state.Chain,
 	sTx *txs.Tx,
 	tx *txs.AddPermissionlessDelegatorTx,
@@ -667,7 +678,7 @@ func verifyAddPermissionlessDelegatorTx(
 		)
 	}
 
-	maximumWeight, err := safemath.Mul64(
+	maximumWeight, err := safemath.Mul(
 		uint64(delegatorRules.maxValidatorWeightFactor),
 		validator.Weight,
 	)
@@ -716,9 +727,10 @@ func verifyAddPermissionlessDelegatorTx(
 	}
 
 	// Verify the flowcheck
-	feeCalculator := fee.NewStaticCalculator(backend.Config.StaticFeeConfig, backend.Config.UpgradeConfig)
-	fee := feeCalculator.CalculateFee(tx, currentTimestamp)
-
+	fee, err := feeCalculator.CalculateFee(tx)
+	if err != nil {
+		return err
+	}
 	if err := backend.FlowChecker.VerifySpend(
 		tx,
 		chainState,
@@ -742,11 +754,16 @@ func verifyAddPermissionlessDelegatorTx(
 // * The flow checker passes.
 func verifyTransferSubnetOwnershipTx(
 	backend *Backend,
+	feeCalculator fee.Calculator,
 	chainState state.Chain,
 	sTx *txs.Tx,
 	tx *txs.TransferSubnetOwnershipTx,
 ) error {
-	if !backend.Config.UpgradeConfig.IsDurangoActivated(chainState.GetTimestamp()) {
+	var (
+		currentTimestamp = chainState.GetTimestamp()
+		upgrades         = backend.Config.UpgradeConfig
+	)
+	if !upgrades.IsDurangoActivated(currentTimestamp) {
 		return ErrDurangoUpgradeNotActive
 	}
 
@@ -764,16 +781,16 @@ func verifyTransferSubnetOwnershipTx(
 		return nil
 	}
 
-	baseTxCreds, err := verifySubnetAuthorization(backend, chainState, sTx, tx.Subnet, tx.SubnetAuth)
+	baseTxCreds, err := verifySubnetAuthorization(backend.Fx, chainState, sTx, tx.Subnet, tx.SubnetAuth)
 	if err != nil {
 		return err
 	}
 
 	// Verify the flowcheck
-	currentTimestamp := chainState.GetTimestamp()
-	feeCalculator := fee.NewStaticCalculator(backend.Config.StaticFeeConfig, backend.Config.UpgradeConfig)
-	fee := feeCalculator.CalculateFee(tx, currentTimestamp)
-
+	fee, err := feeCalculator.CalculateFee(tx)
+	if err != nil {
+		return err
+	}
 	if err := backend.FlowChecker.VerifySpend(
 		tx,
 		chainState,

@@ -8,8 +8,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
+	"os"
+	"syscall"
 	"time"
 
+	"github.com/ava-labs/avalanchego/api/health"
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/crypto/secp256k1"
 )
@@ -18,7 +22,30 @@ const (
 	DefaultNodeTickerInterval = 50 * time.Millisecond
 )
 
-var ErrNotRunning = errors.New("not running")
+var ErrUnrecoverableNodeHealthCheck = errors.New("failed to query node health")
+
+func CheckNodeHealth(ctx context.Context, uri string) (*health.APIReply, error) {
+	// Check that the node is reporting healthy
+	healthReply, err := health.NewClient(uri).Health(ctx, nil)
+	if err == nil {
+		return healthReply, nil
+	}
+
+	switch t := err.(type) {
+	case *net.OpError:
+		if t.Op == "read" {
+			// Connection refused - potentially recoverable
+			return nil, err
+		}
+	case syscall.Errno:
+		if t == syscall.ECONNREFUSED {
+			// Connection refused - potentially recoverable
+			return nil, err
+		}
+	}
+	// Assume all other errors are not recoverable
+	return nil, fmt.Errorf("%w: %w", ErrUnrecoverableNodeHealthCheck, err)
+}
 
 // WaitForHealthy blocks until Node.IsHealthy returns true or an error (including context timeout) is observed.
 func WaitForHealthy(ctx context.Context, node *Node) error {
@@ -30,10 +57,14 @@ func WaitForHealthy(ctx context.Context, node *Node) error {
 
 	for {
 		healthy, err := node.IsHealthy(ctx)
-		if err != nil && !errors.Is(err, ErrNotRunning) {
-			return fmt.Errorf("failed to wait for health of node %q: %w", node.NodeID, err)
-		}
-		if healthy {
+		switch {
+		case errors.Is(err, ErrUnrecoverableNodeHealthCheck):
+			return fmt.Errorf("%w for node %q", err, node.NodeID)
+		case err != nil:
+			// Error is recoverable
+			// TODO(marun) Log the error to aid in troubleshooting once a logger is available
+			continue
+		case healthy:
 			return nil
 		}
 
@@ -94,4 +125,12 @@ func NodesToIDs(nodes ...*Node) []ids.NodeID {
 		nodeIDs[i] = node.NodeID
 	}
 	return nodeIDs
+}
+
+func GetEnvWithDefault(envVar, defaultVal string) string {
+	val := os.Getenv(envVar)
+	if len(val) == 0 {
+		return defaultVal
+	}
+	return val
 }

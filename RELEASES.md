@@ -1,5 +1,604 @@
 # Release Notes
 
+## [v1.12.3] (pending)
+
+- Extended the network health check by also alerting if a primary network validator has no nodes connected to it. Runs a configurable time after startup or 10 minutes by default.
+
+### Configs
+-  How long after startup the aforementioned health check runs can be configured via:
+`--network-no-ingress-connections-grace-period`
+
+
+## [v1.12.2](https://github.com/ava-labs/avalanchego/releases/tag/v1.12.2)
+
+This version is backwards compatible to [v1.12.0](https://github.com/ava-labs/avalanchego/releases/tag/v1.12.0). It is optional, but encouraged.
+
+The plugin version is updated to `39` all plugins must update to be compatible.
+
+**This release removes the support for the long deprecated Keystore API. Any users still relying on the keystore API will not be able to update to this version, or any later versions, of Avalanchego until their dependency on the keystore API has been removed.**
+
+### APIs
+
+- Deprecated:
+  - `info.GetTxFee`
+- Added:
+  - `avm.GetTxFee`
+  - `platform.getValidatorFeeConfig`
+  - `platform.getValidatorFeeState`
+  - `validationID` field to `platform.getL1Validator` results
+  - L1 validators to `platform.getCurrentValidators`
+- Removed:
+  - `StakeAmount` field from `platform.getCurrentValidators` results
+  - `keystore.createUser`
+  - `keystore.deleteUser`
+  - `keystore.listUsers`
+  - `keystore.importUser`
+  - `keystore.exportUser`
+  - `avm.createAddress`
+  - `avm.createFixedCapAsset`
+  - `avm.createNFTAsset`
+  - `avm.createVariableCapAsset`
+  - `avm.export`
+  - `avm.exportKey`
+  - `avm.import`
+  - `avm.importKey`
+  - `avm.listAddresses`
+  - `avm.mint`
+  - `avm.mintNFT`
+  - `avm.send`
+  - `avm.sendMultiple`
+  - `avm.sendNFT`
+  - `wallet.send`
+  - `wallet.sendMultiple`
+  - `platform.exportKey`
+  - `platform.listAddresses`
+
+### Configs
+
+- Removed static fee config flags
+  - `--create-subnet-tx-fee`
+  - `--transform-subnet-tx-fee`
+  - `--create-blockchain-tx-fee`
+  - `--add-primary-network-validator-fee`
+  - `--add-primary-network-delegator-fee`
+  - `--add-subnet-validator-fee`
+  - `--add-subnet-delegator-fee`
+- Removed `--api-keystore-enabled`
+
+### What's Changed
+
+- [testing] Always use the go.mod version of ginkgo by @marun in https://github.com/ava-labs/avalanchego/pull/3618
+- Bump antithesishq/antithesis-trigger-action from 0.5 to 0.6 by @dependabot in https://github.com/ava-labs/avalanchego/pull/3620
+- Fix typos in document files by @taozui472 in https://github.com/ava-labs/avalanchego/pull/3622
+- [ci] Always use the specified go version by @marun in https://github.com/ava-labs/avalanchego/pull/3616
+- Fix: quotation mark by @jasmyhigh in https://github.com/ava-labs/avalanchego/pull/3623
+- refactor: move node configs to config/node by @darioush in https://github.com/ava-labs/avalanchego/pull/3600
+- Update e2e tests and CI jobs for post-etna by @marun in https://github.com/ava-labs/avalanchego/pull/3614
+- Replace AWM terminology in ReadMe with ICM  by @meaghanfitzgerald in https://github.com/ava-labs/avalanchego/pull/3595
+- fix: grammatical mistakes by @crStiv in https://github.com/ava-labs/avalanchego/pull/3625
+- [testing] Update golangci-lint to latest version by @marun in https://github.com/ava-labs/avalanchego/pull/3617
+- partial sync default info by @meaghanfitzgerald in https://github.com/ava-labs/avalanchego/pull/3602
+- Update stale comment on commitToDB by @aaronbuchwald in https://github.com/ava-labs/avalanchego/pull/3627
+- coreth atomic pkg dependency by @ceyonur in https://github.com/ava-labs/avalanchego/pull/3588
+- Mark Meag as the owner of README files by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3635
+- Update x/net to v0.33.0 by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3636
+- Fix codeowners to simplify PR review by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3637
+- Add BLS healthcheck to communicate incorrect BLS key configuration by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3638
+- chore(all): mocks generation improved by @qdm12 in https://github.com/ava-labs/avalanchego/pull/3628
+- fix LRU sized cache: consistent size at element removal by @rrazvan1 in https://github.com/ava-labs/avalanchego/pull/3634
+- Index API and AvalancheGo Configs Docs Fix by @meaghanfitzgerald in https://github.com/ava-labs/avalanchego/pull/3632
+- [ci] Migrate from buf-*-action to buf-action by @marun in https://github.com/ava-labs/avalanchego/pull/3639
+- chore(ci): define Github labels as code with a workflow by @qdm12 in https://github.com/ava-labs/avalanchego/pull/3629
+- feat(github): add "needs Go upgrade" label by @qdm12 in https://github.com/ava-labs/avalanchego/pull/3642
+- [ci] Fix post-merge protobuf lint job breakage by @marun in https://github.com/ava-labs/avalanchego/pull/3644
+- merkledb visualisations v1 (change proofs and range proofs) by @rrazvan1 in https://github.com/ava-labs/avalanchego/pull/3643
+- Remove Static Fee Config by @samliok in https://github.com/ava-labs/avalanchego/pull/3610
+- fix(ci): trigger labels workflow on push to master not main by @qdm12 in https://github.com/ava-labs/avalanchego/pull/3646
+- X-Chain API fix by @meaghanfitzgerald in https://github.com/ava-labs/avalanchego/pull/3654
+- [ci] Rename {PROMETHEUS,LOKI}_ID to {PROMETHEUS,LOKI}_USERNAME by @marun in https://github.com/ava-labs/avalanchego/pull/3652
+- chore: replaced faulty link by @Radovenchyk in https://github.com/ava-labs/avalanchego/pull/3649
+- Add L1 validator fees API by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3647
+- Reintroduce the deprecated `info.getTxFee` API by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3656
+- remove x-chain api obsolete metadata  by @meaghanfitzgerald in https://github.com/ava-labs/avalanchego/pull/3655
+- Remove the Keystore API by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3657
+- Add F Upgrade Scaffolding. Post-Etna Cleanup by @michaelkaplan13 in https://github.com/ava-labs/avalanchego/pull/3672
+- [testing] Fix instructions for triggering antithesis test runs by @marun in https://github.com/ava-labs/avalanchego/pull/3664
+- [testing] Ensure run_prometheus.sh uses a writeable storage path by @marun in https://github.com/ava-labs/avalanchego/pull/3662
+- Make snowman use snowflake directly instead of snowball by @yacovm in https://github.com/ava-labs/avalanchego/pull/3403
+- chore: fix some typos by @chuangjinglu in https://github.com/ava-labs/avalanchego/pull/3670
+- Bump antithesishq/antithesis-trigger-action from 0.6 to 0.7 by @dependabot in https://github.com/ava-labs/avalanchego/pull/3667
+- [ci] Use go env {GOOS,GOARCH} for os and arch detection by @marun in https://github.com/ava-labs/avalanchego/pull/3661
+- Silence docker InvalidDefaultArgInFrom warnings by @marun in https://github.com/ava-labs/avalanchego/pull/3659
+- add L1 support to getCurrentValidators API by @ceyonur in https://github.com/ava-labs/avalanchego/pull/3564
+- [docker] Enable image builds from git worktrees by @marun in https://github.com/ava-labs/avalanchego/pull/3660
+- [tmpnet] Set an explicit `instance` label for logs and metrics by @marun in https://github.com/ava-labs/avalanchego/pull/3650
+- [docker] Switch to kube-compatible plugin path for images by @marun in https://github.com/ava-labs/avalanchego/pull/3653
+- [testing] Support direnv to simplify usage of test tooling by @marun in https://github.com/ava-labs/avalanchego/pull/3651
+
+### New Contributors
+
+- @taozui472 made their first contribution in https://github.com/ava-labs/avalanchego/pull/3622
+- @jasmyhigh made their first contribution in https://github.com/ava-labs/avalanchego/pull/3623
+- @crStiv made their first contribution in https://github.com/ava-labs/avalanchego/pull/3625
+- @qdm12 made their first contribution in https://github.com/ava-labs/avalanchego/pull/3628
+- @rrazvan1 made their first contribution in https://github.com/ava-labs/avalanchego/pull/3634
+- @Radovenchyk made their first contribution in https://github.com/ava-labs/avalanchego/pull/3649
+- @chuangjinglu made their first contribution in https://github.com/ava-labs/avalanchego/pull/3670
+
+**Full Changelog**: https://github.com/ava-labs/avalanchego/compare/v1.12.1...v1.12.2
+
+## [v1.12.1](https://github.com/ava-labs/avalanchego/releases/tag/v1.12.1)
+
+This version is backwards compatible to [v1.12.0](https://github.com/ava-labs/avalanchego/releases/tag/v1.12.0). It is optional, but encouraged.
+
+The plugin version is unchanged at `38` and is compatible with version `v1.12.0`.
+
+### Configs
+
+- Added PebbleDB option `sync` which defaults to `true`
+
+### Fixes
+
+- Fixed P-chain mempool verification to disallow transactions that exceed the available chain capacity
+
+### What's Changed
+
+- Expose test network cfg by @cam-schultz in https://github.com/ava-labs/avalanchego/pull/3573
+- encapsulate signer by @richardpringle in https://github.com/ava-labs/avalanchego/pull/3576
+- use pebble nosync by default by @ceyonur in https://github.com/ava-labs/avalanchego/pull/3581
+- fix: feeState API call in docs by @ashucoder9 in https://github.com/ava-labs/avalanchego/pull/3596
+- Format Service.MD by @samliok in https://github.com/ava-labs/avalanchego/pull/3599
+- Verify tx gas isn't too large in VerifyTx by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3604
+- Add already implemented merkledb.View to MerkleDB interface by @aaronbuchwald in https://github.com/ava-labs/avalanchego/pull/3593
+- Add tempdir in for chain ctx data dir by @aaronbuchwald in https://github.com/ava-labs/avalanchego/pull/3594
+- Improve block building and verification logging by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3605
+- Bump golang.org/x/crypto from 0.26.0 to 0.31.0 by @dependabot in https://github.com/ava-labs/avalanchego/pull/3608
+
+**Full Changelog**: https://github.com/ava-labs/avalanchego/compare/v1.12.0...v1.12.1
+
+## [v1.12.0](https://github.com/ava-labs/avalanchego/releases/tag/v1.12.0)
+
+This upgrade consists of the following Avalanche Community Proposals (ACPs):
+- [ACP-77](https://github.com/avalanche-foundation/ACPs/blob/main/ACPs/77-reinventing-subnets/README.md) Reinventing Subnets
+- [ACP-103](https://github.com/avalanche-foundation/ACPs/blob/main/ACPs/103-dynamic-fees/README.md) Add Dynamic Fees to the P-Chain
+- [ACP-118](https://github.com/avalanche-foundation/ACPs/blob/main/ACPs/118-warp-signature-request/README.md) Warp Signature Interface Standard
+- [ACP-125](https://github.com/avalanche-foundation/ACPs/blob/main/ACPs/125-basefee-reduction/README.md) Reduce C-Chain minimum base fee from 25 nAVAX to 1 nAVAX
+- [ACP-131](https://github.com/avalanche-foundation/ACPs/blob/main/ACPs/131-cancun-eips/README.md) Activate Cancun EIPs on C-Chain and Subnet-EVM chains
+- [ACP-151](https://github.com/avalanche-foundation/ACPs/blob/main/ACPs/151-use-current-block-pchain-height-as-context/README.md) Use current block P-Chain height as context for state verification
+
+The changes in the upgrade go into effect at 12 AM ET (5 PM UTC) on Monday, December 16th, 2024 on Mainnet.
+
+**All Etna supporting Mainnet nodes should upgrade before 12 AM ET, December 16th 2024.**
+
+The plugin version is unchanged at `38` and is compatible with version `v1.11.13`.
+
+### APIs
+
+- Allowed `platform.issueTx` to be called, for non-ImportTx transactions, while partial syncing
+
+### What's Changed
+
+- Fix SubnetToL1ConversionData typo by @cam-schultz in https://github.com/ava-labs/avalanchego/pull/3555
+- Refactor `logging.Format` to expose constants by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3561
+- [testing] Switch to logging with zap by @marun in https://github.com/ava-labs/avalanchego/pull/3557
+- Use JSON logs during Antithesis runs by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3562
+- Antithesis: Skip checks if tx confirmation fails by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3563
+- chore: fix some function names in comment by @wanxiangchwng in https://github.com/ava-labs/avalanchego/pull/3566
+- update api docs by @ashucoder9 in https://github.com/ava-labs/avalanchego/pull/3558
+- Remove unused wallet interface by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3568
+- Remove required fields from config by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3569
+- Remove redundant field in platformVM/network's Network by @yacovm in https://github.com/ava-labs/avalanchego/pull/3571
+- Remove observedSubnetUptime from Info Docs by @samliok in https://github.com/ava-labs/avalanchego/pull/3575
+- Allow issuing transactions when using partial-sync by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3570
+- Add partial-sync support to the wallet by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3567
+
+### New Contributors
+
+- @wanxiangchwng made their first contribution in https://github.com/ava-labs/avalanchego/pull/3566
+- @ashucoder9 made their first contribution in https://github.com/ava-labs/avalanchego/pull/3558
+
+**Full Changelog**: https://github.com/ava-labs/avalanchego/compare/v1.11.13...v1.12.0
+
+## [v1.11.13](https://github.com/ava-labs/avalanchego/releases/tag/v1.11.13)
+
+This version is backwards compatible to [v1.11.0](https://github.com/ava-labs/avalanchego/releases/tag/v1.11.0). It is optional, but encouraged.
+
+The plugin version is updated to `38` all plugins must update to be compatible.
+
+### APIs
+
+- Added `platform.getL1Validator`
+- Added `platform.getProposedHeight`
+- Updated `platform.getValidatorsAt` to accept `"proposed"` as valid `height` input
+
+### Configs
+
+- Added P-chain configs
+  - `"l1-weights-cache-size"`
+  - `"l1-inactive-validators-cache-size"`
+  - `"l1-subnet-id-node-id-cache-size"`
+
+### Fixes
+
+- Fixed metrics initialization in the RPCChainVM. This could cause crashes during startup if metrics was requested during VM initialization.
+- Fixed compilations on macos 14.7 and higher
+- Fixed avalanchego wallet usage with ledger v0.8.4
+- Fixed missing `NodeIDs` argument in the `info.peers` client implementation
+- Fixed `getSubnetID` state tracing
+
+### What's Changed
+
+- [testing] Double image build timeout for bootstrap monitor e2e by @marun in https://github.com/ava-labs/avalanchego/pull/3468
+- [antithesis] Double the duration of sanity checks by @marun in https://github.com/ava-labs/avalanchego/pull/3475
+- Properly initialize metrics in rpcchainVM by @yacovm in https://github.com/ava-labs/avalanchego/pull/3477
+- Cleanup editorconfig by @dhrubabasu in https://github.com/ava-labs/avalanchego/pull/3473
+- Update avalanche ledger go package by @sukantoraymond in https://github.com/ava-labs/avalanchego/pull/3456
+- [testing] Enable config of log format for bootstrap monitor by @marun in https://github.com/ava-labs/avalanchego/pull/3467
+- cache signatures only in acp118 handler by @ceyonur in https://github.com/ava-labs/avalanchego/pull/3474
+- Introduce and use `database.WithDefault` by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3478
+- Evict recentlyAccepted blocks based on wall-clock time  by @iansuvak in https://github.com/ava-labs/avalanchego/pull/3460
+- fix improper use of FailNow in testing by @tsachiherman in https://github.com/ava-labs/avalanchego/pull/3479
+- [ACP 151] Use current block's P-Chain height as context for verifying state of the inner block by @iansuvak in https://github.com/ava-labs/avalanchego/pull/3459
+- [tmpnet] Add --start-network to support hypersdk MODE=run by @marun in https://github.com/ava-labs/avalanchego/pull/3465
+- [e2e] Check network health after bootstrap checks by @marun in https://github.com/ava-labs/avalanchego/pull/3466
+- ACP-77: Add ConversionID to state by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3481
+- Make bootstrapping handle its own timeouts by @yacovm in https://github.com/ava-labs/avalanchego/pull/3410
+- Wrap `TestDiffExpiry` sub-tests in `t.Run` by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3483
+- Move RPC metrics registration after its client's initialization by @yacovm in https://github.com/ava-labs/avalanchego/pull/3488
+- database: add applicable dbtests for linkeddb by @darioush in https://github.com/ava-labs/avalanchego/pull/3486
+- Add SoV Excess to P-chain state by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3482
+- Remove deprecated X-chain pubsub server by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3490
+- Update SoV struct to align with latest ACP-77 spec by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3492
+- Register VM and snowman metrics after chain creation by @yacovm in https://github.com/ava-labs/avalanchego/pull/3489
+- Skip Flaky Test by @joshua-kim in https://github.com/ava-labs/avalanchego/pull/3495
+- Add request to update `releases.md` in PR template by @ceyonur in https://github.com/ava-labs/avalanchego/pull/3476
+- ACP-77: Update P-chain state staker tests by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3494
+- ACP-77: Write subnet public key diffs to state by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3487
+- Add `Deregister` to `metrics.MultiGatherer` interface by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3498
+- ACP-77: Add subnetIDNodeID struct by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3499
+- Use subnet public key diffs after Etna is activated by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3502
+- Split `writeCurrentStakers` into multiple functions by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3500
+- [tmpnet] Refactor bootstrap monitor kubernetes functions for reuse by @marun in https://github.com/ava-labs/avalanchego/pull/3446
+- Add NumSubnets to the validator manager interface by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3504
+- Clarify partial sync flag by @michaelkaplan13 in https://github.com/ava-labs/avalanchego/pull/3505
+- Update BLST to v0.3.13 by @yacovm in https://github.com/ava-labs/avalanchego/pull/3506
+- Restrict public keys prior to TLS handshake by @yacovm in https://github.com/ava-labs/avalanchego/pull/3501
+- ACP-77: Filter the inactive validator from block proposals and tx gossip by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3509
+- [testing] Enable bootstrap testing of partial sync by @marun in https://github.com/ava-labs/avalanchego/pull/3508
+- Rename `constantsAreUnmodified` to `immutableFieldsAreUnmodified` by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3513
+- Accept info.Peers args by @cam-schultz in https://github.com/ava-labs/avalanchego/pull/3515
+- Return shallow copy of validator set in platformVM's validator manager by @yacovm in https://github.com/ava-labs/avalanchego/pull/3512
+- Add `ValidatorWeightDiff` `Add` and `Sub` helpers by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3514
+- ACP-77: Add caching to SoV DB helpers by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3516
+- Add script to configure metrics and log collection from a local node by @marun in https://github.com/ava-labs/avalanchego/pull/3517
+- ACP-77: Implement validator state by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3388
+- ACP-77: Reduce block gossip log level by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3519
+- ACP-77: Implement ids.ID#Append by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3518
+- ACP-103: Document and update genesis test fee configs by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3520
+- ACP-77: Deactivate SoVs without sufficient fees by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3412
+- ACP-77: Allow legacy validator removal after conversion by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3521
+- ACP-77: Refactor e2e test by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3522
+- ACP-77: Update `ConvertSubnetTx` by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3397
+- Remove stutter in P-chain wallet builder by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3524
+- Clarify EndAccumulatedFee comment by @michaelkaplan13 in https://github.com/ava-labs/avalanchego/pull/3523
+- [tmpnet] Misc cleanup for monitoring tooling by @marun in https://github.com/ava-labs/avalanchego/pull/3527
+- Remove P-chain txsmock package by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3528
+- Unexport all P-Chain visitors by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3525
+- Standardize P-Chain tx visitor order by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3529
+- ACP-77: Implement `RegisterSubnetValidatorTx` by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3420
+- ACP-77: Refactor P-Chain configs by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3533
+- Add additional BLS benchmarks by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3538
+- ACP-77: Refactor subnet auth verification by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3537
+- ACP-77: Implement `SetSubnetValidatorWeightTx` by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3421
+- Rename error to be more generic by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3543
+- fix getSubnetIDTag in traced state by @ceyonur in https://github.com/ava-labs/avalanchego/pull/3542
+- Add `platform.getSubnetOnlyValidator` API by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3540
+- Add SoV deactivation owner support to the P-chain wallet by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3541
+- ACP-77: Implement Warp message verification by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3423
+- ACP-77: Current validators API for SoV by @ceyonur in https://github.com/ava-labs/avalanchego/pull/3404
+- ACP-77: Implement Warp message signing by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3428
+- ACP-77: Implement IncreaseBalanceTx by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3429
+- ACP-77: Implement DisableSubnetValidatorTx by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3440
+- Improve P-Chain error messages by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3536
+- Add Etna logging by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3454
+- Add Etna P-chain metrics by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3458
+- Clarify benched field by @samliok in https://github.com/ava-labs/avalanchego/pull/3545
+- [tmpnet] Watch for and report FATAL log entries on node startup by @marun in https://github.com/ava-labs/avalanchego/pull/3535
+- Allow non primary network validators to request all peers by @cam-schultz in https://github.com/ava-labs/avalanchego/pull/3491
+- Add `platform.getProposedHeight` API by @iansuvak in https://github.com/ava-labs/avalanchego/pull/3530
+- Follow ACP-77 naming conventions by @michaelkaplan13 in https://github.com/ava-labs/avalanchego/pull/3546
+- ACP-103: Finalize complexity calculations by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3548
+- ACP-103: Finalize parameterization by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3549
+- Add "proposed" optional flag to `getValidatorsAt` by @iansuvak in https://github.com/ava-labs/avalanchego/pull/3531
+- Fix json parsing of GetValidatorsAtArgs by @iansuvak in https://github.com/ava-labs/avalanchego/pull/3551
+
+### New Contributors
+
+- @sukantoraymond made their first contribution in https://github.com/ava-labs/avalanchego/pull/3456
+- @samliok made their first contribution in https://github.com/ava-labs/avalanchego/pull/3545
+
+## [v1.11.11](https://github.com/ava-labs/avalanchego/releases/tag/v1.11.11)
+
+This version is backwards compatible to [v1.11.0](https://github.com/ava-labs/avalanchego/releases/tag/v1.11.0). It is optional, but encouraged.
+
+The plugin version is updated to `37` all plugins must update to be compatible.
+
+### APIs
+
+- Updated JSON marshalling of the `Memo` field to follow best practices
+- Added `info.upgrades`
+- Added `platform.getFeeConfig`
+- Added `platform.getFeeState`
+- Deprecated subnet uptimes
+  - `info.uptimes` with non-primary network subnetIDs is deprecated
+  - `info.peers` `observedSubnetUptimes` is deprecated
+  - `platform.getCurrentValidators` `uptime` and `connected` are deprecated for non-primary network subnetIDs.
+  - `avalanche_network_node_subnet_uptime_weighted_average` metric is deprecated
+  - `avalanche_network_node_subnet_uptime_rewarding_stake` metric is deprecated
+- Added `avalanche_network_tracked_peers` metric
+- Added `avalanche_network_tracked_subnets` metric
+- Removed `avalanche_network_tracked_ips` metric
+- Added disconnected validators to the health check result
+
+
+### Configs
+
+- Added upgrade config
+  - `--upgrade-file`
+  - `--upgrade-file-content`
+- Added dynamic fees config
+  - `--dynamic-fees-bandwidth-weight`
+  - `--dynamic-fees-read-weight`
+  - `--dynamic-fees-write-weight`
+  - `--dynamic-fees-compute-weight`
+  - `--dynamic-fees-max-gas-capacity`
+  - `--dynamic-fees-max-gas-per-second`
+  - `--dynamic-fees-target-gas-per-second`
+  - `--dynamic-fees-min-gas-price`
+  - `--dynamic-fees-excess-conversion-constant`
+
+### Fixes
+
+- Fixed panic when tracing is enabled
+- Removed duplicate block signature verifications during bootstrapping
+- Fixed racy timer clearing in message throttling
+
+### What's Changed
+
+- [ci] Remove defunct network outage sim workflow by @marun in https://github.com/ava-labs/avalanchego/pull/3234
+- chore: allow test-only imports in `*test` and `/tests/**` packages by @ARR4N in https://github.com/ava-labs/avalanchego/pull/3229
+- Add benchmarks for add and sub fee dimensions by @abi87 in https://github.com/ava-labs/avalanchego/pull/3222
+- Remove deadcode by @dhrubabasu in https://github.com/ava-labs/avalanchego/pull/3086
+- Parallelize BatchedParseBlock by @yacovm in https://github.com/ava-labs/avalanchego/pull/3227
+- [ci] Lint on non-test code importing packages from /tests by @marun in https://github.com/ava-labs/avalanchego/pull/3214
+- Merge unlocked stake outputs by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3231
+- ACP 118 reference implementation by @cam-schultz in https://github.com/ava-labs/avalanchego/pull/3218
+- Storage OpenBSD/adJ by @vtamara in https://github.com/ava-labs/avalanchego/pull/2809
+- Remove unused error from fee calculator creation by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3245
+- Rename Transitive snowman to Engine snowman by @yacovm in https://github.com/ava-labs/avalanchego/pull/3244
+- Simplify static fee calculations by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3240
+- Remove targetBlockSize arg by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3249
+- Add dynamic fees config by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3250
+- Remove unused Samplers by @dhrubabasu in https://github.com/ava-labs/avalanchego/pull/3219
+- Inline `verifier` struct creation by @dhrubabasu in https://github.com/ava-labs/avalanchego/pull/3252
+- Add fee.State to P-chain state by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3248
+- Fix comparison comment in snowflake algorithms by @yacovm in https://github.com/ava-labs/avalanchego/pull/3256
+- Add network upgrade config by @aaronbuchwald in https://github.com/ava-labs/avalanchego/pull/3207
+- [vms/platformvm] Add `VerifyWithContext` to `Block`s by @dhrubabasu in https://github.com/ava-labs/avalanchego/pull/3236
+- [ci] Switch to v2 of docker compose plugin by @marun in https://github.com/ava-labs/avalanchego/pull/3259
+- Minimize signature verification when bootstrapping by @yacovm in https://github.com/ava-labs/avalanchego/pull/3255
+- [vms/platformvm] Add tracking of a Subnet manager by @dhrubabasu in https://github.com/ava-labs/avalanchego/pull/3126
+- Remove trackedSubnet check for explicitly named peers in network.Send() by @iansuvak in https://github.com/ava-labs/avalanchego/pull/3258
+- refactor: introduce `*test` packages in lieu of `//go:build test` by @ARR4N in https://github.com/ava-labs/avalanchego/pull/3238
+- [e2e] Enhance post-test bootstrap checks by @marun in https://github.com/ava-labs/avalanchego/pull/3253
+- [e2e] Abstract usage of ginkgo with a new test context by @marun in https://github.com/ava-labs/avalanchego/pull/3254
+- Update code owners by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3262
+- [antithesis] Refactor image build for reuse by other repos by @marun in https://github.com/ava-labs/avalanchego/pull/3198
+- Expose upgrade config in the info API by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3266
+- [antithesis] Ensure references to pushed images are qualified by @marun in https://github.com/ava-labs/avalanchego/pull/3264
+- Fix spelling by @nnsW3 in https://github.com/ava-labs/avalanchego/pull/3267
+- refactor: rename `*test.Test*` identifiers by @ARR4N in https://github.com/ava-labs/avalanchego/pull/3260
+- Separate e2e tests by etna activation by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3268
+- Implement P-chain ACP-103 complexity calculations by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3209
+- Implement dynamic fee calculator by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3211
+- [tmpnet] Add Network.GetNetworkID() to get ID of a running network by @marun in https://github.com/ava-labs/avalanchego/pull/3269
+- Disable `TransformSubnetTx` post-Etna by @dhrubabasu in https://github.com/ava-labs/avalanchego/pull/3152
+- [tmpnet] Fail node health check if node is not running by @marun in https://github.com/ava-labs/avalanchego/pull/3274
+- [tmpnet] Enable network restart to simplify iteration by @marun in https://github.com/ava-labs/avalanchego/pull/3272
+- Add StoppedTimer helper by @marun in https://github.com/ava-labs/avalanchego/pull/3280
+- Fix race in timer stoppage by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3281
+- [tmpnet] Add check for vm binaries to network and node start by @marun in https://github.com/ava-labs/avalanchego/pull/3273
+- Refactor P-chain Builder by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3282
+- chore: fix some comments by @drawdrop in https://github.com/ava-labs/avalanchego/pull/3289
+- Update write path of tmpnet subnet config by @aaronbuchwald in https://github.com/ava-labs/avalanchego/pull/3290
+- add network upgrades to chain ctx by @ceyonur in https://github.com/ava-labs/avalanchego/pull/3283
+- Implement dynamic fee builder by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3232
+- bump coreth past upgrade schedule refactor by @darioush in https://github.com/ava-labs/avalanchego/pull/3278
+- Remove cross-chain requests by @darioush in https://github.com/ava-labs/avalanchego/pull/3277
+- wallet: obtain subnet owners by using P-Chain's getSubnet API call by @felipemadero in https://github.com/ava-labs/avalanchego/pull/3247
+- [antithesis] Add tmpnet support to workloads to simplify development by @marun in https://github.com/ava-labs/avalanchego/pull/3215
+- Refactor e2e tests for P-chain tests by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3295
+- Fix e2e tests to support dynamic fees by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3296
+- Improve error message of dynamic fee calculations by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3297
+- Reduce dynamic fees variability to ease testing by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3298
+- deprecate uptime apis by @ceyonur in https://github.com/ava-labs/avalanchego/pull/3226
+- [antithesis] Fix broken flag handling and improve image testing by @marun in https://github.com/ava-labs/avalanchego/pull/3299
+- Add P-chain fee APIs by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3286
+- [tmpnet] Add support for checking rpcchainvm version compatibility by @marun in https://github.com/ava-labs/avalanchego/pull/3276
+- Rename gas price calculation function by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3302
+- Remove duplicate fork definitions by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3304
+- Restrict `Owner` usage after a Subnet manager is set by @dhrubabasu in https://github.com/ava-labs/avalanchego/pull/3147
+- SoV networking support by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/2951
+- [antithesis] Enable custom plugin dir for subnet-evm by @marun in https://github.com/ava-labs/avalanchego/pull/3305
+- Refactor state tests to always use initialized state by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3310
+- Remove mock for `Versions` interface by @dhrubabasu in https://github.com/ava-labs/avalanchego/pull/3312
+- Allow P-chain wallet to be used by the platformvm by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3314
+- Remove crosschain leftovers by @ceyonur in https://github.com/ava-labs/avalanchego/pull/3309
+- Rename race condition image tags by @cam-schultz in https://github.com/ava-labs/avalanchego/pull/3311
+- Add .String() to Fork testing utility by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3315
+- [antithesis] Update schedule to make room for subnet-evm by @marun in https://github.com/ava-labs/avalanchego/pull/3317
+- [tmpnet] Update monitoring urls from *-experimental to *-poc by @marun in https://github.com/ava-labs/avalanchego/pull/3306
+- Add statetest to replace common test state initialization by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3319
+- Rename `components/fee` pkg to `components/gas` by @dhrubabasu in https://github.com/ava-labs/avalanchego/pull/3321
+- Remove mocks for `Staker` and `ScheduledStaker` by @dhrubabasu in https://github.com/ava-labs/avalanchego/pull/3322
+- Move most mocks to sub-dirs by @dhrubabasu in https://github.com/ava-labs/avalanchego/pull/3323
+- [e2e] Simplify pre-funded key usage by @marun in https://github.com/ava-labs/avalanchego/pull/3011
+- Move iterator implementations to `utils` pkg by @dhrubabasu in https://github.com/ava-labs/avalanchego/pull/3320
+- Remove duplicate genesis creations in P-chain unit tests by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3318
+- Simplify P-Chain transaction creation in unit tests by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3327
+- [tmpnet] Ensure nodes are stopped in the event of bootstrap failure by @marun in https://github.com/ava-labs/avalanchego/pull/3332
+- Add tx complexity helper by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3334
+- Fixed segfault when --tracing-enabled is set by @blenessy in https://github.com/ava-labs/avalanchego/pull/3330
+- chore: remove deprecated `validatorstest.TestState` by @ARR4N in https://github.com/ava-labs/avalanchego/pull/3301
+- Enforce network config not including `PrimaryNetworkID` in `trackedSubnets` by @iansuvak in https://github.com/ava-labs/avalanchego/pull/3336
+- Use wallet in `platformvm/block` tests by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3328
+- [ci] Stop using setup-go-v3 by @marun in https://github.com/ava-labs/avalanchego/pull/3339
+- Use wallet in `platformvm/txs` tests by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3333
+- [ci] Configure buf-setup-action for check_generated_protobuf job with token by @marun in https://github.com/ava-labs/avalanchego/pull/3341
+- Add P-chain dynamic fees execution by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3251
+- Include disconnected validators in health message by @ceyonur in https://github.com/ava-labs/avalanchego/pull/3344
+- Print type of message sent in the verbose log by @yacovm in https://github.com/ava-labs/avalanchego/pull/3348
+- Remove local chain config from e2e test by @ceyonur in https://github.com/ava-labs/avalanchego/pull/3293
+- Separate codec registries by upgrade by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3353
+- Support unmarshalling of json byte slices by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3354
+- Add explicit p-chain current validator check in AddValidator by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3355
+
+### New Contributors
+
+- @yacovm made their first contribution in https://github.com/ava-labs/avalanchego/pull/3227
+- @cam-schultz made their first contribution in https://github.com/ava-labs/avalanchego/pull/3218
+- @vtamara made their first contribution in https://github.com/ava-labs/avalanchego/pull/2809
+- @iansuvak made their first contribution in https://github.com/ava-labs/avalanchego/pull/3258
+- @nnsW3 made their first contribution in https://github.com/ava-labs/avalanchego/pull/3267
+- @drawdrop made their first contribution in https://github.com/ava-labs/avalanchego/pull/3289
+- @blenessy made their first contribution in https://github.com/ava-labs/avalanchego/pull/3330
+
+**Full Changelog**: https://github.com/ava-labs/avalanchego/compare/v1.11.10...v1.11.11
+
+## [v1.11.10](https://github.com/ava-labs/avalanchego/releases/tag/v1.11.10)
+
+This version is backwards compatible to [v1.11.0](https://github.com/ava-labs/avalanchego/releases/tag/v1.11.0). It is optional, but encouraged.
+
+The plugin version is updated to `36` all plugins must update to be compatible.
+
+### APIs
+
+- Renamed `avalanche_{vmName}_plugin_.*` metrics to `avalanche_{vmName}_.*`
+- Renamed `avalanche_{vmName}_rpcchainvm_.*` metrics to `avalanche_rpcchainvm_.*`
+
+### Fixes
+
+- Updated local network validator start times
+- Fixed block building timer recalculation when anyone can propose
+
+### What's Changed
+
+- Refactor rpcchainvm metrics registration by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3170
+- Add example reward calculator usage by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3171
+- Send AppErrors from p2p SDK by @joshua-kim in https://github.com/ava-labs/avalanchego/pull/2753
+- build(tests): require `//go:build test` tag if importing test packages outside of `_test.go` files by @ARR4N in https://github.com/ava-labs/avalanchego/pull/3173
+- Include VM path in plugin version error by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3178
+- [ci] Simplify ci monitoring with custom actions by @marun in https://github.com/ava-labs/avalanchego/pull/3161
+- [vms/avm] Replace `strings.Replace` with `fmt.Sprintf` in tests by @dhrubabasu in https://github.com/ava-labs/avalanchego/pull/3177
+- Changes to support teleporter e2e tests by @feuGeneA in https://github.com/ava-labs/avalanchego/pull/3179
+- Reduce usage of `getBlock` in consensus by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3151
+- [ci] Enable run-monitored-tmpnet-cmd reuse by other repos by @marun in https://github.com/ava-labs/avalanchego/pull/3186
+- Restructured fee calculator API by @abi87 in https://github.com/ava-labs/avalanchego/pull/3145
+- P-Chain: Block-level fee Calculator by @abi87 in https://github.com/ava-labs/avalanchego/pull/3032
+- [ci] Allow antithesis test setups to be triggered independently by @marun in https://github.com/ava-labs/avalanchego/pull/3183
+- [antithesis] Fix image version separator in triggering workflows by @marun in https://github.com/ava-labs/avalanchego/pull/3191
+- Remove `block.Status` by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3158
+- [antithesis] Refactor compose config generation to simplify reuse by @marun in https://github.com/ava-labs/avalanchego/pull/3184
+- [antithesis] Add schedule for workflows by @marun in https://github.com/ava-labs/avalanchego/pull/3192
+- Update `golangci-lint` to `v1.59.1` by @dhrubabasu in https://github.com/ava-labs/avalanchego/pull/3195
+- [ci] Ensure monitoring action compatibility for other repos by @marun in https://github.com/ava-labs/avalanchego/pull/3193
+- chore: fix some comments for struct field by @linghuying in https://github.com/ava-labs/avalanchego/pull/3194
+- [antithesis] Configure workload history by @marun in https://github.com/ava-labs/avalanchego/pull/3196
+- [vms/proposervm] Set build block time correctly  when anyone can propose by @dhrubabasu in https://github.com/ava-labs/avalanchego/pull/3197
+- chore: fix comment by @polymaer in https://github.com/ava-labs/avalanchego/pull/3201
+- Make math.Add64 and math.Mul64 generic by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3205
+- Implement ACP-103 fee package by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3203
+- [antithesis] Fix job duration by @marun in https://github.com/ava-labs/avalanchego/pull/3206
+- [vms/platformvm] `RegisterDUnsignedTxsTypes` -> `RegisterDurangoUnsignedTxsTypes` by @dhrubabasu in https://github.com/ava-labs/avalanchego/pull/3212
+- chore: fix some comments by @yingshanghuangqiao in https://github.com/ava-labs/avalanchego/pull/3213
+- Fix typos by @omahs in https://github.com/ava-labs/avalanchego/pull/3208
+- Cleanup fee.staticCalculator by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3210
+- typo by @meaghanfitzgerald in https://github.com/ava-labs/avalanchego/pull/3220
+- add getSubnet to p-chain api reference by @felipemadero in https://github.com/ava-labs/avalanchego/pull/3204
+- [ci] Update fuzz workflows to target master branch by @marun in https://github.com/ava-labs/avalanchego/pull/3221
+- Cleanup wallet tests by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3230
+- Update local validator start time by @ceyonur in https://github.com/ava-labs/avalanchego/pull/3224
+
+### New Contributors
+
+- @feuGeneA made their first contribution in https://github.com/ava-labs/avalanchego/pull/3179
+- @linghuying made their first contribution in https://github.com/ava-labs/avalanchego/pull/3194
+- @polymaer made their first contribution in https://github.com/ava-labs/avalanchego/pull/3201
+- @yingshanghuangqiao made their first contribution in https://github.com/ava-labs/avalanchego/pull/3213
+- @omahs made their first contribution in https://github.com/ava-labs/avalanchego/pull/3208
+
+**Full Changelog**: https://github.com/ava-labs/avalanchego/compare/v1.11.9...v1.11.10
+
+## [v1.11.9](https://github.com/ava-labs/avalanchego/releases/tag/v1.11.9)
+
+This version is backwards compatible to [v1.11.0](https://github.com/ava-labs/avalanchego/releases/tag/v1.11.0). It is optional, but encouraged.
+
+The plugin version is unchanged at `35` and is compatible with versions `v1.11.3-v1.11.8`.
+
+### APIs
+
+- Updated health metrics to use labels rather than namespaces
+- Added consensus poll termination metrics
+
+### Configs
+
+- Added `--version-json` flag to output version information in json format
+
+### Fixes
+
+- Fixed incorrect WARN log that could previously be emitted during start on nodes with slower disks
+- Fixed incorrect ERROR log that could previously be emitted if a peer tracking a subnet connects during shutdown
+- Fixed ledger dependency on erased commit
+- Fixed protobuf dependency to resolve compilation issues in some cases
+- Fixed C-chain filename logging
+
+### What's Changed
+
+- Error driven snowflake multi counter by @aaronbuchwald in https://github.com/ava-labs/avalanchego/pull/3092
+- [antithesis] Add ci jobs to trigger test runs by @marun in https://github.com/ava-labs/avalanchego/pull/3076
+- bump ledger-avalanche dependency to current main branch by @felipemadero in https://github.com/ava-labs/avalanchego/pull/3115
+- [antithesis] Fix image publication job by quoting default tag value by @marun in https://github.com/ava-labs/avalanchego/pull/3112
+- [e2e] Fix excessively verbose output from virtuous test by @marun in https://github.com/ava-labs/avalanchego/pull/3116
+- Remove .Status() from .IsPreferred() by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3111
+- Add early termination metrics case by case by @aaronbuchwald in https://github.com/ava-labs/avalanchego/pull/3093
+- Update C-chain wallet context by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3118
+- Standardize wallet tx acceptance polling by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3110
+- [antithesis] Remove assertions incompatible with fault injection by @marun in https://github.com/ava-labs/avalanchego/pull/3104
+- Use health labels by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3122
+- Remove `Decided` from the `Consensus` interface by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3123
+- Remove .Status() from .Accepted() by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3124
+- Refactor `event.Blocker` into `job.Scheduler` by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3125
+- Remove block lookup from `deliver` by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3130
+- [chains/atomic] Remove a nested if statement by @dhrubabasu in https://github.com/ava-labs/avalanchego/pull/3135
+- [vms/platformvm] Minor grammer fixes in `state` struct code comments by @dhrubabasu in https://github.com/ava-labs/avalanchego/pull/3136
+- bump protobuf (fixes some build issues) by @darioush in https://github.com/ava-labs/avalanchego/pull/3142
+- Emit version in JSON format for --json-version by @marun in https://github.com/ava-labs/avalanchego/pull/3129
+- Repackaged NextBlockTime and GetNextStakerChangeTime by @abi87 in https://github.com/ava-labs/avalanchego/pull/3134
+- [vms/platformvm] Cleanup execution config tests by @dhrubabasu in https://github.com/ava-labs/avalanchego/pull/3137
+- [tmpnet] Enable bootstrap of subnets with disjoint validator sets by @marun in https://github.com/ava-labs/avalanchego/pull/3138
+- Simplify dependency registration by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3139
+- Replace `wasIssued` with `shouldIssueBlock` by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3131
+- Remove parent lookup from issue by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3132
+- Remove status usage from consensus by @StephenButtolph in https://github.com/ava-labs/avalanchego/pull/3140
+- Fix bootstrapping warn log by @joshua-kim in https://github.com/ava-labs/avalanchego/pull/3156
+- chore: fix some comment by @hattizai in https://github.com/ava-labs/avalanchego/pull/3144
+- [ci] Add actionlint job by @marun in https://github.com/ava-labs/avalanchego/pull/3160
+- check router is closing in requests by @ceyonur in https://github.com/ava-labs/avalanchego/pull/3157
+- Use `ids.Empty` instead of `ids.ID{}` by @dhrubabasu in https://github.com/ava-labs/avalanchego/pull/3166
+- Replace usage of utils.Err with errors.Join by @joshua-kim in https://github.com/ava-labs/avalanchego/pull/3167
+
+**Full Changelog**: https://github.com/ava-labs/avalanchego/compare/v1.11.8...v1.11.9
+
 ## [v1.11.8](https://github.com/ava-labs/avalanchego/releases/tag/v1.11.8)
 
 This version is backwards compatible to [v1.11.0](https://github.com/ava-labs/avalanchego/releases/tag/v1.11.0). It is optional, but encouraged.
@@ -1588,7 +2187,7 @@ The plugin version is unchanged at `27` and compatible with versions `v1.10.5 - 
 
 ### APIs
 
-- Modifed `platform.getValidatorsAt` to also return BLS public keys
+- Modified `platform.getValidatorsAt` to also return BLS public keys
 
 ### Configs
 

@@ -13,7 +13,6 @@ import (
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/snow"
-	"github.com/ava-labs/avalanchego/snow/choices"
 	"github.com/ava-labs/avalanchego/snow/consensus/snowman"
 	"github.com/ava-labs/avalanchego/vms/proposervm/block"
 	"github.com/ava-labs/avalanchego/vms/proposervm/proposer"
@@ -65,7 +64,6 @@ type Block interface {
 type PostForkBlock interface {
 	Block
 
-	setStatus(choices.Status)
 	getStatelessBlk() block.Block
 	setInnerBlk(snowman.Block)
 }
@@ -74,7 +72,6 @@ type PostForkBlock interface {
 type postForkCommonComponents struct {
 	vm       *VM
 	innerBlk snowman.Block
-	status   choices.Status
 }
 
 // Return the inner block's height
@@ -144,7 +141,7 @@ func (p *postForkCommonComponents) Verify(
 		}
 
 		var shouldHaveProposer bool
-		if p.vm.IsDurangoActivated(parentTimestamp) {
+		if p.vm.Upgrades.IsDurangoActivated(parentTimestamp) {
 			shouldHaveProposer, err = p.verifyPostDurangoBlockDelay(ctx, parentTimestamp, parentPChainHeight, child)
 		} else {
 			shouldHaveProposer, err = p.verifyPreDurangoBlockDelay(ctx, parentTimestamp, parentPChainHeight, child)
@@ -165,10 +162,17 @@ func (p *postForkCommonComponents) Verify(
 		)
 	}
 
+	var contextPChainHeight uint64
+	if p.vm.Upgrades.IsEtnaActivated(childTimestamp) {
+		contextPChainHeight = childPChainHeight
+	} else {
+		contextPChainHeight = parentPChainHeight
+	}
+
 	return p.vm.verifyAndRecordInnerBlk(
 		ctx,
 		&smblock.Context{
-			PChainHeight: parentPChainHeight,
+			PChainHeight: contextPChainHeight,
 		},
 		child,
 	)
@@ -189,7 +193,7 @@ func (p *postForkCommonComponents) buildChild(
 
 	// The child's P-Chain height is proposed as the optimal P-Chain height that
 	// is at least the parent's P-Chain height
-	pChainHeight, err := p.vm.optimalPChainHeight(ctx, parentPChainHeight)
+	pChainHeight, err := p.vm.selectChildPChainHeight(ctx, parentPChainHeight)
 	if err != nil {
 		p.vm.ctx.Log.Error("unexpected build block failure",
 			zap.String("reason", "failed to calculate optimal P-chain height"),
@@ -200,7 +204,7 @@ func (p *postForkCommonComponents) buildChild(
 	}
 
 	var shouldBuildSignedBlock bool
-	if p.vm.IsDurangoActivated(parentTimestamp) {
+	if p.vm.Upgrades.IsDurangoActivated(parentTimestamp) {
 		shouldBuildSignedBlock, err = p.shouldBuildSignedBlockPostDurango(
 			ctx,
 			parentID,
@@ -221,10 +225,17 @@ func (p *postForkCommonComponents) buildChild(
 		return nil, err
 	}
 
+	var contextPChainHeight uint64
+	if p.vm.Upgrades.IsEtnaActivated(newTimestamp) {
+		contextPChainHeight = pChainHeight
+	} else {
+		contextPChainHeight = parentPChainHeight
+	}
+
 	var innerBlock snowman.Block
 	if p.vm.blockBuilderVM != nil {
 		innerBlock, err = p.vm.blockBuilderVM.BuildBlockWithContext(ctx, &smblock.Context{
-			PChainHeight: parentPChainHeight,
+			PChainHeight: contextPChainHeight,
 		})
 	} else {
 		innerBlock, err = p.vm.ChainVM.BuildBlock(ctx)
@@ -268,7 +279,6 @@ func (p *postForkCommonComponents) buildChild(
 		postForkCommonComponents: postForkCommonComponents{
 			vm:       p.vm,
 			innerBlk: innerBlock,
-			status:   choices.Processing,
 		},
 	}
 

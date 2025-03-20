@@ -4,6 +4,7 @@
 package network
 
 import (
+	"errors"
 	"sync"
 	"time"
 
@@ -11,7 +12,6 @@ import (
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/network/peer"
-	"github.com/ava-labs/avalanchego/utils"
 	"github.com/ava-labs/avalanchego/utils/set"
 )
 
@@ -19,28 +19,25 @@ type metrics struct {
 	// trackedSubnets does not include the primary network ID
 	trackedSubnets set.Set[ids.ID]
 
-	numTracked                      prometheus.Gauge
-	numPeers                        prometheus.Gauge
-	numSubnetPeers                  *prometheus.GaugeVec
-	timeSinceLastMsgSent            prometheus.Gauge
-	timeSinceLastMsgReceived        prometheus.Gauge
-	sendFailRate                    prometheus.Gauge
-	connected                       prometheus.Counter
-	disconnected                    prometheus.Counter
-	acceptFailed                    prometheus.Counter
-	inboundConnRateLimited          prometheus.Counter
-	inboundConnAllowed              prometheus.Counter
-	tlsConnRejected                 prometheus.Counter
-	numUselessPeerListBytes         prometheus.Counter
-	nodeUptimeWeightedAverage       prometheus.Gauge
-	nodeUptimeRewardingStake        prometheus.Gauge
-	nodeSubnetUptimeWeightedAverage *prometheus.GaugeVec
-	nodeSubnetUptimeRewardingStake  *prometheus.GaugeVec
-	peerConnectedLifetimeAverage    prometheus.Gauge
-
-	lock                       sync.RWMutex
-	peerConnectedStartTimes    map[ids.NodeID]float64
-	peerConnectedStartTimesSum float64
+	numTracked                   prometheus.Gauge
+	numPeers                     prometheus.Gauge
+	numSubnetPeers               *prometheus.GaugeVec
+	timeSinceLastMsgSent         prometheus.Gauge
+	timeSinceLastMsgReceived     prometheus.Gauge
+	sendFailRate                 prometheus.Gauge
+	connected                    prometheus.Counter
+	disconnected                 prometheus.Counter
+	acceptFailed                 prometheus.Counter
+	inboundConnRateLimited       prometheus.Counter
+	inboundConnAllowed           prometheus.Counter
+	tlsConnRejected              prometheus.Counter
+	numUselessPeerListBytes      prometheus.Counter
+	nodeUptimeWeightedAverage    prometheus.Gauge
+	nodeUptimeRewardingStake     prometheus.Gauge
+	peerConnectedLifetimeAverage prometheus.Gauge
+	lock                         sync.RWMutex
+	peerConnectedStartTimes      map[ids.NodeID]float64
+	peerConnectedStartTimesSum   float64
 }
 
 func newMetrics(
@@ -112,20 +109,6 @@ func newMetrics(
 			Name: "node_uptime_rewarding_stake",
 			Help: "The percentage of total stake which thinks this node is eligible for rewards",
 		}),
-		nodeSubnetUptimeWeightedAverage: prometheus.NewGaugeVec(
-			prometheus.GaugeOpts{
-				Name: "node_subnet_uptime_weighted_average",
-				Help: "This node's subnet uptime averages weighted by observing subnet peer stakes",
-			},
-			[]string{"subnetID"},
-		),
-		nodeSubnetUptimeRewardingStake: prometheus.NewGaugeVec(
-			prometheus.GaugeOpts{
-				Name: "node_subnet_uptime_rewarding_stake",
-				Help: "The percentage of subnet's total stake which thinks this node is eligible for subnet's rewards",
-			},
-			[]string{"subnetID"},
-		),
 		peerConnectedLifetimeAverage: prometheus.NewGauge(
 			prometheus.GaugeOpts{
 				Name: "peer_connected_duration_average",
@@ -135,7 +118,7 @@ func newMetrics(
 		peerConnectedStartTimes: make(map[ids.NodeID]float64),
 	}
 
-	err := utils.Err(
+	err := errors.Join(
 		registerer.Register(m.numTracked),
 		registerer.Register(m.numPeers),
 		registerer.Register(m.numSubnetPeers),
@@ -151,8 +134,6 @@ func newMetrics(
 		registerer.Register(m.inboundConnRateLimited),
 		registerer.Register(m.nodeUptimeWeightedAverage),
 		registerer.Register(m.nodeUptimeRewardingStake),
-		registerer.Register(m.nodeSubnetUptimeWeightedAverage),
-		registerer.Register(m.nodeSubnetUptimeRewardingStake),
 		registerer.Register(m.peerConnectedLifetimeAverage),
 	)
 
@@ -161,8 +142,6 @@ func newMetrics(
 		// initialize to 0
 		subnetIDStr := subnetID.String()
 		m.numSubnetPeers.WithLabelValues(subnetIDStr).Set(0)
-		m.nodeSubnetUptimeWeightedAverage.WithLabelValues(subnetIDStr).Set(0)
-		m.nodeSubnetUptimeRewardingStake.WithLabelValues(subnetIDStr).Set(0)
 	}
 
 	return m, err

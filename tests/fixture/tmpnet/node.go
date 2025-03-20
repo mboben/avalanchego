@@ -11,6 +11,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"strings"
@@ -21,7 +22,8 @@ import (
 	"github.com/ava-labs/avalanchego/config"
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/staking"
-	"github.com/ava-labs/avalanchego/utils/crypto/bls"
+	"github.com/ava-labs/avalanchego/utils/crypto/bls/signer/localsigner"
+	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/vms/platformvm/signer"
 )
 
@@ -41,7 +43,9 @@ var (
 // NodeRuntime defines the methods required to support running a node.
 type NodeRuntime interface {
 	readState() error
-	Start(w io.Writer) error
+	GetLocalURI(ctx context.Context) (string, func(), error)
+	GetLocalStakingAddress(ctx context.Context) (netip.AddrPort, func(), error)
+	Start(log logging.Logger) error
 	InitiateStop() error
 	WaitForStopped(ctx context.Context) error
 	IsHealthy(ctx context.Context) (bool, error)
@@ -49,7 +53,8 @@ type NodeRuntime interface {
 
 // Configuration required to configure a node runtime.
 type NodeRuntimeConfig struct {
-	AvalancheGoPath string
+	AvalancheGoPath   string
+	ReuseDynamicPorts bool
 }
 
 // Node supports configuring and running a node participating in a temporary network.
@@ -79,7 +84,7 @@ type Node struct {
 
 	// Runtime state, intended to be set by NodeRuntime
 	URI            string
-	StakingAddress string
+	StakingAddress netip.AddrPort
 
 	// Initialized on demand
 	runtime NodeRuntime
@@ -171,8 +176,8 @@ func (n *Node) IsHealthy(ctx context.Context) (bool, error) {
 	return n.getRuntime().IsHealthy(ctx)
 }
 
-func (n *Node) Start(w io.Writer) error {
-	return n.getRuntime().Start(w)
+func (n *Node) Start(log logging.Logger) error {
+	return n.getRuntime().Start(log)
 }
 
 func (n *Node) InitiateStop(ctx context.Context) error {
@@ -194,13 +199,26 @@ func (n *Node) GetDataDir() string {
 	return cast.ToString(n.Flags[config.DataDirKey])
 }
 
+func (n *Node) GetLocalURI(ctx context.Context) (string, func(), error) {
+	return n.getRuntime().GetLocalURI(ctx)
+}
+
+func (n *Node) GetLocalStakingAddress(ctx context.Context) (netip.AddrPort, func(), error) {
+	return n.getRuntime().GetLocalStakingAddress(ctx)
+}
+
 // Writes the current state of the metrics endpoint to disk
 func (n *Node) SaveMetricsSnapshot(ctx context.Context) error {
 	if len(n.URI) == 0 {
 		// No URI to request metrics from
 		return nil
 	}
-	uri := n.URI + "/ext/metrics"
+	baseURI, cancel, err := n.GetLocalURI(ctx)
+	if err != nil {
+		return nil
+	}
+	defer cancel()
+	uri := baseURI + "/ext/metrics"
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, uri, nil)
 	if err != nil {
 		return err
@@ -265,11 +283,11 @@ func (n *Node) EnsureBLSSigningKey() error {
 	}
 
 	// Generate a new signing key
-	newKey, err := bls.NewSecretKey()
+	newKey, err := localsigner.New()
 	if err != nil {
 		return fmt.Errorf("failed to generate staking signer key: %w", err)
 	}
-	n.Flags[config.StakingSignerKeyContentKey] = base64.StdEncoding.EncodeToString(bls.SecretKeyToBytes(newKey))
+	n.Flags[config.StakingSignerKeyContentKey] = base64.StdEncoding.EncodeToString(newKey.ToBytes())
 	return nil
 }
 
@@ -315,11 +333,16 @@ func (n *Node) GetProofOfPossession() (*signer.ProofOfPossession, error) {
 	if err != nil {
 		return nil, err
 	}
-	secretKey, err := bls.SecretKeyFromBytes(signingKeyBytes)
+	secretKey, err := localsigner.FromBytes(signingKeyBytes)
 	if err != nil {
 		return nil, err
 	}
-	return signer.NewProofOfPossession(secretKey), nil
+	pop, err := signer.NewProofOfPossession(secretKey)
+	if err != nil {
+		return nil, err
+	}
+
+	return pop, nil
 }
 
 // Derives the node ID. Requires that a tls keypair is present.
@@ -364,9 +387,16 @@ func (n *Node) EnsureNodeID() error {
 	return nil
 }
 
+// GetUniqueID returns a globally unique identifier for the node.
+func (n *Node) GetUniqueID() string {
+	nodeIDString := n.NodeID.String()
+	startIndex := len(ids.NodeIDPrefix)
+	endIndex := startIndex + 8 // 8 characters should be enough to identify a node in the context of its network
+	return n.NetworkUUID + "-" + strings.ToLower(nodeIDString[startIndex:endIndex])
+}
+
 // Saves the currently allocated API port to the node's configuration
-// for use across restarts. Reusing the port ensures consistent
-// labeling of metrics.
+// for use across restarts.
 func (n *Node) SaveAPIPort() error {
 	hostPort := strings.TrimPrefix(n.URI, "http://")
 	if len(hostPort) == 0 {

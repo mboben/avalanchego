@@ -123,7 +123,7 @@ func (w *windower) Proposers(ctx context.Context, blockHeight, pChainHeight uint
 
 	var totalWeight uint64
 	for _, validator := range validators {
-		totalWeight, err = math.Add64(totalWeight, validator.weight)
+		totalWeight, err = math.Add(totalWeight, validator.weight)
 		if err != nil {
 			return nil, err
 		}
@@ -237,6 +237,8 @@ func (w *windower) makeSampler(
 	if err != nil {
 		return nil, nil, err
 	}
+
+	delete(validatorsMap, ids.EmptyNodeID) // Ignore inactive ACP-77 validators.
 
 	validators := make([]validatorData, 0, len(validatorsMap))
 	for k, v := range validatorsMap {

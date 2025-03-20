@@ -36,12 +36,8 @@ func PutID(db KeyValueWriter, key []byte, val ids.ID) error {
 func GetID(db KeyValueReader, key []byte) (ids.ID, error) {
 	b, err := db.Get(key)
 	if err != nil {
-		return ids.ID{}, err
+		return ids.Empty, err
 	}
-	return ids.ToID(b)
-}
-
-func ParseID(b []byte) (ids.ID, error) {
 	return ids.ToID(b)
 }
 
@@ -141,6 +137,21 @@ func GetBool(db KeyValueReader, key []byte) (bool, error) {
 	return b[0] == BoolTrue, nil
 }
 
+// WithDefault returns the value at [key] in [db]. If the key doesn't exist, it
+// returns [def].
+func WithDefault[V any](
+	get func(KeyValueReader, []byte) (V, error),
+	db KeyValueReader,
+	key []byte,
+	def V,
+) (V, error) {
+	v, err := get(db, key)
+	if err == ErrNotFound {
+		return def, nil
+	}
+	return v, err
+}
+
 func Count(db Iteratee) (int, error) {
 	iterator := db.NewIterator()
 	defer iterator.Release()
@@ -161,13 +172,6 @@ func Size(db Iteratee) (int, error) {
 		size += len(iterator.Key()) + len(iterator.Value()) + kvPairOverhead
 	}
 	return size, iterator.Error()
-}
-
-func IsEmpty(db Iteratee) (bool, error) {
-	iterator := db.NewIterator()
-	defer iterator.Release()
-
-	return !iterator.Next(), iterator.Error()
 }
 
 func AtomicClear(readerDB Iteratee, deleterDB KeyValueDeleter) error {

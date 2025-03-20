@@ -18,12 +18,12 @@ import (
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/network/p2p"
 	"github.com/ava-labs/avalanchego/snow"
-	"github.com/ava-labs/avalanchego/snow/choices"
 	"github.com/ava-labs/avalanchego/snow/consensus/snowman"
 	"github.com/ava-labs/avalanchego/snow/consensus/snowman/snowmantest"
 	"github.com/ava-labs/avalanchego/snow/engine/common"
 	"github.com/ava-labs/avalanchego/snow/engine/common/tracker"
-	"github.com/ava-labs/avalanchego/snow/engine/snowman/block"
+	"github.com/ava-labs/avalanchego/snow/engine/enginetest"
+	"github.com/ava-labs/avalanchego/snow/engine/snowman/block/blocktest"
 	"github.com/ava-labs/avalanchego/snow/engine/snowman/bootstrap/interval"
 	"github.com/ava-labs/avalanchego/snow/engine/snowman/getter"
 	"github.com/ava-labs/avalanchego/snow/snowtest"
@@ -36,7 +36,7 @@ import (
 
 var errUnknownBlock = errors.New("unknown block")
 
-func newConfig(t *testing.T) (Config, ids.NodeID, *common.SenderTest, *block.TestVM) {
+func newConfig(t *testing.T) (Config, ids.NodeID, *enginetest.Sender, *blocktest.VM, func()) {
 	require := require.New(t)
 
 	snowCtx := snowtest.Context(t, snowtest.CChainID)
@@ -44,8 +44,8 @@ func newConfig(t *testing.T) (Config, ids.NodeID, *common.SenderTest, *block.Tes
 
 	vdrs := validators.NewManager()
 
-	sender := &common.SenderTest{}
-	vm := &block.TestVM{}
+	sender := &enginetest.Sender{}
+	vm := &blocktest.VM{}
 
 	sender.T = t
 	vm.T = t
@@ -54,7 +54,7 @@ func newConfig(t *testing.T) (Config, ids.NodeID, *common.SenderTest, *block.Tes
 	vm.Default(true)
 
 	isBootstrapped := false
-	bootstrapTracker := &common.BootstrapTrackerTest{
+	bootstrapTracker := &enginetest.BootstrapTracker{
 		T: t,
 		IsBootstrappedF: func() bool {
 			return isBootstrapped
@@ -90,28 +90,31 @@ func newConfig(t *testing.T) (Config, ids.NodeID, *common.SenderTest, *block.Tes
 
 	peerTracker.Connected(peer, version.CurrentApp)
 
+	var halter common.Halter
+
 	return Config{
+		Haltable:                       &common.Halter{},
+		NonVerifyingParse:              vm.ParseBlock,
 		AllGetsServer:                  snowGetHandler,
 		Ctx:                            ctx,
 		Beacons:                        vdrs,
-		SampleK:                        vdrs.Count(ctx.SubnetID),
+		SampleK:                        vdrs.NumValidators(ctx.SubnetID),
 		StartupTracker:                 startupTracker,
 		PeerTracker:                    peerTracker,
 		Sender:                         sender,
 		BootstrapTracker:               bootstrapTracker,
-		Timer:                          &common.TimerTest{},
 		AncestorsMaxContainersReceived: 2000,
 		DB:                             memdb.New(),
 		VM:                             vm,
-	}, peer, sender, vm
+	}, peer, sender, vm, halter.Halt
 }
 
 func TestBootstrapperStartsOnlyIfEnoughStakeIsConnected(t *testing.T) {
 	require := require.New(t)
 
-	sender := &common.SenderTest{T: t}
-	vm := &block.TestVM{
-		TestVM: common.TestVM{T: t},
+	sender := &enginetest.Sender{T: t}
+	vm := &blocktest.VM{
+		VM: enginetest.VM{T: t},
 	}
 
 	sender.Default(true)
@@ -140,6 +143,7 @@ func TestBootstrapperStartsOnlyIfEnoughStakeIsConnected(t *testing.T) {
 	require.NoError(err)
 
 	cfg := Config{
+		Haltable:                       &common.Halter{},
 		AllGetsServer:                  snowGetHandler,
 		Ctx:                            ctx,
 		Beacons:                        peers,
@@ -147,17 +151,16 @@ func TestBootstrapperStartsOnlyIfEnoughStakeIsConnected(t *testing.T) {
 		StartupTracker:                 startupTracker,
 		PeerTracker:                    peerTracker,
 		Sender:                         sender,
-		BootstrapTracker:               &common.BootstrapTrackerTest{},
-		Timer:                          &common.TimerTest{},
+		BootstrapTracker:               &enginetest.BootstrapTracker{},
 		AncestorsMaxContainersReceived: 2000,
 		DB:                             memdb.New(),
 		VM:                             vm,
 	}
 
 	vm.CantLastAccepted = false
-	vm.LastAcceptedF = func(context.Context) (ids.ID, error) {
-		return snowmantest.GenesisID, nil
-	}
+	vm.LastAcceptedF = snowmantest.MakeLastAcceptedBlockF(
+		[]*snowmantest.Block{snowmantest.Genesis},
+	)
 	vm.GetBlockF = func(_ context.Context, blkID ids.ID) (snowman.Block, error) {
 		require.Equal(snowmantest.GenesisID, blkID)
 		return snowmantest.Genesis, nil
@@ -173,6 +176,7 @@ func TestBootstrapperStartsOnlyIfEnoughStakeIsConnected(t *testing.T) {
 	}
 	bs, err := New(cfg, dummyCallback)
 	require.NoError(err)
+	bs.TimeoutRegistrar = &enginetest.Timer{}
 
 	vm.CantSetState = false
 	vm.CantConnected = true
@@ -213,7 +217,7 @@ func TestBootstrapperStartsOnlyIfEnoughStakeIsConnected(t *testing.T) {
 func TestBootstrapperSingleFrontier(t *testing.T) {
 	require := require.New(t)
 
-	config, _, _, vm := newConfig(t)
+	config, _, _, vm, _ := newConfig(t)
 
 	blks := snowmantest.BuildChain(1)
 	initializeVMWithBlockchain(vm, blks)
@@ -229,6 +233,7 @@ func TestBootstrapperSingleFrontier(t *testing.T) {
 		},
 	)
 	require.NoError(err)
+	bs.TimeoutRegistrar = &enginetest.Timer{}
 
 	require.NoError(bs.Start(context.Background(), 0))
 
@@ -241,7 +246,7 @@ func TestBootstrapperSingleFrontier(t *testing.T) {
 func TestBootstrapperUnknownByzantineResponse(t *testing.T) {
 	require := require.New(t)
 
-	config, peerID, sender, vm := newConfig(t)
+	config, peerID, sender, vm, _ := newConfig(t)
 
 	blks := snowmantest.BuildChain(2)
 	initializeVMWithBlockchain(vm, blks)
@@ -257,6 +262,7 @@ func TestBootstrapperUnknownByzantineResponse(t *testing.T) {
 		},
 	)
 	require.NoError(err)
+	bs.TimeoutRegistrar = &enginetest.Timer{}
 
 	require.NoError(bs.Start(context.Background(), 0))
 
@@ -276,7 +282,7 @@ func TestBootstrapperUnknownByzantineResponse(t *testing.T) {
 	require.NoError(bs.Ancestors(context.Background(), peerID, requestID, blocksToBytes(blks[1:2])))
 
 	require.Equal(snow.Bootstrapping, config.Ctx.State.Get().State)
-	requireStatusIs(require, blks, choices.Accepted)
+	snowmantest.RequireStatusIs(require, snowtest.Accepted, blks...)
 
 	require.NoError(bs.startSyncing(context.Background(), blocksToIDs(blks[1:2])))
 	require.Equal(snow.NormalOp, config.Ctx.State.Get().State)
@@ -286,7 +292,7 @@ func TestBootstrapperUnknownByzantineResponse(t *testing.T) {
 func TestBootstrapperPartialFetch(t *testing.T) {
 	require := require.New(t)
 
-	config, peerID, sender, vm := newConfig(t)
+	config, peerID, sender, vm, _ := newConfig(t)
 
 	blks := snowmantest.BuildChain(4)
 	initializeVMWithBlockchain(vm, blks)
@@ -302,6 +308,7 @@ func TestBootstrapperPartialFetch(t *testing.T) {
 		},
 	)
 	require.NoError(err)
+	bs.TimeoutRegistrar = &enginetest.Timer{}
 
 	require.NoError(bs.Start(context.Background(), 0))
 
@@ -325,7 +332,7 @@ func TestBootstrapperPartialFetch(t *testing.T) {
 	require.NoError(bs.Ancestors(context.Background(), peerID, requestID, blocksToBytes(blks[1:2]))) // respond with blk1
 
 	require.Equal(snow.Bootstrapping, config.Ctx.State.Get().State)
-	requireStatusIs(require, blks, choices.Accepted)
+	snowmantest.RequireStatusIs(require, snowtest.Accepted, blks...)
 
 	require.NoError(bs.startSyncing(context.Background(), blocksToIDs(blks[3:4])))
 	require.Equal(snow.NormalOp, config.Ctx.State.Get().State)
@@ -336,7 +343,7 @@ func TestBootstrapperPartialFetch(t *testing.T) {
 func TestBootstrapperEmptyResponse(t *testing.T) {
 	require := require.New(t)
 
-	config, peerID, sender, vm := newConfig(t)
+	config, peerID, sender, vm, _ := newConfig(t)
 
 	blks := snowmantest.BuildChain(2)
 	initializeVMWithBlockchain(vm, blks)
@@ -352,6 +359,7 @@ func TestBootstrapperEmptyResponse(t *testing.T) {
 		},
 	)
 	require.NoError(err)
+	bs.TimeoutRegistrar = &enginetest.Timer{}
 
 	require.NoError(bs.Start(context.Background(), 0))
 
@@ -377,14 +385,14 @@ func TestBootstrapperEmptyResponse(t *testing.T) {
 
 	require.NoError(bs.Ancestors(context.Background(), requestedNodeID, requestID, blocksToBytes(blks[1:2])))
 	require.Equal(snow.Bootstrapping, config.Ctx.State.Get().State)
-	requireStatusIs(require, blks, choices.Accepted)
+	snowmantest.RequireStatusIs(require, snowtest.Accepted, blks...)
 }
 
 // There are multiple needed blocks and Ancestors returns all at once
 func TestBootstrapperAncestors(t *testing.T) {
 	require := require.New(t)
 
-	config, peerID, sender, vm := newConfig(t)
+	config, peerID, sender, vm, _ := newConfig(t)
 
 	blks := snowmantest.BuildChain(4)
 	initializeVMWithBlockchain(vm, blks)
@@ -400,6 +408,7 @@ func TestBootstrapperAncestors(t *testing.T) {
 		},
 	)
 	require.NoError(err)
+	bs.TimeoutRegistrar = &enginetest.Timer{}
 
 	require.NoError(bs.Start(context.Background(), 0))
 
@@ -420,7 +429,7 @@ func TestBootstrapperAncestors(t *testing.T) {
 	require.NoError(bs.Ancestors(context.Background(), peerID, requestID, blocksToBytes(blks))) // respond with all the blocks
 
 	require.Equal(snow.Bootstrapping, config.Ctx.State.Get().State)
-	requireStatusIs(require, blks, choices.Accepted)
+	snowmantest.RequireStatusIs(require, snowtest.Accepted, blks...)
 
 	require.NoError(bs.startSyncing(context.Background(), blocksToIDs(blks[3:4])))
 	require.Equal(snow.NormalOp, config.Ctx.State.Get().State)
@@ -429,7 +438,7 @@ func TestBootstrapperAncestors(t *testing.T) {
 func TestBootstrapperFinalized(t *testing.T) {
 	require := require.New(t)
 
-	config, peerID, sender, vm := newConfig(t)
+	config, peerID, sender, vm, _ := newConfig(t)
 
 	blks := snowmantest.BuildChain(3)
 	initializeVMWithBlockchain(vm, blks)
@@ -445,6 +454,7 @@ func TestBootstrapperFinalized(t *testing.T) {
 		},
 	)
 	require.NoError(err)
+	bs.TimeoutRegistrar = &enginetest.Timer{}
 
 	require.NoError(bs.Start(context.Background(), 0))
 
@@ -462,7 +472,7 @@ func TestBootstrapperFinalized(t *testing.T) {
 	require.NoError(bs.Ancestors(context.Background(), peerID, reqIDBlk2, blocksToBytes(blks[1:3])))
 
 	require.Equal(snow.Bootstrapping, config.Ctx.State.Get().State)
-	requireStatusIs(require, blks, choices.Accepted)
+	snowmantest.RequireStatusIs(require, snowtest.Accepted, blks...)
 
 	require.NoError(bs.startSyncing(context.Background(), blocksToIDs(blks[2:3])))
 	require.Equal(snow.NormalOp, config.Ctx.State.Get().State)
@@ -471,7 +481,7 @@ func TestBootstrapperFinalized(t *testing.T) {
 func TestRestartBootstrapping(t *testing.T) {
 	require := require.New(t)
 
-	config, peerID, sender, vm := newConfig(t)
+	config, peerID, sender, vm, _ := newConfig(t)
 
 	blks := snowmantest.BuildChain(5)
 	initializeVMWithBlockchain(vm, blks)
@@ -487,6 +497,7 @@ func TestRestartBootstrapping(t *testing.T) {
 		},
 	)
 	require.NoError(err)
+	bs.TimeoutRegistrar = &enginetest.Timer{}
 
 	require.NoError(bs.Start(context.Background(), 0))
 
@@ -518,12 +529,12 @@ func TestRestartBootstrapping(t *testing.T) {
 
 	require.NoError(bs.Ancestors(context.Background(), peerID, blk1RequestID, blocksToBytes(blks[1:2])))
 	require.Equal(snow.Bootstrapping, config.Ctx.State.Get().State)
-	require.Equal(choices.Accepted, blks[0].Status())
-	requireStatusIs(require, blks[1:], choices.Processing)
+	require.Equal(snowtest.Accepted, blks[0].Status)
+	snowmantest.RequireStatusIs(require, snowtest.Undecided, blks[1:]...)
 
 	require.NoError(bs.Ancestors(context.Background(), peerID, blk4RequestID, blocksToBytes(blks[4:5])))
 	require.Equal(snow.Bootstrapping, config.Ctx.State.Get().State)
-	requireStatusIs(require, blks, choices.Accepted)
+	snowmantest.RequireStatusIs(require, snowtest.Accepted, blks...)
 
 	require.NoError(bs.startSyncing(context.Background(), blocksToIDs(blks[4:5])))
 	require.Equal(snow.NormalOp, config.Ctx.State.Get().State)
@@ -532,12 +543,12 @@ func TestRestartBootstrapping(t *testing.T) {
 func TestBootstrapOldBlockAfterStateSync(t *testing.T) {
 	require := require.New(t)
 
-	config, peerID, sender, vm := newConfig(t)
+	config, peerID, sender, vm, _ := newConfig(t)
 
 	blks := snowmantest.BuildChain(2)
 	initializeVMWithBlockchain(vm, blks)
 
-	blks[0].StatusV = choices.Processing
+	blks[0].Status = snowtest.Undecided
 	require.NoError(blks[1].Accept(context.Background()))
 
 	bs, err := New(
@@ -551,6 +562,7 @@ func TestBootstrapOldBlockAfterStateSync(t *testing.T) {
 		},
 	)
 	require.NoError(err)
+	bs.TimeoutRegistrar = &enginetest.Timer{}
 
 	require.NoError(bs.Start(context.Background(), 0))
 
@@ -568,14 +580,14 @@ func TestBootstrapOldBlockAfterStateSync(t *testing.T) {
 
 	require.NoError(bs.Ancestors(context.Background(), peerID, reqID, blocksToBytes(blks[0:1])))
 	require.Equal(snow.NormalOp, config.Ctx.State.Get().State)
-	require.Equal(choices.Processing, blks[0].Status())
-	require.Equal(choices.Accepted, blks[1].Status())
+	require.Equal(snowtest.Undecided, blks[0].Status)
+	require.Equal(snowtest.Accepted, blks[1].Status)
 }
 
 func TestBootstrapContinueAfterHalt(t *testing.T) {
 	require := require.New(t)
 
-	config, _, _, vm := newConfig(t)
+	config, _, _, vm, halt := newConfig(t)
 
 	blks := snowmantest.BuildChain(2)
 	initializeVMWithBlockchain(vm, blks)
@@ -591,10 +603,11 @@ func TestBootstrapContinueAfterHalt(t *testing.T) {
 		},
 	)
 	require.NoError(err)
+	bs.TimeoutRegistrar = &enginetest.Timer{}
 
 	getBlockF := vm.GetBlockF
 	vm.GetBlockF = func(ctx context.Context, blkID ids.ID) (snowman.Block, error) {
-		bs.Halt(ctx)
+		halt()
 		return getBlockF(ctx, blkID)
 	}
 
@@ -611,8 +624,8 @@ func TestBootstrapNoParseOnNew(t *testing.T) {
 	ctx := snowtest.ConsensusContext(snowCtx)
 	peers := validators.NewManager()
 
-	sender := &common.SenderTest{}
-	vm := &block.TestVM{}
+	sender := &enginetest.Sender{}
+	vm := &blocktest.VM{}
 
 	sender.T = t
 	vm.T = t
@@ -621,7 +634,7 @@ func TestBootstrapNoParseOnNew(t *testing.T) {
 	vm.Default(true)
 
 	isBootstrapped := false
-	bootstrapTracker := &common.BootstrapTrackerTest{
+	bootstrapTracker := &enginetest.BootstrapTracker{
 		T: t,
 		IsBootstrappedF: func() bool {
 			return isBootstrapped
@@ -672,15 +685,15 @@ func TestBootstrapNoParseOnNew(t *testing.T) {
 	peerTracker.Connected(peer, version.CurrentApp)
 
 	config := Config{
+		Haltable:                       &common.Halter{},
 		AllGetsServer:                  snowGetHandler,
 		Ctx:                            ctx,
 		Beacons:                        peers,
-		SampleK:                        peers.Count(ctx.SubnetID),
+		SampleK:                        peers.NumValidators(ctx.SubnetID),
 		StartupTracker:                 startupTracker,
 		PeerTracker:                    peerTracker,
 		Sender:                         sender,
 		BootstrapTracker:               bootstrapTracker,
-		Timer:                          &common.TimerTest{},
 		AncestorsMaxContainersReceived: 2000,
 		DB:                             intervalDB,
 		VM:                             vm,
@@ -702,7 +715,7 @@ func TestBootstrapNoParseOnNew(t *testing.T) {
 func TestBootstrapperReceiveStaleAncestorsMessage(t *testing.T) {
 	require := require.New(t)
 
-	config, peerID, sender, vm := newConfig(t)
+	config, peerID, sender, vm, _ := newConfig(t)
 
 	blks := snowmantest.BuildChain(3)
 	initializeVMWithBlockchain(vm, blks)
@@ -718,6 +731,7 @@ func TestBootstrapperReceiveStaleAncestorsMessage(t *testing.T) {
 		},
 	)
 	require.NoError(err)
+	bs.TimeoutRegistrar = &enginetest.Timer{}
 
 	require.NoError(bs.Start(context.Background(), 0))
 
@@ -736,7 +750,7 @@ func TestBootstrapperReceiveStaleAncestorsMessage(t *testing.T) {
 
 	require.NoError(bs.Ancestors(context.Background(), peerID, reqIDBlk2, blocksToBytes(blks[1:3])))
 	require.Equal(snow.Bootstrapping, config.Ctx.State.Get().State)
-	requireStatusIs(require, blks, choices.Accepted)
+	snowmantest.RequireStatusIs(require, snowtest.Accepted, blks...)
 
 	require.NoError(bs.Ancestors(context.Background(), peerID, reqIDBlk1, blocksToBytes(blks[1:2])))
 	require.Equal(snow.Bootstrapping, config.Ctx.State.Get().State)
@@ -745,12 +759,12 @@ func TestBootstrapperReceiveStaleAncestorsMessage(t *testing.T) {
 func TestBootstrapperRollbackOnSetState(t *testing.T) {
 	require := require.New(t)
 
-	config, _, _, vm := newConfig(t)
+	config, _, _, vm, _ := newConfig(t)
 
 	blks := snowmantest.BuildChain(2)
 	initializeVMWithBlockchain(vm, blks)
 
-	blks[1].StatusV = choices.Accepted
+	blks[1].Status = snowtest.Accepted
 
 	bs, err := New(
 		config,
@@ -762,10 +776,11 @@ func TestBootstrapperRollbackOnSetState(t *testing.T) {
 			return nil
 		},
 	)
+	bs.TimeoutRegistrar = &enginetest.Timer{}
 	require.NoError(err)
 
 	vm.SetStateF = func(context.Context, snow.State) error {
-		blks[1].StatusV = choices.Processing
+		blks[1].Status = snowtest.Undecided
 		return nil
 	}
 
@@ -773,25 +788,14 @@ func TestBootstrapperRollbackOnSetState(t *testing.T) {
 	require.Equal(blks[0].HeightV, bs.startingHeight)
 }
 
-func initializeVMWithBlockchain(vm *block.TestVM, blocks []*snowmantest.Block) {
+func initializeVMWithBlockchain(vm *blocktest.VM, blocks []*snowmantest.Block) {
 	vm.CantSetState = false
-	vm.LastAcceptedF = func(context.Context) (ids.ID, error) {
-		var (
-			lastAcceptedID     ids.ID
-			lastAcceptedHeight uint64
-		)
-		for _, blk := range blocks {
-			height := blk.Height()
-			if blk.Status() == choices.Accepted && height >= lastAcceptedHeight {
-				lastAcceptedID = blk.ID()
-				lastAcceptedHeight = height
-			}
-		}
-		return lastAcceptedID, nil
-	}
+	vm.LastAcceptedF = snowmantest.MakeLastAcceptedBlockF(
+		blocks,
+	)
 	vm.GetBlockF = func(_ context.Context, blkID ids.ID) (snowman.Block, error) {
 		for _, blk := range blocks {
-			if blk.Status() == choices.Accepted && blk.ID() == blkID {
+			if blk.Status == snowtest.Accepted && blk.ID() == blkID {
 				return blk, nil
 			}
 		}
@@ -804,12 +808,6 @@ func initializeVMWithBlockchain(vm *block.TestVM, blocks []*snowmantest.Block) {
 			}
 		}
 		return nil, errUnknownBlock
-	}
-}
-
-func requireStatusIs(require *require.Assertions, blocks []*snowmantest.Block, status choices.Status) {
-	for i, blk := range blocks {
-		require.Equal(status, blk.Status(), i)
 	}
 }
 

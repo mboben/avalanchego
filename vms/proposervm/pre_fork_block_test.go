@@ -15,11 +15,12 @@ import (
 	"github.com/ava-labs/avalanchego/database"
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/snow"
-	"github.com/ava-labs/avalanchego/snow/choices"
 	"github.com/ava-labs/avalanchego/snow/consensus/snowman"
+	"github.com/ava-labs/avalanchego/snow/consensus/snowman/snowmanmock"
 	"github.com/ava-labs/avalanchego/snow/consensus/snowman/snowmantest"
-	"github.com/ava-labs/avalanchego/snow/engine/snowman/block"
-	"github.com/ava-labs/avalanchego/snow/validators"
+	"github.com/ava-labs/avalanchego/snow/engine/snowman/block/blockmock"
+	"github.com/ava-labs/avalanchego/snow/snowtest"
+	"github.com/ava-labs/avalanchego/snow/validators/validatorsmock"
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/utils/timer/mockable"
 
@@ -65,7 +66,7 @@ func TestOracle_PreForkBlkCanBuiltOnPreForkOption(t *testing.T) {
 	preferredTestBlk := snowmantest.BuildChild(coreTestBlk)
 	oracleCoreBlk := &TestOptionsBlock{
 		Block: *coreTestBlk,
-		opts: [2]snowman.Block{
+		opts: [2]*snowmantest.Block{
 			preferredTestBlk,
 			snowmantest.BuildChild(coreTestBlk),
 		},
@@ -139,7 +140,7 @@ func TestOracle_PostForkBlkCanBuiltOnPreForkOption(t *testing.T) {
 
 	oracleCoreBlk := &TestOptionsBlock{
 		Block: *coreTestBlk,
-		opts: [2]snowman.Block{
+		opts: [2]*snowmantest.Block{
 			preferredBlk,
 			unpreferredBlk,
 		},
@@ -294,7 +295,6 @@ func TestBlockVerify_BlocksBuiltOnPreForkGenesis(t *testing.T) {
 		postForkCommonComponents: postForkCommonComponents{
 			vm:       proVM,
 			innerBlk: coreBlk,
-			status:   choices.Processing,
 		},
 	}
 
@@ -439,12 +439,12 @@ func TestBlockAccept_PreFork_SetsLastAcceptedBlock(t *testing.T) {
 	// test
 	require.NoError(builtBlk.Accept(context.Background()))
 
-	coreVM.LastAcceptedF = func(context.Context) (ids.ID, error) {
-		if coreBlk.Status() == choices.Accepted {
-			return coreBlk.ID(), nil
-		}
-		return snowmantest.GenesisID, nil
-	}
+	coreVM.LastAcceptedF = snowmantest.MakeLastAcceptedBlockF(
+		[]*snowmantest.Block{
+			snowmantest.Genesis,
+			coreBlk,
+		},
+	)
 	acceptedID, err := proVM.LastAccepted(context.Background())
 	require.NoError(err)
 	require.Equal(builtBlk.ID(), acceptedID)
@@ -474,8 +474,7 @@ func TestBlockReject_PreForkBlock_InnerBlockIsRejected(t *testing.T) {
 	proBlk := sb.(*preForkBlock)
 
 	require.NoError(proBlk.Reject(context.Background()))
-	require.Equal(choices.Rejected, proBlk.Status())
-	require.Equal(choices.Rejected, proBlk.Block.Status())
+	require.Equal(snowtest.Rejected, coreBlk.Status)
 }
 
 func TestBlockVerify_ForkBlockIsOracleBlock(t *testing.T) {
@@ -497,7 +496,7 @@ func TestBlockVerify_ForkBlockIsOracleBlock(t *testing.T) {
 	coreTestBlk.TimestampV = postActivationTime
 	coreBlk := &TestOptionsBlock{
 		Block: *coreTestBlk,
-		opts: [2]snowman.Block{
+		opts: [2]*snowmantest.Block{
 			snowmantest.BuildChild(coreTestBlk),
 			snowmantest.BuildChild(coreTestBlk),
 		},
@@ -567,7 +566,7 @@ func TestBlockVerify_ForkBlockIsOracleBlockButChildrenAreSigned(t *testing.T) {
 	coreTestBlk.TimestampV = postActivationTime
 	coreBlk := &TestOptionsBlock{
 		Block: *coreTestBlk,
-		opts: [2]snowman.Block{
+		opts: [2]*snowmantest.Block{
 			snowmantest.BuildChild(coreTestBlk),
 			snowmantest.BuildChild(coreTestBlk),
 		},
@@ -637,16 +636,16 @@ func TestPreForkBlock_BuildBlockWithContext(t *testing.T) {
 
 	pChainHeight := uint64(1337)
 	blkID := ids.GenerateTestID()
-	innerBlk := snowmantest.NewMockBlock(ctrl)
+	innerBlk := snowmanmock.NewBlock(ctrl)
 	innerBlk.EXPECT().ID().Return(blkID).AnyTimes()
 	innerBlk.EXPECT().Timestamp().Return(mockable.MaxTime)
-	builtBlk := snowmantest.NewMockBlock(ctrl)
+	builtBlk := snowmanmock.NewBlock(ctrl)
 	builtBlk.EXPECT().Bytes().Return([]byte{1, 2, 3}).AnyTimes()
 	builtBlk.EXPECT().ID().Return(ids.GenerateTestID()).AnyTimes()
 	builtBlk.EXPECT().Height().Return(pChainHeight).AnyTimes()
-	innerVM := block.NewMockChainVM(ctrl)
+	innerVM := blockmock.NewChainVM(ctrl)
 	innerVM.EXPECT().BuildBlock(gomock.Any()).Return(builtBlk, nil).AnyTimes()
-	vdrState := validators.NewMockState(ctrl)
+	vdrState := validatorsmock.NewState(ctrl)
 	vdrState.EXPECT().GetMinimumHeight(context.Background()).Return(pChainHeight, nil).AnyTimes()
 
 	vm := &VM{
@@ -669,7 +668,7 @@ func TestPreForkBlock_BuildBlockWithContext(t *testing.T) {
 
 	// Should call BuildBlock since proposervm is not activated
 	innerBlk.EXPECT().Timestamp().Return(time.Time{})
-	vm.ActivationTime = mockable.MaxTime
+	vm.Upgrades.ApricotPhase4Time = mockable.MaxTime
 
 	gotChild, err = blk.buildChild(context.Background())
 	require.NoError(err)

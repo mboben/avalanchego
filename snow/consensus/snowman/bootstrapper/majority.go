@@ -18,7 +18,7 @@ import (
 var _ Poll = (*Majority)(nil)
 
 // Majority implements the bootstrapping poll to filter the initial set of
-// potentially accaptable blocks into a set of accepted blocks to sync to.
+// potentially acceptable blocks into a set of accepted blocks to sync to.
 //
 // Once the last accepted blocks have been fetched from the initial set of
 // peers, the set of blocks are sent to all peers. Each peer is expected to
@@ -68,7 +68,7 @@ func (m *Majority) RecordOpinion(_ context.Context, nodeID ids.NodeID, blkIDs se
 
 	weight := m.nodeWeights[nodeID]
 	for blkID := range blkIDs {
-		newWeight, err := math.Add64(m.received[blkID], weight)
+		newWeight, err := math.Add(m.received[blkID], weight)
 		if err != nil {
 			return err
 		}
@@ -84,7 +84,7 @@ func (m *Majority) RecordOpinion(_ context.Context, nodeID ids.NodeID, blkIDs se
 		err         error
 	)
 	for _, weight := range m.nodeWeights {
-		totalWeight, err = math.Add64(totalWeight, weight)
+		totalWeight, err = math.Add(totalWeight, weight)
 		if err != nil {
 			return err
 		}

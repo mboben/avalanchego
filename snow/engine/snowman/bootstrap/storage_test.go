@@ -13,12 +13,12 @@ import (
 	"github.com/ava-labs/avalanchego/database"
 	"github.com/ava-labs/avalanchego/database/memdb"
 	"github.com/ava-labs/avalanchego/ids"
-	"github.com/ava-labs/avalanchego/snow/choices"
 	"github.com/ava-labs/avalanchego/snow/consensus/snowman"
 	"github.com/ava-labs/avalanchego/snow/consensus/snowman/snowmantest"
 	"github.com/ava-labs/avalanchego/snow/engine/common"
 	"github.com/ava-labs/avalanchego/snow/engine/snowman/block"
 	"github.com/ava-labs/avalanchego/snow/engine/snowman/bootstrap/interval"
+	"github.com/ava-labs/avalanchego/snow/snowtest"
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/utils/set"
 )
@@ -221,7 +221,7 @@ func TestExecute(t *testing.T) {
 
 	unhalted := &common.Halter{}
 	halted := &common.Halter{}
-	halted.Halt(context.Background())
+	halted.Halt()
 
 	tests := []struct {
 		name                      string
@@ -269,7 +269,7 @@ func TestExecute(t *testing.T) {
 
 			require.NoError(execute(
 				context.Background(),
-				test.haltable,
+				test.haltable.Halted,
 				logging.NoLog{}.Info,
 				db,
 				parser,
@@ -277,10 +277,10 @@ func TestExecute(t *testing.T) {
 				test.lastAcceptedHeight,
 			))
 			for _, height := range test.expectedProcessingHeights {
-				require.Equal(choices.Processing, blocks[height].Status())
+				require.Equal(snowtest.Undecided, blocks[height].Status)
 			}
 			for _, height := range test.expectedAcceptedHeights {
-				require.Equal(choices.Accepted, blocks[height].Status())
+				require.Equal(snowtest.Accepted, blocks[height].Status)
 			}
 
 			if test.haltable.Halted() {

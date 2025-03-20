@@ -4,11 +4,11 @@
 package antithesis
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 
 	"github.com/compose-spec/compose-go/types"
 	"gopkg.in/yaml.v3"
@@ -22,9 +22,68 @@ import (
 
 const bootstrapIndex = 0
 
-// Initialize the given path with the docker-compose configuration (compose file and
+const (
+	targetPathEnvName = "TARGET_PATH"
+	imageTagEnvName   = "IMAGE_TAG"
+)
+
+var (
+	errTargetPathEnvVarNotSet = errors.New(targetPathEnvName + " environment variable not set")
+	errImageTagEnvVarNotSet   = errors.New(imageTagEnvName + " environment variable not set")
+	errAvalancheGoEvVarNotSet = errors.New(tmpnet.AvalancheGoPathEnvName + " environment variable not set")
+	errPluginDirEnvVarNotSet  = errors.New(tmpnet.AvalancheGoPluginDirEnvName + " environment variable not set")
+)
+
+// Creates docker compose configuration for an antithesis test setup. Configuration is via env vars to
+// simplify usage by main entrypoints. If the provided network includes a subnet, the initial DB state for
+// the subnet will be created and written to the target path.
+func GenerateComposeConfig(network *tmpnet.Network, baseImageName string) error {
+	targetPath := os.Getenv(targetPathEnvName)
+	if len(targetPath) == 0 {
+		return errTargetPathEnvVarNotSet
+	}
+
+	imageTag := os.Getenv(imageTagEnvName)
+	if len(imageTag) == 0 {
+		return errImageTagEnvVarNotSet
+	}
+
+	// Subnet testing requires creating an initial db state for the bootstrap node
+	if len(network.Subnets) > 0 {
+		avalancheGoPath := os.Getenv(tmpnet.AvalancheGoPathEnvName)
+		if len(avalancheGoPath) == 0 {
+			return errAvalancheGoEvVarNotSet
+		}
+
+		// Plugin dir configured here is only used for initializing the bootstrap db.
+		pluginDir := os.Getenv(tmpnet.AvalancheGoPluginDirEnvName)
+		if len(pluginDir) == 0 {
+			return errPluginDirEnvVarNotSet
+		}
+
+		bootstrapVolumePath, err := getBootstrapVolumePath(targetPath)
+		if err != nil {
+			return fmt.Errorf("failed to get bootstrap volume path: %w", err)
+		}
+
+		if err := initBootstrapDB(network, avalancheGoPath, pluginDir, bootstrapVolumePath); err != nil {
+			return fmt.Errorf("failed to initialize db volumes: %w", err)
+		}
+	}
+
+	nodeImageName := fmt.Sprintf("%s-node:%s", baseImageName, imageTag)
+	workloadImageName := fmt.Sprintf("%s-workload:%s", baseImageName, imageTag)
+
+	if err := initComposeConfig(network, nodeImageName, workloadImageName, targetPath); err != nil {
+		return fmt.Errorf("failed to generate compose config: %w", err)
+	}
+
+	return nil
+}
+
+// Initialize the given path with the docker compose configuration (compose file and
 // volumes) needed for an Antithesis test setup.
-func GenerateComposeConfig(
+func initComposeConfig(
 	network *tmpnet.Network,
 	nodeImageName string,
 	workloadImageName string,
@@ -74,7 +133,7 @@ func newComposeProject(network *tmpnet.Network, nodeImageName string, workloadIm
 	baseNetworkAddress := "10.0.20"
 
 	services := make(types.Services, len(network.Nodes)+1)
-	uris := make([]string, len(network.Nodes))
+	uris := make(CSV, len(network.Nodes))
 	var (
 		bootstrapIP  string
 		bootstrapIDs string
@@ -99,6 +158,7 @@ func newComposeProject(network *tmpnet.Network, nodeImageName string, workloadIm
 			config.NetworkNameKey:             constants.LocalName,
 			config.LogLevelKey:                logging.Debug.String(),
 			config.LogDisplayLevelKey:         logging.Trace.String(),
+			config.LogFormatKey:               logging.JSONString,
 			config.HTTPHostKey:                "0.0.0.0",
 			config.PublicIPKey:                address,
 			config.StakingTLSKeyContentKey:    tlsKey,
@@ -175,16 +235,16 @@ func newComposeProject(network *tmpnet.Network, nodeImageName string, workloadIm
 	}
 
 	workloadEnv := types.Mapping{
-		"AVAWL_URIS": strings.Join(uris, " "),
+		config.EnvVarName(EnvPrefix, URIsKey): uris.String(),
 	}
-	chainIDs := []string{}
+	chainIDs := CSV{}
 	for _, subnet := range network.Subnets {
 		for _, chain := range subnet.Chains {
 			chainIDs = append(chainIDs, chain.ChainID.String())
 		}
 	}
 	if len(chainIDs) > 0 {
-		workloadEnv["AVAWL_CHAIN_IDS"] = strings.Join(chainIDs, " ")
+		workloadEnv[config.EnvVarName(EnvPrefix, ChainIDsKey)] = chainIDs.String()
 	}
 
 	workloadName := "workload"
@@ -222,8 +282,7 @@ func newComposeProject(network *tmpnet.Network, nodeImageName string, workloadIm
 func keyMapToEnvVarMap(keyMap types.Mapping) types.Mapping {
 	envVarMap := make(types.Mapping, len(keyMap))
 	for key, val := range keyMap {
-		// e.g. network-id -> AVAGO_NETWORK_ID
-		envVar := strings.ToUpper(config.EnvPrefix + "_" + config.DashesToUnderscores.Replace(key))
+		envVar := config.EnvVarName(config.EnvPrefix, key)
 		envVarMap[envVar] = val
 	}
 	return envVarMap

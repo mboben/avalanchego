@@ -200,7 +200,7 @@ func init() {
 	errs := wrappers.Errs{}
 	errs.Add(
 		json.Unmarshal(mainnetGenesisConfigJSON, &unparsedMainnetConfig),
-		json.Unmarshal([]byte(localGenesisConfigJSON), &unparsedLocalConfig),
+		json.Unmarshal(localGenesisConfigJSON, &unparsedLocalConfig),
 		json.Unmarshal(flareGenesisConfigJSON, &unparsedFlareConfig),
 		json.Unmarshal(costwoGenesisConfigJSON, &unparsedCostwoConfig),
 		json.Unmarshal(stagingGenesisConfigJSON, &unparsedStagingConfig),

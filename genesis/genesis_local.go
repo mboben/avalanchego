@@ -6,6 +6,8 @@ package genesis
 import (
 	"time"
 
+	_ "embed"
+
 	"github.com/ava-labs/avalanchego/utils/crypto/secp256k1"
 	"github.com/ava-labs/avalanchego/utils/units"
 	"github.com/ava-labs/avalanchego/vms/platformvm/reward"
@@ -16,17 +18,20 @@ var (
 )
 
 var (
-	localGenesisConfigJSON = `{
-		"networkID": 12345,
-		"allocations": [],
-		"startTime": 1630987200,
-		"initialStakeDuration": 31536000,
-		"initialStakeDurationOffset": 5400,
-		"initialStakedFunds": [],
-		"initialStakers": [],
-		"cChainGenesis": "",
-		"message": "flare"
-	}`
+	//go:embed genesis_local.json
+	localGenesisConfigJSON []byte
+
+	// 	"networkID": 12345,
+	// 	"allocations": [],
+	// 	"startTime": 1743984000,
+	// 	"initialStakeDuration": 31536000,
+	// 	"initialStakeDurationOffset": 5400,
+	// 	"initialStakedFunds": [],
+	// 	"initialStakers": [
+	// 	],
+	// 	"cChainGenesis": "",
+	// 	"message": "flare"
+	// }`
 
 	// localCChainGenesis is the C-Chain genesis block used for the local
 	// network.

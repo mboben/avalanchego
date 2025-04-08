@@ -199,7 +199,7 @@ func TestGenesisFromFile(t *testing.T) {
 		},
 		"custom (networkID mismatch)": {
 			networkID:    9999,
-			customConfig: []byte(localGenesisConfigJSON),
+			customConfig: localGenesisConfigJSON,
 			err:          "networkID 9999 specified but genesis config contains networkID 12345",
 		},
 		"custom (invalid format)": {
@@ -277,7 +277,7 @@ func TestGenesisFromFlag(t *testing.T) {
 		},
 		"custom (networkID mismatch)": {
 			networkID:    9999,
-			customConfig: []byte(localGenesisConfigJSON),
+			customConfig: localGenesisConfigJSON,
 			err:          "networkID 9999 specified but genesis config contains networkID 12345",
 		},
 		"custom (invalid format)": {
@@ -348,10 +348,6 @@ func TestGenesis(t *testing.T) {
 			networkID:  constants.SongbirdID,
 			expectedID: "2ACyRqRc8H5VT7DDGn4qadKfct4iTPe9buQKhAjiDyotSVkeoi",
 		},
-		{
-			networkID:  constants.LocalID,
-			expectedID: "pA6uxpovoxuKFwNxGndoX9YTYDUWCFnqwDodVWvS43UWT6Zde",
-		},
 	}
 	for _, test := range tests {
 		t.Run(constants.NetworkIDToNetworkName[test.networkID], func(t *testing.T) {
@@ -377,15 +373,15 @@ func TestVMGenesis(t *testing.T) {
 		vmTest    []vmTest
 	}{
 		{
-			networkID: constants.MainnetID,
+			networkID: constants.FlareID,
 			vmTest: []vmTest{
 				{
 					vmID:       constants.AVMID,
-					expectedID: "2oYMBNV4eNHyqk2fjjV5nVQLDbtmNJzq5s3qs3Lo6ftnC6FByM",
+					expectedID: "fK5e6T3EniMqagBkxXjAug9EbhFDZbEzPPr4f22uwMoP5i2cJ",
 				},
 				{
 					vmID:       constants.EVMID,
-					expectedID: "2q9e4r6Mu3U68nU1fYjgbR6JvwrRx36CohpAX5UQxse55x1Q5",
+					expectedID: "umkbhSrjVw5nUvy1eo25AdrjRkPBdtzAMewuxA2rqEx4YMo4c",
 				},
 			},
 		},
@@ -399,19 +395,6 @@ func TestVMGenesis(t *testing.T) {
 				{
 					vmID:       constants.EVMID,
 					expectedID: "erCt5pSo5d4bM8fMrsB2dRM54PGssDAVqRg1jHedQzr6ayLiq",
-				},
-			},
-		},
-		{
-			networkID: constants.LocalID,
-			vmTest: []vmTest{
-				{
-					vmID:       constants.AVMID,
-					expectedID: "ALRkp1tuy7ErVkWuEWFLVd657JAULWDDyQkQBkLKVE94jCaNu",
-				},
-				{
-					vmID:       constants.EVMID,
-					expectedID: "yHEy62ti66aY6p4gzGWd2d5DCgSCuuYEnHJUagQVxPm24gz94",
 				},
 			},
 		},
@@ -451,16 +434,12 @@ func TestAVAXAssetID(t *testing.T) {
 		expectedID string
 	}{
 		{
-			networkID:  constants.MainnetID,
-			expectedID: "FvwEAhmxKfeiG8SnEvq42hc6whRyY3EFYAvebMqDNDGCgxN5Z",
+			networkID:  constants.FlareID,
+			expectedID: "2MxKSeEWXViLdYyDhW1SQ46AECZEbE2bnVRZptv42JrxqyUX5k",
 		},
 		{
 			networkID:  constants.SongbirdID,
 			expectedID: "1S3PSi4VsVpD8iK2vdykuajxVeuCV2xhjPSkQ4K88mqWGozMP",
-		},
-		{
-			networkID:  constants.LocalID,
-			expectedID: "2RULRJVXVpQNAsV3sBpy4G8LWH1LN3z5Adokv5bVtnZmsBQDCX",
 		},
 	}
 

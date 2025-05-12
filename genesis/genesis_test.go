@@ -199,7 +199,7 @@ func TestGenesisFromFile(t *testing.T) {
 		},
 		"custom (networkID mismatch)": {
 			networkID:    9999,
-			customConfig: localGenesisConfigJSON,
+			customConfig: []byte(localGenesisConfigJSON),
 			err:          "networkID 9999 specified but genesis config contains networkID 12345",
 		},
 		"custom (invalid format)": {
@@ -277,7 +277,7 @@ func TestGenesisFromFlag(t *testing.T) {
 		},
 		"custom (networkID mismatch)": {
 			networkID:    9999,
-			customConfig: localGenesisConfigJSON,
+			customConfig: []byte(localGenesisConfigJSON),
 			err:          "networkID 9999 specified but genesis config contains networkID 12345",
 		},
 		"custom (invalid format)": {
@@ -398,6 +398,19 @@ func TestVMGenesis(t *testing.T) {
 				},
 			},
 		},
+		{
+			networkID: constants.LocalID,
+			vmTest: []vmTest{
+				{
+					vmID:       constants.AVMID,
+					expectedID: "ALRkp1tuy7ErVkWuEWFLVd657JAULWDDyQkQBkLKVE94jCaNu",
+				},
+				{
+					vmID:       constants.EVMID,
+					expectedID: "yHEy62ti66aY6p4gzGWd2d5DCgSCuuYEnHJUagQVxPm24gz94",
+				},
+			},
+		},
 	}
 
 	for _, test := range tests {
@@ -440,6 +453,10 @@ func TestAVAXAssetID(t *testing.T) {
 		{
 			networkID:  constants.SongbirdID,
 			expectedID: "1S3PSi4VsVpD8iK2vdykuajxVeuCV2xhjPSkQ4K88mqWGozMP",
+		},
+		{
+			networkID:  constants.LocalID,
+			expectedID: "2RULRJVXVpQNAsV3sBpy4G8LWH1LN3z5Adokv5bVtnZmsBQDCX",
 		},
 	}
 

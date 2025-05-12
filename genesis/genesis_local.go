@@ -28,7 +28,7 @@ var (
 	localGenesisConfigJSON = `{
 		"networkID": 12345,
 		"allocations": [],
-		"startTime": 1630987200,
+		"startTime": 1743984000,
 		"initialStakeDuration": 31536000,
 		"initialStakeDurationOffset": 5400,
 		"initialStakedFunds": [],

@@ -339,10 +339,6 @@ func TestGenesis(t *testing.T) {
 			networkID:  constants.SongbirdID,
 			expectedID: "2ACyRqRc8H5VT7DDGn4qadKfct4iTPe9buQKhAjiDyotSVkeoi",
 		},
-		{
-			networkID:  constants.LocalID,
-			expectedID: "pA6uxpovoxuKFwNxGndoX9YTYDUWCFnqwDodVWvS43UWT6Zde",
-		},
 	}
 	for _, test := range tests {
 		t.Run(constants.NetworkIDToNetworkName[test.networkID], func(t *testing.T) {
@@ -368,15 +364,15 @@ func TestVMGenesis(t *testing.T) {
 		vmTest    []vmTest
 	}{
 		{
-			networkID: constants.MainnetID,
+			networkID: constants.FlareID,
 			vmTest: []vmTest{
 				{
 					vmID:       constants.AVMID,
-					expectedID: "2oYMBNV4eNHyqk2fjjV5nVQLDbtmNJzq5s3qs3Lo6ftnC6FByM",
+					expectedID: "fK5e6T3EniMqagBkxXjAug9EbhFDZbEzPPr4f22uwMoP5i2cJ",
 				},
 				{
 					vmID:       constants.EVMID,
-					expectedID: "2q9e4r6Mu3U68nU1fYjgbR6JvwrRx36CohpAX5UQxse55x1Q5",
+					expectedID: "umkbhSrjVw5nUvy1eo25AdrjRkPBdtzAMewuxA2rqEx4YMo4c",
 				},
 			},
 		},
@@ -442,8 +438,8 @@ func TestAVAXAssetID(t *testing.T) {
 		expectedID string
 	}{
 		{
-			networkID:  constants.MainnetID,
-			expectedID: "FvwEAhmxKfeiG8SnEvq42hc6whRyY3EFYAvebMqDNDGCgxN5Z",
+			networkID:  constants.FlareID,
+			expectedID: "2MxKSeEWXViLdYyDhW1SQ46AECZEbE2bnVRZptv42JrxqyUX5k",
 		},
 		{
 			networkID:  constants.SongbirdID,

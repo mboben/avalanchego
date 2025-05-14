@@ -96,27 +96,22 @@ var (
 
 	ApricotPhase3Times = map[uint32]time.Time{
 		constants.MainnetID:  time.Date(2021, time.August, 24, 14, 0, 0, 0, time.UTC),
-		constants.FlareID:    time.Date(2022, time.June, 1, 0, 0, 0, 0, time.UTC),
-		constants.CostwoID:   time.Date(2022, time.June, 1, 0, 0, 0, 0, time.UTC),
 		constants.CostonID:   time.Date(2022, time.February, 25, 14, 0, 0, 0, time.UTC),
 		constants.SongbirdID: time.Date(2022, time.March, 7, 14, 0, 0, 0, time.UTC),
 	}
 
 	ApricotPhase4Times = map[uint32]time.Time{
 		constants.MainnetID:  time.Date(2021, time.September, 22, 21, 0, 0, 0, time.UTC),
-		constants.FlareID:    time.Date(2022, time.June, 1, 0, 0, 0, 0, time.UTC),
-		constants.CostwoID:   time.Date(2022, time.June, 1, 0, 0, 0, 0, time.UTC),
 		constants.CostonID:   time.Date(2022, time.February, 25, 15, 0, 0, 0, time.UTC),
 		constants.SongbirdID: time.Date(2022, time.March, 7, 15, 0, 0, 0, time.UTC),
 	}
+
 	ApricotPhase4MinPChainHeight = map[uint32]uint64{
 		constants.MainnetID: 793005,
 	}
 
 	ApricotPhase5Times = map[uint32]time.Time{
 		constants.MainnetID:  time.Date(2021, time.December, 2, 18, 0, 0, 0, time.UTC),
-		constants.FlareID:    time.Date(2022, time.June, 1, 0, 0, 0, 0, time.UTC),
-		constants.CostwoID:   time.Date(2022, time.June, 1, 0, 0, 0, 0, time.UTC),
 		constants.CostonID:   time.Date(2022, time.February, 25, 16, 0, 0, 0, time.UTC),
 		constants.SongbirdID: time.Date(2022, time.March, 7, 16, 0, 0, 0, time.UTC),
 	}

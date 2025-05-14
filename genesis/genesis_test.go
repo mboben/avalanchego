@@ -377,6 +377,19 @@ func TestVMGenesis(t *testing.T) {
 			},
 		},
 		{
+			networkID: constants.CostwoID,
+			vmTest: []vmTest{
+				{
+					vmID:       constants.AVMID,
+					expectedID: "FJuSwZuP85eyBpuBrKECnpPedGyXoDy2hP9q4JD8qBTZGxYbJ",
+				},
+				{
+					vmID:       constants.EVMID,
+					expectedID: "vE8M98mEQH6wk56sStD1ML8HApTgSqfJZLk9gQ3Fsd4i6m3Bi",
+				},
+			},
+		},
+		{
 			networkID: constants.SongbirdID,
 			vmTest: []vmTest{
 				{

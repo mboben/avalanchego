@@ -521,8 +521,8 @@ func verifyAddPermissionlessValidatorTx(
 			return ErrWrongTxType
 		}
 
-		// Flare does not allow creation of subnets
-		if tx.Subnet != constants.PrimaryNetworkID {
+		// Flare does not allow creation of subnets before Durango
+		if !isDurangoActive && tx.Subnet != constants.PrimaryNetworkID {
 			return ErrWrongTxType
 		}
 	}

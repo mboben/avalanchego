@@ -13,6 +13,9 @@ AVALANCHE_PATH=$( cd "$( dirname "${BASH_SOURCE[0]}" )"; cd .. && pwd ) # Direct
 # Where AvalancheGo binary goes
 avalanchego_path="$AVALANCHE_PATH/build/avalanchego"
 
+# Set the PATHS
+GOPATH="$(go env GOPATH)"
+
 # Settings for coreth
 coreth_version=${CORETH_VERSION:-'v0.13.0-rc.0'}
 plugin_dir=${PLUGIN_DIR:-$HOME/.avalanchego/plugins}

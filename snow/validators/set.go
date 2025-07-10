@@ -117,25 +117,19 @@ func (s *vdrSet) getWeight(nodeID ids.NodeID) uint64 {
 	return 0
 }
 
-func (s *vdrSet) SubsetWeight(subset set.Set[ids.NodeID]) (uint64, error) {
+func (s *vdrSet) SubsetWeight(subset set.Set[ids.NodeID]) *big.Int {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 
 	return s.subsetWeight(subset)
 }
 
-func (s *vdrSet) subsetWeight(subset set.Set[ids.NodeID]) (uint64, error) {
-	var (
-		totalWeight uint64
-		err         error
-	)
+func (s *vdrSet) subsetWeight(subset set.Set[ids.NodeID]) *big.Int {
+	totalWeight := big.NewInt(0)
 	for nodeID := range subset {
-		totalWeight, err = math.Add64(totalWeight, s.getWeight(nodeID))
-		if err != nil {
-			return 0, err
-		}
+		totalWeight.Add(totalWeight, new(big.Int).SetUint64(s.getWeight(nodeID)))
 	}
-	return totalWeight, nil
+	return totalWeight
 }
 
 func (s *vdrSet) RemoveWeight(nodeID ids.NodeID, weight uint64) error {
@@ -263,15 +257,11 @@ func (s *vdrSet) sample(size int) ([]ids.NodeID, error) {
 	return list, nil
 }
 
-func (s *vdrSet) TotalWeight() (uint64, error) {
+func (s *vdrSet) TotalWeight() *big.Int {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 
-	if !s.totalWeight.IsUint64() {
-		return 0, fmt.Errorf("%w, total weight: %s", errTotalWeightNotUint64, s.totalWeight)
-	}
-
-	return s.totalWeight.Uint64(), nil
+	return new(big.Int).Set(s.totalWeight)
 }
 
 func (s *vdrSet) String() string {

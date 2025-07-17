@@ -19,9 +19,8 @@ import (
 )
 
 var (
-	errDuplicateValidator   = errors.New("duplicate validator")
-	errMissingValidator     = errors.New("missing validator")
-	errTotalWeightNotUint64 = errors.New("total weight is not a uint64")
+	errDuplicateValidator = errors.New("duplicate validator")
+	errMissingValidator   = errors.New("missing validator")
 )
 
 // newSet returns a new, empty set of validators.
@@ -239,7 +238,7 @@ func (s *vdrSet) Sample(size int) ([]ids.NodeID, error) {
 
 func (s *vdrSet) sample(size int) ([]ids.NodeID, error) {
 	if !s.samplerInitialized {
-		if err := s.sampler.Initialize(s.weights); err != nil {
+		if err := s.sampler.InitializeWithAdjustedWeights(s.weights); err != nil {
 			return nil, err
 		}
 		s.samplerInitialized = true

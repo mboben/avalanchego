@@ -66,14 +66,13 @@ func (m *Majority) RecordOpinion(_ context.Context, nodeID ids.NodeID, blkIDs se
 		return nil
 	}
 
-	weight := m.nodeWeights[nodeID]
+	weight := new(big.Int).SetUint64(m.nodeWeights[nodeID])
 	for blkID := range blkIDs {
-		received, ok := m.received[blkID]
-		if !ok {
-			received = big.NewInt(0)
+		if received, ok := m.received[blkID]; ok {
+			m.received[blkID] = new(big.Int).Add(received, weight)
+		} else {
+			m.received[blkID] = new(big.Int).Set(weight)
 		}
-		newWeight := new(big.Int).Add(received, new(big.Int).SetUint64(weight))
-		m.received[blkID] = newWeight
 	}
 
 	if !m.finished() {

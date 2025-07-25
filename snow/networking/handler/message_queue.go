@@ -8,15 +8,16 @@ import (
 	"math/big"
 	"sync"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/message"
 	"github.com/ava-labs/avalanchego/proto/pb/p2p"
-	"github.com/ava-labs/avalanchego/snow"
 	"github.com/ava-labs/avalanchego/snow/networking/tracker"
 	"github.com/ava-labs/avalanchego/snow/validators"
 	"github.com/ava-labs/avalanchego/utils/buffer"
+	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/utils/timer/mockable"
 )
 
@@ -60,7 +61,8 @@ type messageQueue struct {
 	clock   mockable.Clock
 	metrics messageQueueMetrics
 
-	ctx *snow.ConsensusContext
+	log      logging.Logger
+	subnetID ids.ID
 	// Validator set for the chain associated with this
 	vdrs validators.Manager
 	// Tracks CPU utilization of each node
@@ -75,21 +77,23 @@ type messageQueue struct {
 }
 
 func NewMessageQueue(
-	ctx *snow.ConsensusContext,
+	log logging.Logger,
+	subnetID ids.ID,
 	vdrs validators.Manager,
 	cpuTracker tracker.Tracker,
 	metricsNamespace string,
-	ops []message.Op,
+	reg prometheus.Registerer,
 ) (MessageQueue, error) {
 	m := &messageQueue{
-		ctx:                   ctx,
+		log:                   log,
+		subnetID:              subnetID,
 		vdrs:                  vdrs,
 		cpuTracker:            cpuTracker,
 		cond:                  sync.NewCond(&sync.Mutex{}),
 		nodeToUnprocessedMsgs: make(map[ids.NodeID]int),
 		msgAndCtxs:            buffer.NewUnboundedDeque[*msgAndContext](1 /*=initSize*/),
 	}
-	return m, m.metrics.initialize(metricsNamespace, ctx.Registerer, ops)
+	return m, m.metrics.initialize(metricsNamespace, reg)
 }
 
 func (m *messageQueue) Push(ctx context.Context, msg Message) {
@@ -109,9 +113,10 @@ func (m *messageQueue) Push(ctx context.Context, msg Message) {
 	m.nodeToUnprocessedMsgs[msg.NodeID()]++
 
 	// Update metrics
+	m.metrics.count.With(prometheus.Labels{
+		opLabel: msg.Op().String(),
+	}).Inc()
 	m.metrics.nodesWithMessages.Set(float64(len(m.nodeToUnprocessedMsgs)))
-	m.metrics.len.Inc()
-	m.metrics.ops[msg.Op()].Inc()
 
 	// Signal a waiting thread
 	m.cond.Signal()
@@ -137,7 +142,7 @@ func (m *messageQueue) Pop() (context.Context, Message, bool) {
 	i := 0
 	for {
 		if i == n {
-			m.ctx.Log.Debug("canPop is false for all unprocessed messages",
+			m.log.Debug("canPop is false for all unprocessed messages",
 				zap.Int("numMessages", n),
 			)
 		}
@@ -155,9 +160,10 @@ func (m *messageQueue) Pop() (context.Context, Message, bool) {
 			if m.nodeToUnprocessedMsgs[nodeID] == 0 {
 				delete(m.nodeToUnprocessedMsgs, nodeID)
 			}
+			m.metrics.count.With(prometheus.Labels{
+				opLabel: msg.Op().String(),
+			}).Dec()
 			m.metrics.nodesWithMessages.Set(float64(len(m.nodeToUnprocessedMsgs)))
-			m.metrics.len.Dec()
-			m.metrics.ops[msg.Op()].Dec()
 			return ctx, msg, true
 		}
 		// [msg.nodeID] is causing excessive CPU usage.
@@ -187,8 +193,8 @@ func (m *messageQueue) Shutdown() {
 	m.nodeToUnprocessedMsgs = nil
 
 	// Update metrics
+	m.metrics.count.Reset()
 	m.metrics.nodesWithMessages.Set(0)
-	m.metrics.len.Set(0)
 
 	// Mark the queue as closed
 	m.closed = true
@@ -198,7 +204,7 @@ func (m *messageQueue) Shutdown() {
 // canPop will return true for at least one message in [m.msgs]
 func (m *messageQueue) canPop(msg message.InboundMessage) bool {
 	// Always pop connected and disconnected messages.
-	if op := msg.Op(); op == message.ConnectedOp || op == message.DisconnectedOp || op == message.ConnectedSubnetOp {
+	if op := msg.Op(); op == message.ConnectedOp || op == message.DisconnectedOp {
 		return true
 	}
 
@@ -211,15 +217,15 @@ func (m *messageQueue) canPop(msg message.InboundMessage) bool {
 	// the number of nodes with unprocessed messages.
 	baseMaxCPU := 1 / float64(len(m.nodeToUnprocessedMsgs))
 	nodeID := msg.NodeID()
-	weight := m.vdrs.GetWeight(m.ctx.SubnetID, nodeID)
+	weight := m.vdrs.GetWeight(m.subnetID, nodeID)
 
 	var portionWeight float64
-	totalVdrsWeight := m.vdrs.TotalWeight(m.ctx.SubnetID)
+	totalVdrsWeight := m.vdrs.TotalWeight(m.SubnetID)
 	if totalVdrsWeight.Cmp(big.NewInt(0)) == 0 {
 		// The sum of validator weights should never be 0, but handle that case
 		// for completeness here to avoid divide by 0.
-		m.ctx.Log.Warn("validator set is empty",
-			zap.Stringer("subnetID", m.ctx.SubnetID),
+		m.log.Warn("validator set is empty",
+			zap.Stringer("subnetID", m.subnetID),
 		)
 	} else {
 		totalVdrsWeightFloat, _ := totalVdrsWeight.Float64()

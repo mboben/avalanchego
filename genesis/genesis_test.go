@@ -13,11 +13,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ava-labs/coreth/core"
 	"github.com/stretchr/testify/require"
 
 	_ "embed"
 
 	"github.com/ava-labs/avalanchego/ids"
+	"github.com/ava-labs/avalanchego/upgrade"
 	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/avalanchego/utils/hashing"
 	"github.com/ava-labs/avalanchego/utils/perms"
@@ -328,7 +330,7 @@ func TestGenesisFromFlag(t *testing.T) {
 
 func TestGenesis(t *testing.T) {
 	tests := []struct {
-		networkID  uint32
+		config     *Config
 		expectedID string
 	}{
 		{
@@ -341,11 +343,10 @@ func TestGenesis(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		t.Run(constants.NetworkIDToNetworkName[test.networkID], func(t *testing.T) {
+		t.Run(constants.NetworkIDToNetworkName[test.config.NetworkID], func(t *testing.T) {
 			require := require.New(t)
 
-			config := GetConfig(test.networkID)
-			genesisBytes, _, err := FromConfig(config)
+			genesisBytes, _, err := FromConfig(test.config)
 			require.NoError(err)
 
 			var genesisID ids.ID = hashing.ComputeHash256Array(genesisBytes)
@@ -476,6 +477,42 @@ func TestAVAXAssetID(t *testing.T) {
 				test.expectedID,
 				avaxAssetID.String(),
 				"AVAX assetID with networkID %d mismatch",
+				test.networkID,
+			)
+		})
+	}
+}
+
+func TestCChainGenesisTimestamp(t *testing.T) {
+	tests := []struct {
+		networkID           uint32
+		expectedGenesisTime uint64
+	}{
+		{
+			networkID:           constants.MainnetID,
+			expectedGenesisTime: 0,
+		},
+		{
+			networkID:           constants.FujiID,
+			expectedGenesisTime: 0,
+		},
+		{
+			networkID:           constants.LocalID,
+			expectedGenesisTime: uint64(upgrade.InitiallyActiveTime.Unix()),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(constants.NetworkIDToNetworkName[test.networkID], func(t *testing.T) {
+			require := require.New(t)
+
+			config := GetConfig(test.networkID)
+			var cChainGenesis core.Genesis
+			require.NoError(json.Unmarshal([]byte(config.CChainGenesis), &cChainGenesis))
+			require.Equal(
+				test.expectedGenesisTime,
+				cChainGenesis.Timestamp,
+				"C-Chain genesis time with networkID %d mismatch",
 				test.networkID,
 			)
 		})

@@ -4,12 +4,14 @@
 package benchlist
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 	"math/rand"
 	"sync"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 
 	"github.com/ava-labs/avalanchego/ids"
@@ -49,8 +51,9 @@ type failureStreak struct {
 type benchlist struct {
 	lock sync.RWMutex
 	// Context of the chain this is the benchlist for
-	ctx     *snow.ConsensusContext
-	metrics metrics
+	ctx *snow.ConsensusContext
+
+	numBenched, weightBenched prometheus.Gauge
 
 	// Used to notify the timer that it should recalculate when it should fire
 	resetTimer chan struct{}
@@ -98,13 +101,22 @@ func NewBenchlist(
 	minimumFailingDuration,
 	duration time.Duration,
 	maxPortion float64,
+	reg prometheus.Registerer,
 ) (Benchlist, error) {
 	if maxPortion < 0 || maxPortion >= 1 {
 		return nil, fmt.Errorf("max portion of benched stake must be in [0,1) but got %f", maxPortion)
 	}
 
 	benchlist := &benchlist{
-		ctx:                    ctx,
+		ctx: ctx,
+		numBenched: prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "benched_num",
+			Help: "Number of currently benched validators",
+		}),
+		weightBenched: prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "benched_weight",
+			Help: "Weight of currently benched validators",
+		}),
 		resetTimer:             make(chan struct{}, 1),
 		failureStreaks:         make(map[ids.NodeID]failureStreak),
 		benchlistSet:           set.Set[ids.NodeID]{},
@@ -116,7 +128,12 @@ func NewBenchlist(
 		duration:               duration,
 		maxPortion:             maxPortion,
 	}
-	if err := benchlist.metrics.Initialize(ctx.Registerer); err != nil {
+
+	err := errors.Join(
+		reg.Register(benchlist.numBenched),
+		reg.Register(benchlist.weightBenched),
+	)
+	if err != nil {
 		return nil, err
 	}
 
@@ -187,10 +204,16 @@ func (b *benchlist) removedExpiredNodes() {
 		b.benchable.Unbenched(b.ctx.ChainID, nodeID)
 	}
 
-	b.metrics.numBenched.Set(float64(b.benchedHeap.Len()))
-	benchedStake := b.vdrs.SubsetWeight(b.ctx.SubnetID, b.benchlistSet)
-	benchedStakeFloat, _ := benchedStake.Float64()
-	b.metrics.weightBenched.Set(benchedStakeFloat)
+	b.numBenched.Set(float64(b.benchedHeap.Len()))
+	benchedStake, err := b.vdrs.SubsetWeight(b.ctx.SubnetID, b.benchlistSet)
+	if err != nil {
+		b.ctx.Log.Error("error calculating benched stake",
+			zap.Stringer("subnetID", b.ctx.SubnetID),
+			zap.Error(err),
+		)
+		return
+	}
+	b.weightBenched.Set(float64(benchedStake))
 }
 
 func (b *benchlist) durationToSleep() time.Duration {
@@ -223,7 +246,7 @@ func (b *benchlist) RegisterResponse(nodeID ids.NodeID) {
 	delete(b.failureStreaks, nodeID)
 }
 
-// RegisterResponse notes that a request to [nodeID] timed out
+// RegisterFailure notes that a request to [nodeID] timed out
 func (b *benchlist) RegisterFailure(nodeID ids.NodeID) {
 	b.lock.Lock()
 	defer b.lock.Unlock()
@@ -267,7 +290,14 @@ func (b *benchlist) bench(nodeID ids.NodeID) {
 	totalStake := b.vdrs.TotalWeight(b.ctx.SubnetID)
 	totalStakeFloat, _ := totalStake.Float64()
 
-	maxBenchedStake := totalStakeFloat * b.maxPortion
+	newBenchedStake, err := safemath.Add(benchedStake, validatorStake)
+	if err != nil {
+		// This should never happen
+		b.ctx.Log.Error("overflow calculating new benched stake",
+			zap.Stringer("nodeID", nodeID),
+		)
+		return
+	}
 
 	if newBenchedStakeFloat > maxBenchedStake {
 		b.ctx.Log.Debug("not benching node",
@@ -310,6 +340,6 @@ func (b *benchlist) bench(nodeID ids.NodeID) {
 	}
 
 	// Update metrics
-	b.metrics.numBenched.Set(float64(b.benchedHeap.Len()))
-	b.metrics.weightBenched.Set(newBenchedStakeFloat)
+	b.numBenched.Set(float64(b.benchedHeap.Len()))
+	b.weightBenched.Set(float64(newBenchedStake))
 }

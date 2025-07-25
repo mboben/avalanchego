@@ -15,6 +15,7 @@ import (
 	"github.com/ava-labs/avalanchego/vms/components/avax"
 	"github.com/ava-labs/avalanchego/vms/platformvm/state"
 	"github.com/ava-labs/avalanchego/vms/platformvm/txs"
+	"github.com/ava-labs/avalanchego/vms/platformvm/txs/fee"
 
 	safemath "github.com/ava-labs/avalanchego/utils/math"
 )
@@ -26,7 +27,6 @@ var (
 	ErrStakeTooShort                   = errors.New("staking period is too short")
 	ErrStakeTooLong                    = errors.New("staking period is too long")
 	ErrFlowCheckFailed                 = errors.New("flow check failed")
-	ErrFutureStakeTime                 = fmt.Errorf("staker is attempting to start staking more than %s ahead of the current chain time", MaxFutureStartTime)
 	ErrNotValidator                    = errors.New("isn't a current or pending validator")
 	ErrRemovePermissionlessValidator   = errors.New("attempting to remove permissionless validator")
 	ErrStakeOverflow                   = errors.New("validator stake exceeds limit")
@@ -90,6 +90,7 @@ func verifySubnetValidatorPrimaryNetworkRequirements(
 // added to the staking set.
 func verifyAddValidatorTx(
 	backend *Backend,
+	feeCalculator fee.Calculator,
 	chainState state.Chain,
 	sTx *txs.Tx,
 	tx *txs.AddValidatorTx,
@@ -98,7 +99,7 @@ func verifyAddValidatorTx(
 	error,
 ) {
 	currentTimestamp := chainState.GetTimestamp()
-	if backend.Config.IsDurangoActivated(currentTimestamp) {
+	if backend.Config.UpgradeConfig.IsDurangoActivated(currentTimestamp) {
 		return nil, ErrAddValidatorTxPostDurango
 	}
 
@@ -174,6 +175,10 @@ func verifyAddValidatorTx(
 	}
 
 	// Verify the flowcheck
+	fee, err := feeCalculator.CalculateFee(tx)
+	if err != nil {
+		return nil, err
+	}
 	if err := backend.FlowChecker.VerifySpend(
 		tx,
 		chainState,
@@ -181,26 +186,20 @@ func verifyAddValidatorTx(
 		outs,
 		sTx.Creds,
 		map[ids.ID]uint64{
-			backend.Ctx.AVAXAssetID: backend.Config.AddPrimaryNetworkValidatorFee,
+			backend.Ctx.AVAXAssetID: fee,
 		},
 	); err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrFlowCheckFailed, err)
 	}
 
-	err = verifyMinFutureStartTimeOffset(currentTimestamp, startTime, minFutureStartTimeOffset)
-	if err != nil {
-		return nil, err
-	}
-
-	// verifyStakerStartsSoon is checked last to allow
-	// the verifier visitor to explicitly check for this error.
-	return outs, verifyStakerStartsSoon(false /*=isDurangoActive*/, currentTimestamp, startTime)
+	return outs, nil
 }
 
 // verifyAddSubnetValidatorTx carries out the validation for an
 // AddSubnetValidatorTx.
 func verifyAddSubnetValidatorTx(
 	backend *Backend,
+	feeCalculator fee.Calculator,
 	chainState state.Chain,
 	sTx *txs.Tx,
 	tx *txs.AddSubnetValidatorTx,
@@ -212,7 +211,7 @@ func verifyAddSubnetValidatorTx(
 
 	var (
 		currentTimestamp = chainState.GetTimestamp()
-		isDurangoActive  = backend.Config.IsDurangoActivated(currentTimestamp)
+		isDurangoActive  = backend.Config.UpgradeConfig.IsDurangoActivated(currentTimestamp)
 	)
 	if err := avax.VerifyMemoFieldLength(tx.Memo, isDurangoActive); err != nil {
 		return err
@@ -268,12 +267,16 @@ func verifyAddSubnetValidatorTx(
 		return err
 	}
 
-	baseTxCreds, err := verifyPoASubnetAuthorization(backend, chainState, sTx, tx.SubnetValidator.Subnet, tx.SubnetAuth)
+	baseTxCreds, err := verifyPoASubnetAuthorization(backend.Fx, chainState, sTx, tx.SubnetValidator.Subnet, tx.SubnetAuth)
 	if err != nil {
 		return err
 	}
 
 	// Verify the flowcheck
+	fee, err := feeCalculator.CalculateFee(tx)
+	if err != nil {
+		return err
+	}
 	if err := backend.FlowChecker.VerifySpend(
 		tx,
 		chainState,
@@ -281,15 +284,13 @@ func verifyAddSubnetValidatorTx(
 		tx.Outs,
 		baseTxCreds,
 		map[ids.ID]uint64{
-			backend.Ctx.AVAXAssetID: backend.Config.AddSubnetValidatorFee,
+			backend.Ctx.AVAXAssetID: fee,
 		},
 	); err != nil {
 		return fmt.Errorf("%w: %w", ErrFlowCheckFailed, err)
 	}
 
-	// verifyStakerStartsSoon is checked last to allow
-	// the verifier visitor to explicitly check for this error.
-	return verifyStakerStartsSoon(isDurangoActive, currentTimestamp, startTime)
+	return nil
 }
 
 // Returns the representation of [tx.NodeID] validating [tx.Subnet].
@@ -302,6 +303,7 @@ func verifyAddSubnetValidatorTx(
 // * The flow checker passes.
 func verifyRemoveSubnetValidatorTx(
 	backend *Backend,
+	feeCalculator fee.Calculator,
 	chainState state.Chain,
 	sTx *txs.Tx,
 	tx *txs.RemoveSubnetValidatorTx,
@@ -313,7 +315,7 @@ func verifyRemoveSubnetValidatorTx(
 
 	var (
 		currentTimestamp = chainState.GetTimestamp()
-		isDurangoActive  = backend.Config.IsDurangoActivated(currentTimestamp)
+		isDurangoActive  = backend.Config.UpgradeConfig.IsDurangoActivated(currentTimestamp)
 	)
 	if err := avax.VerifyMemoFieldLength(tx.Memo, isDurangoActive); err != nil {
 		return nil, false, err
@@ -345,12 +347,16 @@ func verifyRemoveSubnetValidatorTx(
 		return vdr, isCurrentValidator, nil
 	}
 
-	baseTxCreds, err := verifySubnetAuthorization(backend, chainState, sTx, tx.Subnet, tx.SubnetAuth)
+	baseTxCreds, err := verifySubnetAuthorization(backend.Fx, chainState, sTx, tx.Subnet, tx.SubnetAuth)
 	if err != nil {
 		return nil, false, err
 	}
 
 	// Verify the flowcheck
+	fee, err := feeCalculator.CalculateFee(tx)
+	if err != nil {
+		return nil, false, err
+	}
 	if err := backend.FlowChecker.VerifySpend(
 		tx,
 		chainState,
@@ -358,7 +364,7 @@ func verifyRemoveSubnetValidatorTx(
 		tx.Outs,
 		baseTxCreds,
 		map[ids.ID]uint64{
-			backend.Ctx.AVAXAssetID: backend.Config.TxFee,
+			backend.Ctx.AVAXAssetID: fee,
 		},
 	); err != nil {
 		return nil, false, fmt.Errorf("%w: %w", ErrFlowCheckFailed, err)
@@ -372,6 +378,7 @@ func verifyRemoveSubnetValidatorTx(
 // added to the staking set.
 func verifyAddDelegatorTx(
 	backend *Backend,
+	feeCalculator fee.Calculator,
 	chainState state.Chain,
 	sTx *txs.Tx,
 	tx *txs.AddDelegatorTx,
@@ -380,7 +387,7 @@ func verifyAddDelegatorTx(
 	error,
 ) {
 	currentTimestamp := chainState.GetTimestamp()
-	if backend.Config.IsDurangoActivated(currentTimestamp) {
+	if backend.Config.UpgradeConfig.IsDurangoActivated(currentTimestamp) {
 		return nil, ErrAddDelegatorTxPostDurango
 	}
 
@@ -434,12 +441,12 @@ func verifyAddDelegatorTx(
 		)
 	}
 
-	maximumWeight, err := safemath.Mul64(maxValidatorWeightFactor, primaryNetworkValidator.Weight)
+	maximumWeight, err := safemath.Mul(maxValidatorWeightFactor, primaryNetworkValidator.Weight)
 	if err != nil {
 		return nil, ErrStakeOverflow
 	}
 
-	if backend.Config.IsApricotPhase3Activated(currentTimestamp) {
+	if backend.Config.UpgradeConfig.IsApricotPhase3Activated(currentTimestamp) {
 		maximumWeight = min(maximumWeight, maxValidatorStake)
 	}
 
@@ -467,6 +474,10 @@ func verifyAddDelegatorTx(
 	}
 
 	// Verify the flowcheck
+	fee, err := feeCalculator.CalculateFee(tx)
+	if err != nil {
+		return nil, err
+	}
 	if err := backend.FlowChecker.VerifySpend(
 		tx,
 		chainState,
@@ -474,26 +485,20 @@ func verifyAddDelegatorTx(
 		outs,
 		sTx.Creds,
 		map[ids.ID]uint64{
-			backend.Ctx.AVAXAssetID: backend.Config.AddPrimaryNetworkDelegatorFee,
+			backend.Ctx.AVAXAssetID: fee,
 		},
 	); err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrFlowCheckFailed, err)
 	}
 
-	err = verifyMinFutureStartTimeOffset(currentTimestamp, startTime, minFutureStartTimeOffset)
-	if err != nil {
-		return nil, err
-	}
-
-	// verifyStakerStartsSoon is checked last to allow
-	// the verifier visitor to explicitly check for this error.
-	return outs, verifyStakerStartsSoon(false /*=isDurangoActive*/, currentTimestamp, startTime)
+	return outs, nil
 }
 
 // verifyAddPermissionlessValidatorTx carries out the validation for an
 // AddPermissionlessValidatorTx.
 func verifyAddPermissionlessValidatorTx(
 	backend *Backend,
+	feeCalculator fee.Calculator,
 	chainState state.Chain,
 	sTx *txs.Tx,
 	tx *txs.AddPermissionlessValidatorTx,
@@ -505,7 +510,7 @@ func verifyAddPermissionlessValidatorTx(
 
 	var (
 		currentTimestamp = chainState.GetTimestamp()
-		isDurangoActive  = backend.Config.IsDurangoActivated(currentTimestamp)
+		isDurangoActive  = backend.Config.UpgradeConfig.IsDurangoActivated(currentTimestamp)
 	)
 	if err := avax.VerifyMemoFieldLength(tx.Memo, isDurangoActive); err != nil {
 		return err
@@ -592,15 +597,10 @@ func verifyAddPermissionlessValidatorTx(
 		)
 	}
 
-	var txFee uint64
 	if tx.Subnet != constants.PrimaryNetworkID {
 		if err := verifySubnetValidatorPrimaryNetworkRequirements(isDurangoActive, chainState, tx.Validator); err != nil {
 			return err
 		}
-
-		txFee = backend.Config.AddSubnetValidatorFee
-	} else {
-		txFee = backend.Config.AddPrimaryNetworkValidatorFee
 	}
 
 	outs := make([]*avax.TransferableOutput, len(tx.Outs)+len(tx.StakeOuts))
@@ -608,6 +608,10 @@ func verifyAddPermissionlessValidatorTx(
 	copy(outs[len(tx.Outs):], tx.StakeOuts)
 
 	// Verify the flowcheck
+	fee, err := feeCalculator.CalculateFee(tx)
+	if err != nil {
+		return err
+	}
 	if err := backend.FlowChecker.VerifySpend(
 		tx,
 		chainState,
@@ -615,21 +619,20 @@ func verifyAddPermissionlessValidatorTx(
 		outs,
 		sTx.Creds,
 		map[ids.ID]uint64{
-			backend.Ctx.AVAXAssetID: txFee,
+			backend.Ctx.AVAXAssetID: fee,
 		},
 	); err != nil {
 		return fmt.Errorf("%w: %w", ErrFlowCheckFailed, err)
 	}
 
-	// verifyStakerStartsSoon is checked last to allow
-	// the verifier visitor to explicitly check for this error.
-	return verifyStakerStartsSoon(isDurangoActive, currentTimestamp, startTime)
+	return nil
 }
 
 // verifyAddPermissionlessDelegatorTx carries out the validation for an
 // AddPermissionlessDelegatorTx.
 func verifyAddPermissionlessDelegatorTx(
 	backend *Backend,
+	feeCalculator fee.Calculator,
 	chainState state.Chain,
 	sTx *txs.Tx,
 	tx *txs.AddPermissionlessDelegatorTx,
@@ -641,7 +644,7 @@ func verifyAddPermissionlessDelegatorTx(
 
 	var (
 		currentTimestamp = chainState.GetTimestamp()
-		isDurangoActive  = backend.Config.IsDurangoActivated(currentTimestamp)
+		isDurangoActive  = backend.Config.UpgradeConfig.IsDurangoActivated(currentTimestamp)
 	)
 	if err := avax.VerifyMemoFieldLength(tx.Memo, isDurangoActive); err != nil {
 		return err
@@ -708,7 +711,7 @@ func verifyAddPermissionlessDelegatorTx(
 		)
 	}
 
-	maximumWeight, err := safemath.Mul64(
+	maximumWeight, err := safemath.Mul(
 		uint64(delegatorRules.maxValidatorWeightFactor),
 		validator.Weight,
 	)
@@ -744,7 +747,6 @@ func verifyAddPermissionlessDelegatorTx(
 	copy(outs, tx.Outs)
 	copy(outs[len(tx.Outs):], tx.StakeOuts)
 
-	var txFee uint64
 	if tx.Subnet != constants.PrimaryNetworkID {
 		// Invariant: Delegators must only be able to reference validator
 		//            transactions that implement [txs.ValidatorTx]. All
@@ -755,13 +757,13 @@ func verifyAddPermissionlessDelegatorTx(
 		if validator.Priority.IsPermissionedValidator() {
 			return ErrDelegateToPermissionedValidator
 		}
-
-		txFee = backend.Config.AddSubnetDelegatorFee
-	} else {
-		txFee = backend.Config.AddPrimaryNetworkDelegatorFee
 	}
 
 	// Verify the flowcheck
+	fee, err := feeCalculator.CalculateFee(tx)
+	if err != nil {
+		return err
+	}
 	if err := backend.FlowChecker.VerifySpend(
 		tx,
 		chainState,
@@ -769,15 +771,13 @@ func verifyAddPermissionlessDelegatorTx(
 		outs,
 		sTx.Creds,
 		map[ids.ID]uint64{
-			backend.Ctx.AVAXAssetID: txFee,
+			backend.Ctx.AVAXAssetID: fee,
 		},
 	); err != nil {
 		return fmt.Errorf("%w: %w", ErrFlowCheckFailed, err)
 	}
 
-	// verifyStakerStartsSoon is checked last to allow
-	// the verifier visitor to explicitly check for this error.
-	return verifyStakerStartsSoon(isDurangoActive, currentTimestamp, startTime)
+	return nil
 }
 
 // Returns an error if the given tx is invalid.
@@ -787,11 +787,16 @@ func verifyAddPermissionlessDelegatorTx(
 // * The flow checker passes.
 func verifyTransferSubnetOwnershipTx(
 	backend *Backend,
+	feeCalculator fee.Calculator,
 	chainState state.Chain,
 	sTx *txs.Tx,
 	tx *txs.TransferSubnetOwnershipTx,
 ) error {
-	if !backend.Config.IsDurangoActivated(chainState.GetTimestamp()) {
+	var (
+		currentTimestamp = chainState.GetTimestamp()
+		upgrades         = backend.Config.UpgradeConfig
+	)
+	if !upgrades.IsDurangoActivated(currentTimestamp) {
 		return ErrDurangoUpgradeNotActive
 	}
 
@@ -809,12 +814,16 @@ func verifyTransferSubnetOwnershipTx(
 		return nil
 	}
 
-	baseTxCreds, err := verifySubnetAuthorization(backend, chainState, sTx, tx.Subnet, tx.SubnetAuth)
+	baseTxCreds, err := verifySubnetAuthorization(backend.Fx, chainState, sTx, tx.Subnet, tx.SubnetAuth)
 	if err != nil {
 		return err
 	}
 
 	// Verify the flowcheck
+	fee, err := feeCalculator.CalculateFee(tx)
+	if err != nil {
+		return err
+	}
 	if err := backend.FlowChecker.VerifySpend(
 		tx,
 		chainState,
@@ -822,7 +831,7 @@ func verifyTransferSubnetOwnershipTx(
 		tx.Outs,
 		baseTxCreds,
 		map[ids.ID]uint64{
-			backend.Ctx.AVAXAssetID: backend.Config.TxFee,
+			backend.Ctx.AVAXAssetID: fee,
 		},
 	); err != nil {
 		return fmt.Errorf("%w: %w", ErrFlowCheckFailed, err)
@@ -846,34 +855,6 @@ func verifyStakerStartTime(isDurangoActive bool, chainTime, stakerTime time.Time
 			chainTime,
 			stakerTime,
 		)
-	}
-	return nil
-}
-
-// For legacy addValidator and addDelegator transactions
-func verifyMinFutureStartTimeOffset(chainTime, stakerStartTime time.Time, minFutureStartTimeOffset time.Duration) error {
-	maxStartTime := chainTime.Add(MaxFutureStartTime)
-	minStartTime := maxStartTime.Add(-minFutureStartTimeOffset)
-	if stakerStartTime.Before(minStartTime) {
-		return fmt.Errorf(
-			"validator's start time (%s) at or before minStartTime (%s)",
-			stakerStartTime,
-			minStartTime,
-		)
-	}
-	return nil
-}
-
-func verifyStakerStartsSoon(isDurangoActive bool, chainTime, stakerStartTime time.Time) error {
-	if isDurangoActive {
-		return nil
-	}
-
-	// Make sure the tx doesn't start too far in the future. This is done last
-	// to allow the verifier visitor to explicitly check for this error.
-	maxStartTime := chainTime.Add(MaxFutureStartTime)
-	if stakerStartTime.After(maxStartTime) {
-		return ErrFutureStakeTime
 	}
 	return nil
 }

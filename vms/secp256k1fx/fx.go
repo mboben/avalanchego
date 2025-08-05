@@ -196,7 +196,6 @@ func (fx *Fx) VerifyCredentials(utx UnsignedTx, in *Input, cred *Credential, out
 	txHash := hashing.ComputeHash256(utx.Bytes())
 	txHashStr := hex.EncodeToString(txHash)
 	txHashEth := accounts.TextHash([]byte(txHashStr))
-	isEthVerificationEnabled := fx.VM.EthVerificationEnabled()
 	for i, index := range in.SigIndices {
 		// Make sure the input references an address that exists
 		if index >= uint32(len(out.Addrs)) {
@@ -219,14 +218,12 @@ func (fx *Fx) VerifyCredentials(utx UnsignedTx, in *Input, cred *Credential, out
 
 		// Try to recover the address from the signature of the prefixed message hash
 		// (with the standard Ethereum prefix, see accounts.TextHash)
-		if isEthVerificationEnabled {
-			pk, err := fx.RecoverPublicKeyFromHash(txHashEth, sig[:])
-			if err != nil {
-				return err
-			}
-			if expectedAddress == pk.Address() {
-				continue
-			}
+		pk, err = fx.RecoverPublicKeyFromHash(txHashEth, sig[:])
+		if err != nil {
+			return err
+		}
+		if expectedAddress == pk.Address() {
+			continue
 		}
 
 		return ErrWrongSig

@@ -31,8 +31,9 @@ import (
 )
 
 const (
-	MainnetAPIURI = "https://api.avax.network"
-	LocalAPIURI   = "http://localhost:9650"
+	FlareAPIURI  = "https://flare-api.flare.network"
+	CostwoAPIURI = "https://coston2-api.flare.network"
+	LocalAPIURI  = "http://localhost:9650"
 
 	fetchLimit = 1024
 )

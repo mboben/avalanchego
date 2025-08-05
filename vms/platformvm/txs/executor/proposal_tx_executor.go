@@ -42,10 +42,6 @@ var (
 	ErrAdvanceTimeTxIssuedAfterBanff = errors.New("AdvanceTimeTx issued after Banff")
 )
 
-var (
-	songbirdLatestStakingTime = time.Date(2024, time.December, 31, 0, 0, 0, 0, time.UTC)
-)
-
 // ProposalTx executes the proposal transaction [tx].
 //
 // [onCommitState] will be modified to reflect the changes made to the state if

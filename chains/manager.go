@@ -904,11 +904,9 @@ func (m *manager) createAvalancheChain(
 	}
 
 	connectedBeacons := tracker.NewPeers()
-	startupTracker := tracker.NewStartup(connectedBeacons, (3*bootstrapWeight+3)/4)
-	vdrs.RegisterSetCallbackListener(ctx.SubnetID, startupTracker)
 	startupWeight := new(big.Int).Div(new(big.Int).Add(new(big.Int).Mul(big.NewInt(3), bootstrapWeight), big.NewInt(3)), big.NewInt(4))
 	startupTracker := tracker.NewStartup(connectedBeacons, startupWeight)
-	vdrs.RegisterCallbackListener(ctx.SubnetID, startupTracker)
+	vdrs.RegisterSetCallbackListener(ctx.SubnetID, startupTracker)
 
 	snowGetHandler, err := snowgetter.New(
 		vmWrappingProposerVM,
@@ -1297,11 +1295,9 @@ func (m *manager) createSnowmanChain(
 	}
 
 	connectedBeacons := tracker.NewPeers()
-	startupTracker := tracker.NewStartup(connectedBeacons, (3*bootstrapWeight+3)/4)
-	beacons.RegisterSetCallbackListener(ctx.SubnetID, startupTracker)
 	startupWeight := new(big.Int).Div(new(big.Int).Add(new(big.Int).Mul(big.NewInt(3), bootstrapWeight), big.NewInt(3)), big.NewInt(4))
 	startupTracker := tracker.NewStartup(connectedBeacons, startupWeight)
-	beacons.RegisterCallbackListener(ctx.SubnetID, startupTracker)
+	beacons.RegisterSetCallbackListener(ctx.SubnetID, startupTracker)
 
 	snowGetHandler, err := snowgetter.New(
 		vm,

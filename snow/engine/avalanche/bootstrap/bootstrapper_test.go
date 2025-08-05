@@ -87,7 +87,7 @@ func newConfig(t *testing.T) (Config, ids.NodeID, *enginetest.Sender, *vertextes
 	totalWeight := vdrs.TotalWeight(constants.PrimaryNetworkID)
 	startupWeight := new(big.Int).Add(new(big.Int).Div(totalWeight, big.NewInt(2)), big.NewInt(1))
 	startupTracker := tracker.NewStartup(peerTracker, startupWeight)
-	vdrs.RegisterCallbackListener(constants.PrimaryNetworkID, startupTracker)
+	vdrs.RegisterSetCallbackListener(constants.PrimaryNetworkID, startupTracker)
 
 	avaGetHandler, err := getter.New(manager, sender, ctx.Log, time.Second, 2000, prometheus.NewRegistry())
 	require.NoError(err)

@@ -19,7 +19,6 @@ import (
 	_ "embed"
 
 	"github.com/ava-labs/avalanchego/ids"
-	"github.com/ava-labs/avalanchego/upgrade"
 	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/avalanchego/utils/hashing"
 	"github.com/ava-labs/avalanchego/utils/perms"
@@ -334,11 +333,11 @@ func TestGenesis(t *testing.T) {
 		expectedID string
 	}{
 		{
-			networkID:  constants.FlareID,
+			config:     &FlareConfig,
 			expectedID: "frq8jezXkuL4PmuBt6FDcpULh2sCsFHPgWq3ZGP1G8R8UnnoU",
 		},
 		{
-			networkID:  constants.SongbirdID,
+			config:     &SongbirdConfig,
 			expectedID: "2ACyRqRc8H5VT7DDGn4qadKfct4iTPe9buQKhAjiDyotSVkeoi",
 		},
 	}
@@ -493,12 +492,12 @@ func TestCChainGenesisTimestamp(t *testing.T) {
 			expectedGenesisTime: 0,
 		},
 		{
-			networkID:           constants.FujiID,
+			networkID:           constants.FlareID,
 			expectedGenesisTime: 0,
 		},
 		{
 			networkID:           constants.LocalID,
-			expectedGenesisTime: uint64(upgrade.InitiallyActiveTime.Unix()),
+			expectedGenesisTime: 0,
 		},
 	}
 

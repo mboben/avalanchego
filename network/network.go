@@ -1155,12 +1155,7 @@ func (n *network) NodeUptime() (UptimeResult, error) {
 		return UptimeResult{}, errNotValidator
 	}
 
-	totalWeightInt, err := n.config.Validators.TotalWeight(constants.PrimaryNetworkID)
-	if err != nil {
-		return UptimeResult{}, fmt.Errorf("error while fetching weight for primary network %w", err)
-	}
-
-	totalWeightInt := n.config.Validators.TotalWeight(subnetID)
+	totalWeightInt := n.config.Validators.TotalWeight(constants.PrimaryNetworkID)
 	totalWeight, _ := totalWeightInt.Float64()
 	var (
 		totalWeightedPercent = 100 * float64(myStake)

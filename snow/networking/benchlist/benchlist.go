@@ -205,15 +205,9 @@ func (b *benchlist) removedExpiredNodes() {
 	}
 
 	b.numBenched.Set(float64(b.benchedHeap.Len()))
-	benchedStake, err := b.vdrs.SubsetWeight(b.ctx.SubnetID, b.benchlistSet)
-	if err != nil {
-		b.ctx.Log.Error("error calculating benched stake",
-			zap.Stringer("subnetID", b.ctx.SubnetID),
-			zap.Error(err),
-		)
-		return
-	}
-	b.weightBenched.Set(float64(benchedStake))
+	benchedStake := b.vdrs.SubsetWeight(b.ctx.SubnetID, b.benchlistSet)
+	benchedStakeFloat, _ := benchedStake.Float64()
+	b.weightBenched.Set(benchedStakeFloat)
 }
 
 func (b *benchlist) durationToSleep() time.Duration {
@@ -289,15 +283,7 @@ func (b *benchlist) bench(nodeID ids.NodeID) {
 	newBenchedStakeFloat, _ := newBenchedStake.Float64()
 	totalStake := b.vdrs.TotalWeight(b.ctx.SubnetID)
 	totalStakeFloat, _ := totalStake.Float64()
-
-	newBenchedStake, err := safemath.Add(benchedStake, validatorStake)
-	if err != nil {
-		// This should never happen
-		b.ctx.Log.Error("overflow calculating new benched stake",
-			zap.Stringer("nodeID", nodeID),
-		)
-		return
-	}
+	maxBenchedStake := totalStakeFloat * b.maxPortion
 
 	if newBenchedStakeFloat > maxBenchedStake {
 		b.ctx.Log.Debug("not benching node",
@@ -341,5 +327,5 @@ func (b *benchlist) bench(nodeID ids.NodeID) {
 
 	// Update metrics
 	b.numBenched.Set(float64(b.benchedHeap.Len()))
-	b.weightBenched.Set(float64(newBenchedStake))
+	b.weightBenched.Set(newBenchedStakeFloat)
 }

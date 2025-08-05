@@ -220,7 +220,7 @@ func (m *messageQueue) canPop(msg message.InboundMessage) bool {
 	weight := m.vdrs.GetWeight(m.subnetID, nodeID)
 
 	var portionWeight float64
-	totalVdrsWeight := m.vdrs.TotalWeight(m.SubnetID)
+	totalVdrsWeight := m.vdrs.TotalWeight(m.subnetID)
 	if totalVdrsWeight.Cmp(big.NewInt(0)) == 0 {
 		// The sum of validator weights should never be 0, but handle that case
 		// for completeness here to avoid divide by 0.

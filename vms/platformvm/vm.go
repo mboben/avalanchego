@@ -514,8 +514,3 @@ func (vm *VM) issueTxFromRPC(tx *txs.Tx) error {
 
 	return nil
 }
-
-func (vm *VM) EthVerificationEnabled() bool {
-	time := vm.state.GetTimestamp()
-	return !time.Before(vm.Config.BanffTime)
-}

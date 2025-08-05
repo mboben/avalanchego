@@ -4,18 +4,11 @@
 package sampler
 
 import (
-	"math"
 	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
-
-func TestWeightedWithoutReplacementInitializeOverflow(t *testing.T) {
-	s := NewWeightedWithoutReplacement()
-	err := s.Initialize([]uint64{1, math.MaxUint64})
-	require.ErrorIs(t, err, safemath.ErrOverflow)
-}
 
 func TestWeightedWithoutReplacementOutOfRange(t *testing.T) {
 	require := require.New(t)

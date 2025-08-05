@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/stretchr/testify/require"
 )
 

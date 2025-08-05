@@ -7,7 +7,7 @@
             "initialAmount": 0,
             "unlockSchedule": [
                 {
-                    "amount": 10000000000000,
+                    "amount": 8000000000000000000,
                     "locktime": 1654056000
                 }
             ]
@@ -18,13 +18,13 @@
             "initialAmount": 0,
             "unlockSchedule": [
                 {
-                    "amount": 100000000000000,
+                    "amount": 8000000000000000000,
                     "locktime": 1654056000
                 }
             ]
         }
     ],
-    "startTime": 1717200000,
+    "startTime": 1748736000,
     "initialStakeDuration": 31536000,
     "initialStakeDurationOffset": 5400,
     "initialStakedFunds": [

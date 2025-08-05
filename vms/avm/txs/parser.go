@@ -83,7 +83,6 @@ func NewCustomParser(
 		typeToFxIndex: typeToFxIndex,
 		clock:         clock,
 		log:           log,
-		cortinaTime:   cortinaTime,
 	}
 	for i, fx := range fxs {
 		vm.codecRegistry = &codecRegistry{

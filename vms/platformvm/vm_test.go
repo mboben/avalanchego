@@ -6,7 +6,6 @@ package platformvm
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"math/big"
 	"testing"
 	"time"
@@ -1299,7 +1298,7 @@ func TestBootstrapPartiallyAccepted(t *testing.T) {
 	totalWeight := beacons.TotalWeight(ctx.SubnetID)
 	startupWeight := new(big.Int).Div(new(big.Int).Add(totalWeight, big.NewInt(1)), big.NewInt(2))
 	startup := tracker.NewStartup(peers, startupWeight)
-	beacons.RegisterCallbackListener(ctx.SubnetID, startup)
+	beacons.RegisterSetCallbackListener(ctx.SubnetID, startup)
 
 	// The engine handles consensus
 	snowGetHandler, err := snowgetter.New(

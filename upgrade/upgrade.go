@@ -36,25 +36,114 @@ var (
 		DurangoTime:               time.Date(2024, time.March, 6, 16, 0, 0, 0, time.UTC),
 		EtnaTime:                  UnscheduledActivationTime,
 	}
-	Fuji = Config{
-		ApricotPhase1Time:            time.Date(2021, time.March, 26, 14, 0, 0, 0, time.UTC),
-		ApricotPhase2Time:            time.Date(2021, time.May, 5, 14, 0, 0, 0, time.UTC),
-		ApricotPhase3Time:            time.Date(2021, time.August, 16, 19, 0, 0, 0, time.UTC),
-		ApricotPhase4Time:            time.Date(2021, time.September, 16, 21, 0, 0, 0, time.UTC),
-		ApricotPhase4MinPChainHeight: 47437,
-		ApricotPhase5Time:            time.Date(2021, time.November, 24, 15, 0, 0, 0, time.UTC),
-		ApricotPhasePre6Time:         time.Date(2022, time.September, 6, 20, 0, 0, 0, time.UTC),
-		ApricotPhase6Time:            time.Date(2022, time.September, 6, 20, 0, 0, 0, time.UTC),
-		ApricotPhasePost6Time:        time.Date(2022, time.September, 7, 6, 0, 0, 0, time.UTC),
-		BanffTime:                    time.Date(2022, time.October, 3, 14, 0, 0, 0, time.UTC),
-		CortinaTime:                  time.Date(2023, time.April, 6, 15, 0, 0, 0, time.UTC),
-		// The fuji stop vertex is well known. It can be verified on any fully
-		// synced node by looking at the parentID of the genesis block.
-		//
-		// Ref: https://subnets-test.avax.network/x-chain/block/0
-		CortinaXChainStopVertexID: ids.FromStringOrPanic("2D1cmbiG36BqQMRyHt4kFhWarmatA1ighSpND3FeFgz3vFVtCZ"),
-		DurangoTime:               time.Date(2024, time.February, 13, 16, 0, 0, 0, time.UTC),
-		EtnaTime:                  UnscheduledActivationTime,
+	// Fuji = Config{
+	// 	ApricotPhase1Time:            time.Date(2021, time.March, 26, 14, 0, 0, 0, time.UTC),
+	// 	ApricotPhase2Time:            time.Date(2021, time.May, 5, 14, 0, 0, 0, time.UTC),
+	// 	ApricotPhase3Time:            time.Date(2021, time.August, 16, 19, 0, 0, 0, time.UTC),
+	// 	ApricotPhase4Time:            time.Date(2021, time.September, 16, 21, 0, 0, 0, time.UTC),
+	// 	ApricotPhase4MinPChainHeight: 47437,
+	// 	ApricotPhase5Time:            time.Date(2021, time.November, 24, 15, 0, 0, 0, time.UTC),
+	// 	ApricotPhasePre6Time:         time.Date(2022, time.September, 6, 20, 0, 0, 0, time.UTC),
+	// 	ApricotPhase6Time:            time.Date(2022, time.September, 6, 20, 0, 0, 0, time.UTC),
+	// 	ApricotPhasePost6Time:        time.Date(2022, time.September, 7, 6, 0, 0, 0, time.UTC),
+	// 	BanffTime:                    time.Date(2022, time.October, 3, 14, 0, 0, 0, time.UTC),
+	// 	CortinaTime:                  time.Date(2023, time.April, 6, 15, 0, 0, 0, time.UTC),
+	// 	// The fuji stop vertex is well known. It can be verified on any fully
+	// 	// synced node by looking at the parentID of the genesis block.
+	// 	//
+	// 	// Ref: https://subnets-test.avax.network/x-chain/block/0
+	// 	CortinaXChainStopVertexID: ids.FromStringOrPanic("2D1cmbiG36BqQMRyHt4kFhWarmatA1ighSpND3FeFgz3vFVtCZ"),
+	// 	DurangoTime:               time.Date(2024, time.February, 13, 16, 0, 0, 0, time.UTC),
+	// 	EtnaTime:                  UnscheduledActivationTime,
+	// }
+	Flare = Config{
+		ApricotPhase1Time:     InitiallyActiveTime,
+		ApricotPhase2Time:     InitiallyActiveTime,
+		ApricotPhase3Time:     InitiallyActiveTime,
+		ApricotPhase4Time:     InitiallyActiveTime,
+		ApricotPhase5Time:     InitiallyActiveTime,
+		ApricotPhasePre6Time:  time.Date(2024, time.December, 17, 12, 0, 0, 0, time.UTC),
+		ApricotPhase6Time:     time.Date(2024, time.December, 17, 13, 0, 0, 0, time.UTC),
+		ApricotPhasePost6Time: time.Date(2024, time.December, 17, 14, 0, 0, 0, time.UTC),
+		BanffTime:             time.Date(2024, time.December, 17, 15, 0, 0, 0, time.UTC),
+		CortinaTime:           time.Date(2025, time.May, 13, 12, 0, 0, 0, time.UTC),
+
+		DurangoTime: time.Date(10000, time.December, 1, 0, 0, 0, 0, time.UTC),
+		EtnaTime:    time.Date(10000, time.December, 1, 0, 0, 0, 0, time.UTC),
+	}
+	Songbird = Config{
+		ApricotPhase1Time:     InitiallyActiveTime,
+		ApricotPhase2Time:     InitiallyActiveTime,
+		ApricotPhase3Time:     time.Date(2022, time.March, 7, 14, 0, 0, 0, time.UTC),
+		ApricotPhase4Time:     time.Date(2022, time.March, 7, 15, 0, 0, 0, time.UTC),
+		ApricotPhase5Time:     time.Date(2022, time.March, 7, 16, 0, 0, 0, time.UTC),
+		ApricotPhasePre6Time:  time.Date(2025, time.January, 28, 12, 0, 0, 0, time.UTC),
+		ApricotPhase6Time:     time.Date(2025, time.January, 28, 13, 0, 0, 0, time.UTC),
+		ApricotPhasePost6Time: time.Date(2025, time.January, 28, 14, 0, 0, 0, time.UTC),
+		BanffTime:             time.Date(2025, time.January, 28, 15, 0, 0, 0, time.UTC),
+		CortinaTime:           time.Date(2025, time.May, 6, 12, 0, 0, 0, time.UTC),
+
+		DurangoTime: time.Date(10000, time.December, 1, 0, 0, 0, 0, time.UTC),
+		EtnaTime:    time.Date(10000, time.December, 1, 0, 0, 0, 0, time.UTC),
+	}
+	Costwo = Config{
+		ApricotPhase1Time:     InitiallyActiveTime,
+		ApricotPhase2Time:     InitiallyActiveTime,
+		ApricotPhase3Time:     InitiallyActiveTime,
+		ApricotPhase4Time:     InitiallyActiveTime,
+		ApricotPhase5Time:     InitiallyActiveTime,
+		ApricotPhasePre6Time:  time.Date(2024, time.November, 26, 12, 0, 0, 0, time.UTC),
+		ApricotPhase6Time:     time.Date(2024, time.November, 26, 13, 0, 0, 0, time.UTC),
+		ApricotPhasePost6Time: time.Date(2024, time.November, 26, 14, 0, 0, 0, time.UTC),
+		BanffTime:             time.Date(2024, time.November, 26, 15, 0, 0, 0, time.UTC),
+		CortinaTime:           time.Date(2025, time.April, 8, 12, 0, 0, 0, time.UTC),
+		DurangoTime:           time.Date(2025, time.June, 24, 12, 0, 0, 0, time.UTC),
+		EtnaTime:              time.Date(10000, time.December, 1, 0, 0, 0, 0, time.UTC),
+	}
+	Coston = Config{
+		ApricotPhase1Time:     InitiallyActiveTime,
+		ApricotPhase2Time:     InitiallyActiveTime,
+		ApricotPhase3Time:     time.Date(2022, time.February, 25, 14, 0, 0, 0, time.UTC),
+		ApricotPhase4Time:     time.Date(2022, time.February, 25, 15, 0, 0, 0, time.UTC),
+		ApricotPhasePre6Time:  time.Date(2025, time.January, 7, 12, 0, 0, 0, time.UTC),
+		ApricotPhase6Time:     time.Date(2025, time.January, 7, 13, 0, 0, 0, time.UTC),
+		ApricotPhasePost6Time: time.Date(2025, time.January, 7, 14, 0, 0, 0, time.UTC),
+		BanffTime:             time.Date(2025, time.January, 7, 15, 0, 0, 0, time.UTC),
+		CortinaTime:           time.Date(2025, time.March, 27, 13, 0, 0, 0, time.UTC),
+		DurangoTime:           time.Date(2025, time.July, 1, 12, 0, 0, 0, time.UTC),
+		EtnaTime:              time.Date(10000, time.December, 1, 0, 0, 0, 0, time.UTC),
+	}
+	LocalFlare = Config{
+		ApricotPhase1Time:            InitiallyActiveTime,
+		ApricotPhase2Time:            InitiallyActiveTime,
+		ApricotPhase3Time:            InitiallyActiveTime,
+		ApricotPhase4Time:            InitiallyActiveTime,
+		ApricotPhase4MinPChainHeight: 0,
+		ApricotPhase5Time:            InitiallyActiveTime,
+		ApricotPhasePre6Time:         InitiallyActiveTime,
+		ApricotPhase6Time:            InitiallyActiveTime,
+		ApricotPhasePost6Time:        InitiallyActiveTime,
+		BanffTime:                    InitiallyActiveTime,
+		CortinaTime:                  InitiallyActiveTime,
+		CortinaXChainStopVertexID:    ids.Empty,
+		DurangoTime:                  InitiallyActiveTime,
+		EtnaTime:                     InitiallyActiveTime,
+	}
+	Local = Config{
+		ApricotPhase1Time:            InitiallyActiveTime,
+		ApricotPhase2Time:            InitiallyActiveTime,
+		ApricotPhase3Time:            InitiallyActiveTime,
+		ApricotPhase4Time:            InitiallyActiveTime,
+		ApricotPhase4MinPChainHeight: 0,
+		ApricotPhase5Time:            InitiallyActiveTime,
+		ApricotPhasePre6Time:         InitiallyActiveTime,
+		ApricotPhase6Time:            InitiallyActiveTime,
+		ApricotPhasePost6Time:        InitiallyActiveTime,
+		BanffTime:                    InitiallyActiveTime,
+		CortinaTime:                  InitiallyActiveTime,
+		CortinaXChainStopVertexID:    ids.Empty,
+		DurangoTime:                  InitiallyActiveTime,
+		EtnaTime:                     InitiallyActiveTime,
 	}
 	Default = Config{
 		ApricotPhase1Time:            InitiallyActiveTime,
@@ -174,10 +263,19 @@ func (c *Config) IsEtnaActivated(t time.Time) bool {
 
 func GetConfig(networkID uint32) Config {
 	switch networkID {
-	case constants.MainnetID:
-		return Mainnet
-	case constants.FujiID:
-		return Fuji
+	case constants.FlareID:
+		return Flare
+	case constants.SongbirdID:
+		return Songbird
+	case constants.CostwoID:
+		return Costwo
+	case constants.CostonID:
+		return Coston
+	case constants.LocalFlareID:
+		return LocalFlare
+	case constants.LocalID:
+		return Local
+
 	default:
 		return Default
 	}

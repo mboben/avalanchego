@@ -322,10 +322,6 @@ func (fvi *fxVMInt) Logger() logging.Logger {
 	return fvi.log
 }
 
-func (fvi *fxVMInt) EthVerificationEnabled() bool {
-	return false
-}
-
 func defaultFx(t *testing.T, clk *mockable.Clock, log logging.Logger, isBootstrapped bool) fx.Fx {
 	require := require.New(t)
 

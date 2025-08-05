@@ -114,7 +114,7 @@ type Client interface {
 	// and delegators respectively
 	GetMinStake(ctx context.Context, subnetID ids.ID, options ...rpc.Option) (uint64, uint64, error)
 	// GetTotalStake returns the total amount (in nAVAX) staked on the network
-	GetTotalStake(ctx context.Context, subnetID ids.ID, options ...rpc.Option) (uint64, error)
+	GetTotalStake(ctx context.Context, subnetID ids.ID, options ...rpc.Option) (*big.Int, error)
 	// GetRewardUTXOs returns the reward UTXOs for a transaction
 	//
 	// Deprecated: GetRewardUTXOs should be fetched from a dedicated indexer.

@@ -17,10 +17,10 @@ avalanchego_path="$AVALANCHE_PATH/build/avalanchego"
 GOPATH="$(go env GOPATH)"
 
 # Settings for coreth
-#coreth_version=${CORETH_VERSION:-'v0.13.0-rc.0'}
-#plugin_dir=${PLUGIN_DIR:-$HOME/.avalanchego/plugins}
-#evm_path=${EVM_PATH:-$plugin_dir/evm}
-#coreth_path="$AVALANCHE_PATH/../coreth"
+coreth_version=${CORETH_VERSION:-'v0.13.9-rc.1'}
+plugin_dir=${PLUGIN_DIR:-$HOME/.avalanchego/plugins}
+evm_path=${EVM_PATH:-$plugin_dir/evm}
+coreth_path="$AVALANCHE_PATH/../coreth"
 
 # Avalabs docker hub
 # avaplatform/avalanchego - defaults to local as to avoid unintentional pushes

@@ -118,16 +118,6 @@ func (h Handler[_]) AppGossip(_ context.Context, nodeID ids.NodeID, gossipBytes 
 		}
 	}
 
-	receivedCountMetric, err := h.metrics.receivedCount.GetMetricWith(pushLabels)
-	if err != nil {
-		h.log.Error("failed to get received count metric", zap.Error(err))
-		return
-	}
-
-	receivedBytesMetric, err := h.metrics.receivedBytes.GetMetricWith(pushLabels)
-	if err != nil {
-		h.log.Error("failed to get received bytes metric", zap.Error(err))
-		return
 	if err := h.metrics.observeMessage(receivedPushLabels, len(gossip), receivedBytes); err != nil {
 		h.log.Error("failed to update metrics",
 			zap.Error(err),

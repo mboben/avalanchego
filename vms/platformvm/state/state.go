@@ -118,7 +118,7 @@ type Chain interface {
 	avax.UTXOGetter
 	avax.UTXODeleter
 
-	GetNetworkID() uint32
+	// GetNetworkID() uint32
 
 	GetTimestamp() time.Time
 	SetTimestamp(tm time.Time)
@@ -2049,12 +2049,12 @@ func (s *state) initValidatorSets() error {
 
 		// It is required for the L1 validators to be loaded first so that the total
 		// weight is equal to the active weights here.
-		activeWeight, err := s.validators.TotalWeight(subnetID)
-		if err != nil {
-			return err
+		activeWeight := s.validators.TotalWeight(subnetID)
+		if !activeWeight.IsUint64() {
+			return fmt.Errorf("total active weight for subnet %s is not a uint64", subnetID)
 		}
 
-		inactiveWeight, err := safemath.Sub(totalWeight, activeWeight)
+		inactiveWeight, err := safemath.Sub(totalWeight, activeWeight.Uint64())
 		if err != nil {
 			// This should never happen, as the total weight should always be at
 			// least the sum of the active weights.
@@ -2505,10 +2505,7 @@ func (s *state) updateValidatorManager(updateValidators bool) error {
 	}
 
 	// Update the stake metrics
-	totalWeight, err := s.validators.TotalWeight(constants.PrimaryNetworkID)
-	if err != nil {
-		return fmt.Errorf("failed to get total weight of primary network: %w", err)
-	}
+	totalWeight := s.validators.TotalWeight(constants.PrimaryNetworkID)
 
 	s.metrics.SetLocalStake(s.validators.GetWeight(constants.PrimaryNetworkID, s.ctx.NodeID))
 	s.metrics.SetTotalStake(totalWeight)

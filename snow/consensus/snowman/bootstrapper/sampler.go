@@ -4,6 +4,8 @@
 package bootstrapper
 
 import (
+	"errors"
+
 	"github.com/ava-labs/avalanchego/utils/sampler"
 	"github.com/ava-labs/avalanchego/utils/set"
 )
@@ -17,7 +19,6 @@ func Sample[T comparable](elements map[T]uint64, maxSize int) (set.Set[T], error
 	var (
 		keys    = make([]T, len(elements))
 		weights = make([]uint64, len(elements))
-		err     error
 	)
 	i := 0
 	for key, weight := range elements {
@@ -32,8 +33,8 @@ func Sample[T comparable](elements map[T]uint64, maxSize int) (set.Set[T], error
 	}
 
 	maxSize = int(min(uint64(maxSize), sampler.TotalAdjustedWeight()))
-	indices, err := sampler.Sample(maxSize)
-	if err != nil {
+	indices, ok := sampler.Sample(maxSize)
+	if !ok {
 		return nil, errUnexpectedSamplerFailure
 	}
 

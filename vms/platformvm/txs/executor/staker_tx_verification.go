@@ -192,6 +192,11 @@ func verifyAddValidatorTx(
 		return nil, fmt.Errorf("%w: %w", ErrFlowCheckFailed, err)
 	}
 
+	err = verifyMinFutureStartTimeOffset(currentTimestamp, startTime, minFutureStartTimeOffset)
+	if err != nil {
+		return nil, err
+	}
+
 	return outs, nil
 }
 
@@ -491,6 +496,11 @@ func verifyAddDelegatorTx(
 		return nil, fmt.Errorf("%w: %w", ErrFlowCheckFailed, err)
 	}
 
+	err = verifyMinFutureStartTimeOffset(currentTimestamp, startTime, minFutureStartTimeOffset)
+	if err != nil {
+		return nil, err
+	}
+
 	return outs, nil
 }
 
@@ -522,7 +532,7 @@ func verifyAddPermissionlessValidatorTx(
 
 	if constants.IsFlareNetworkID(backend.Ctx.NetworkID) || constants.IsSgbNetworkID(backend.Ctx.NetworkID) {
 		// Flare does not allow permissionless validator tx before Cortina
-		if currentTimestamp.Before(backend.Config.CortinaTime) {
+		if currentTimestamp.Before(backend.Config.UpgradeConfig.CortinaTime) {
 			return ErrWrongTxType
 		}
 
@@ -655,7 +665,7 @@ func verifyAddPermissionlessDelegatorTx(
 	}
 
 	// Flare does not allow permissionless delegator tx before Cortina
-	if currentTimestamp.Before(backend.Config.CortinaTime) && (constants.IsFlareNetworkID(backend.Ctx.NetworkID) || constants.IsSgbNetworkID(backend.Ctx.NetworkID)) {
+	if currentTimestamp.Before(backend.Config.UpgradeConfig.CortinaTime) && (constants.IsFlareNetworkID(backend.Ctx.NetworkID) || constants.IsSgbNetworkID(backend.Ctx.NetworkID)) {
 		return ErrWrongTxType
 	}
 
@@ -854,6 +864,20 @@ func verifyStakerStartTime(isDurangoActive bool, chainTime, stakerTime time.Time
 			ErrTimestampNotBeforeStartTime,
 			chainTime,
 			stakerTime,
+		)
+	}
+	return nil
+}
+
+// For legacy addValidator and addDelegator transactions
+func verifyMinFutureStartTimeOffset(chainTime, stakerStartTime time.Time, minFutureStartTimeOffset time.Duration) error {
+	maxStartTime := chainTime.Add(MaxFutureStartTime)
+	minStartTime := maxStartTime.Add(-minFutureStartTimeOffset)
+	if stakerStartTime.Before(minStartTime) {
+		return fmt.Errorf(
+			"validator's start time (%s) at or before minStartTime (%s)",
+			stakerStartTime,
+			minStartTime,
 		)
 	}
 	return nil

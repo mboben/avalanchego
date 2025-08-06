@@ -266,7 +266,7 @@ func NewNetwork(
 		InboundMsgThrottler:  inboundMsgThrottler,
 		Network:              nil, // This is set below.
 		Router:               router,
-		VersionCompatibility: version.GetCompatibility(minCompatibleTime),
+		VersionCompatibility: version.GetCompatibility(config.NetworkID, minCompatibleTime),
 		MyNodeID:             config.MyNodeID,
 		MySubnets:            config.TrackedSubnets,
 		Beacons:              config.Beacons,

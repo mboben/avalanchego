@@ -8,6 +8,8 @@ import (
 	"time"
 
 	_ "embed"
+
+	"github.com/ava-labs/avalanchego/utils/constants"
 )
 
 const (
@@ -47,7 +49,7 @@ var (
 	CurrentSgb = &Semantic{
 		Major: 0,
 		Minor: 9,
-		Patch: 1,
+		Patch: 13,
 	}
 	CurrentSgbApp = &Application{
 		Name:  Client,
@@ -111,7 +113,15 @@ func init() {
 	}
 }
 
-func GetCompatibility(minCompatibleTime time.Time) Compatibility {
+func GetCompatibility(networkID uint32, minCompatibleTime time.Time) Compatibility {
+	if networkID == constants.SongbirdID || networkID == constants.CostonID || networkID == constants.LocalID {
+		return NewCompatibility(
+			CurrentSgbApp,
+			MinimumCompatibleSgbVersion,
+			minCompatibleTime,
+			PrevMinimumCompatibleSgbVersion,
+		)
+	}
 	return NewCompatibility(
 		CurrentApp,
 		MinimumCompatibleVersion,

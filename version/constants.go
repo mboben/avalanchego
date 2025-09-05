@@ -48,8 +48,8 @@ var (
 
 	CurrentSgb = &Semantic{
 		Major: 0,
-		Minor: 9,
-		Patch: 13,
+		Minor: 10,
+		Patch: 0,
 	}
 	CurrentSgbApp = &Application{
 		Name:  Client,
@@ -60,7 +60,7 @@ var (
 	MinimumCompatibleSgbVersion = &Application{
 		Name:  Client,
 		Major: 0,
-		Minor: 9,
+		Minor: 10,
 		Patch: 0,
 	}
 	PrevMinimumCompatibleSgbVersion = &Application{

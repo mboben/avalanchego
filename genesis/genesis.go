@@ -381,7 +381,10 @@ func FromConfig(config *Config) ([]byte, ids.ID, error) {
 		}
 	}
 
-	allNodeAllocations := splitAllocations(skippedAllocations, len(config.InitialStakers))
+	allNodeAllocations, err := splitAllocations(skippedAllocations, len(config.InitialStakers))
+	if err != nil {
+		return nil, ids.Empty, fmt.Errorf("error splitting allocations: %w", err)
+	}
 	endStakingTime := genesisTime.Add(time.Duration(config.InitialStakeDuration) * time.Second)
 	stakingOffset := time.Duration(0)
 	for i, staker := range config.InitialStakers {
@@ -474,9 +477,9 @@ func FromConfig(config *Config) ([]byte, ids.ID, error) {
 	return genesisBytes, avaxAssetID, nil
 }
 
-func splitAllocations(allocations []Allocation, numSplits int) [][]Allocation {
+func splitAllocations(allocations []Allocation, numSplits int) ([][]Allocation, error) {
 	if numSplits == 0 {
-		return nil
+		return nil, fmt.Errorf("cannot split allocations among 0 nodes")
 	}
 
 	totalAmount := uint64(0)
@@ -538,7 +541,7 @@ func splitAllocations(allocations []Allocation, numSplits int) [][]Allocation {
 		}
 	}
 
-	return append(allNodeAllocations, currentNodeAllocation)
+	return append(allNodeAllocations, currentNodeAllocation), nil
 }
 
 func VMGenesis(genesisBytes []byte, vmID ids.ID) (*pchaintxs.Tx, error) {

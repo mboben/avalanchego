@@ -46,9 +46,54 @@ var (
 		AddSubnetValidatorFee:         json.Uint64(units.MilliAvax),
 		AddSubnetDelegatorFee:         json.Uint64(units.MilliAvax),
 	}
-	fujiGetTxFeeResponse = GetTxFeeResponse{
+	flareGetTxFeeResponse = GetTxFeeResponse{
 		CreateSubnetTxFee:             json.Uint64(100 * units.MilliAvax),
-		TransformSubnetTxFee:          json.Uint64(1 * units.Avax),
+		TransformSubnetTxFee:          json.Uint64(100 * units.MilliAvax),
+		CreateBlockchainTxFee:         json.Uint64(100 * units.MilliAvax),
+		AddPrimaryNetworkValidatorFee: json.Uint64(0),
+		AddPrimaryNetworkDelegatorFee: json.Uint64(0),
+		AddSubnetValidatorFee:         json.Uint64(units.MilliAvax),
+		AddSubnetDelegatorFee:         json.Uint64(units.MilliAvax),
+	}
+	costwoGetTxFeeResponse = GetTxFeeResponse{
+		CreateSubnetTxFee:             json.Uint64(100 * units.MilliAvax),
+		TransformSubnetTxFee:          json.Uint64(100 * units.MilliAvax),
+		CreateBlockchainTxFee:         json.Uint64(100 * units.MilliAvax),
+		AddPrimaryNetworkValidatorFee: json.Uint64(0),
+		AddPrimaryNetworkDelegatorFee: json.Uint64(0),
+		AddSubnetValidatorFee:         json.Uint64(units.MilliAvax),
+		AddSubnetDelegatorFee:         json.Uint64(units.MilliAvax),
+	}
+	localFlareGetTxFeeResponse = GetTxFeeResponse{
+		CreateSubnetTxFee:             json.Uint64(100 * units.MilliAvax),
+		TransformSubnetTxFee:          json.Uint64(100 * units.MilliAvax),
+		CreateBlockchainTxFee:         json.Uint64(100 * units.MilliAvax),
+		AddPrimaryNetworkValidatorFee: json.Uint64(0),
+		AddPrimaryNetworkDelegatorFee: json.Uint64(0),
+		AddSubnetValidatorFee:         json.Uint64(units.MilliAvax),
+		AddSubnetDelegatorFee:         json.Uint64(units.MilliAvax),
+	}
+	songbirdGetTxFeeResponse = GetTxFeeResponse{
+		CreateSubnetTxFee:             json.Uint64(units.MilliAvax),
+		TransformSubnetTxFee:          json.Uint64(units.MilliAvax),
+		CreateBlockchainTxFee:         json.Uint64(units.MilliAvax),
+		AddPrimaryNetworkValidatorFee: json.Uint64(0),
+		AddPrimaryNetworkDelegatorFee: json.Uint64(0),
+		AddSubnetValidatorFee:         json.Uint64(units.MilliAvax),
+		AddSubnetDelegatorFee:         json.Uint64(units.MilliAvax),
+	}
+	costonGetTxFeeResponse = GetTxFeeResponse{
+		CreateSubnetTxFee:             json.Uint64(100 * units.MilliAvax),
+		TransformSubnetTxFee:          json.Uint64(100 * units.MilliAvax),
+		CreateBlockchainTxFee:         json.Uint64(100 * units.MilliAvax),
+		AddPrimaryNetworkValidatorFee: json.Uint64(0),
+		AddPrimaryNetworkDelegatorFee: json.Uint64(0),
+		AddSubnetValidatorFee:         json.Uint64(units.MilliAvax),
+		AddSubnetDelegatorFee:         json.Uint64(units.MilliAvax),
+	}
+	localGetTxFeeResponse = GetTxFeeResponse{
+		CreateSubnetTxFee:             json.Uint64(100 * units.MilliAvax),
+		TransformSubnetTxFee:          json.Uint64(100 * units.MilliAvax),
 		CreateBlockchainTxFee:         json.Uint64(100 * units.MilliAvax),
 		AddPrimaryNetworkValidatorFee: json.Uint64(0),
 		AddPrimaryNetworkDelegatorFee: json.Uint64(0),
@@ -442,8 +487,18 @@ func (i *Info) GetTxFee(_ *http.Request, _ *struct{}, reply *GetTxFeeResponse) e
 	switch i.NetworkID {
 	case constants.MainnetID:
 		*reply = mainnetGetTxFeeResponse
-	case constants.FujiID:
-		*reply = fujiGetTxFeeResponse
+	case constants.FlareID:
+		*reply = flareGetTxFeeResponse
+	case constants.CostwoID:
+		*reply = costwoGetTxFeeResponse
+	case constants.LocalFlareID:
+		*reply = localFlareGetTxFeeResponse
+	case constants.SongbirdID:
+		*reply = songbirdGetTxFeeResponse
+	case constants.CostonID:
+		*reply = costonGetTxFeeResponse
+	case constants.LocalID:
+		*reply = localGetTxFeeResponse
 	default:
 		*reply = defaultGetTxFeeResponse
 	}

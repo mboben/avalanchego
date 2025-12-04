@@ -97,17 +97,7 @@ var (
 	LocalParams = Params{
 		TxFeeConfig: TxFeeConfig{
 			CreateAssetTxFee: units.MilliAvax,
-			// For reference only, fees are set via program arguments (defaults are below)
-			StaticFeeConfig: txfee.StaticConfig{
-				TxFee:                         units.MilliAvax,
-				CreateSubnetTxFee:             100 * units.MilliAvax,
-				TransformSubnetTxFee:          100 * units.MilliAvax,
-				CreateBlockchainTxFee:         100 * units.MilliAvax,
-				AddPrimaryNetworkValidatorFee: 0,
-				AddPrimaryNetworkDelegatorFee: 0,
-				AddSubnetValidatorFee:         units.MilliAvax,
-				AddSubnetDelegatorFee:         units.MilliAvax,
-			},
+			TxFee:            units.MilliAvax,
 			DynamicFeeConfig: gas.Config{
 				Weights: gas.Dimensions{
 					gas.Bandwidth: 1,     // Max block size ~1MB

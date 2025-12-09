@@ -495,7 +495,7 @@ func (v *verifier) standardBlock(
 		timestamp = onAcceptState.GetTimestamp()
 		isFortuna = v.txExecutorBackend.Config.UpgradeConfig.IsFortunaActivated(timestamp)
 
-		includeFortunaChangesPreActivation = v.ctx.NetworkID == constants.FujiID
+		includeFortunaChangesPreActivation = v.ctx.NetworkID == constants.CostwoID || v.ctx.NetworkID == constants.CostonID
 		includePostFortunaChanges          = isFortuna || includeFortunaChangesPreActivation
 
 		hasChanges = hasPreFortunaChanges || (includePostFortunaChanges && lowBalanceL1ValidatorsEvicted)

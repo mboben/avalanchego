@@ -828,6 +828,16 @@ func (n *Node) initDatabase() error {
 		)
 	}
 
+	// Set blob pool database path to env variable
+	// This is used by coreth VM to store blob files
+	// It can also be overriden by setting blob-pool-datadir in C-chain config
+	if os.Getenv("BLOB_POOL_DATADIR") == "" {
+		blobPoolPath := filepath.Join(n.Config.DatabaseConfig.Path, "blobpool")
+		if err := os.Setenv("BLOB_POOL_DATADIR", blobPoolPath); err != nil {
+			return fmt.Errorf("failed to set blob pool database path: %w", err)
+		}
+	}
+
 	return nil
 }
 

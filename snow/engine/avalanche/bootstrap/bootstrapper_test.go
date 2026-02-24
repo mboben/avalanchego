@@ -1,4 +1,4 @@
-// Copyright (C) 2019-2024, Ava Labs, Inc. All rights reserved.
+// Copyright (C) 2019-2025, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
 package bootstrap
@@ -170,7 +170,7 @@ func TestBootstrapperSingleFrontier(t *testing.T) {
 		config,
 		func(context.Context, uint32) error {
 			config.Ctx.State.Set(snow.EngineState{
-				Type:  p2ppb.EngineType_ENGINE_TYPE_AVALANCHE,
+				Type:  p2ppb.EngineType_ENGINE_TYPE_DAG,
 				State: snow.NormalOp,
 			})
 			return nil
@@ -277,7 +277,7 @@ func TestBootstrapperByzantineResponses(t *testing.T) {
 		config,
 		func(context.Context, uint32) error {
 			config.Ctx.State.Set(snow.EngineState{
-				Type:  p2ppb.EngineType_ENGINE_TYPE_AVALANCHE,
+				Type:  p2ppb.EngineType_ENGINE_TYPE_DAG,
 				State: snow.NormalOp,
 			})
 			return nil
@@ -444,7 +444,7 @@ func TestBootstrapperTxDependencies(t *testing.T) {
 		config,
 		func(context.Context, uint32) error {
 			config.Ctx.State.Set(snow.EngineState{
-				Type:  p2ppb.EngineType_ENGINE_TYPE_AVALANCHE,
+				Type:  p2ppb.EngineType_ENGINE_TYPE_DAG,
 				State: snow.NormalOp,
 			})
 			return nil
@@ -568,7 +568,7 @@ func TestBootstrapperIncompleteAncestors(t *testing.T) {
 		config,
 		func(context.Context, uint32) error {
 			config.Ctx.State.Set(snow.EngineState{
-				Type:  p2ppb.EngineType_ENGINE_TYPE_AVALANCHE,
+				Type:  p2ppb.EngineType_ENGINE_TYPE_DAG,
 				State: snow.NormalOp,
 			})
 			return nil
@@ -578,12 +578,12 @@ func TestBootstrapperIncompleteAncestors(t *testing.T) {
 	require.NoError(err)
 
 	manager.GetVtxF = func(_ context.Context, vtxID ids.ID) (avalanche.Vertex, error) {
-		switch {
-		case vtxID == vtxID0:
+		switch vtxID {
+		case vtxID0:
 			return nil, errUnknownVertex
-		case vtxID == vtxID1:
+		case vtxID1:
 			return nil, errUnknownVertex
-		case vtxID == vtxID2:
+		case vtxID2:
 			return vtx2, nil
 		default:
 			require.FailNow(errUnknownVertex.Error())

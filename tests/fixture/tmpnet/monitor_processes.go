@@ -1,4 +1,4 @@
-// Copyright (C) 2019-2024, Ava Labs, Inc. All rights reserved.
+// Copyright (C) 2019-2025, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
 package tmpnet
@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"maps"
 	"net/http"
 	"os"
 	"os/exec"
@@ -46,25 +47,31 @@ const (
 	NetworkShutdownDelay = prometheusScrapeInterval + 2*time.Second
 )
 
-// StartCollectors ensures collectors are running to collect logs and metrics from local nodes.
-func StartCollectors(ctx context.Context, log logging.Logger) error {
+// StartPrometheus ensures prometheus is running to collect metrics from local nodes.
+func StartPrometheus(ctx context.Context, log logging.Logger) error {
 	if _, ok := ctx.Deadline(); !ok {
-		return errors.New("unable to start collectors with a context without a deadline")
-	}
-	if err := startPromtail(ctx, log); err != nil {
-		return err
+		return errors.New("unable to start prometheus with a context without a deadline")
 	}
 	if err := startPrometheus(ctx, log); err != nil {
 		return err
 	}
-
-	log.Info("skipping promtail readiness check until one or more nodes have written their service discovery configuration")
 	if err := waitForReadiness(ctx, log, prometheusCmd, prometheusReadinessURL); err != nil {
 		return err
 	}
+	log.Info("To stop: tmpnetctl stop-metrics-collector")
+	return nil
+}
 
-	log.Info("To stop: tmpnetctl stop-collectors")
-
+// StartPromtail ensures promtail is running to collect logs from local nodes.
+func StartPromtail(ctx context.Context, log logging.Logger) error {
+	if _, ok := ctx.Deadline(); !ok {
+		return errors.New("unable to start promtail with a context without a deadline")
+	}
+	if err := startPromtail(ctx, log); err != nil {
+		return err
+	}
+	log.Info("skipping promtail readiness check until one or more nodes have written their service discovery configuration")
+	log.Info("To stop: tmpnetctl stop-logs-collector")
 	return nil
 }
 
@@ -74,70 +81,79 @@ func WaitForPromtailReadiness(ctx context.Context, log logging.Logger) error {
 	return waitForReadiness(ctx, log, promtailCmd, promtailReadinessURL)
 }
 
-// EnsureCollectorsStopped ensures collectors are not running.
-func StopCollectors(ctx context.Context, log logging.Logger) error {
+// StopMetricsCollector ensures prometheus is not running.
+func StopMetricsCollector(ctx context.Context, log logging.Logger) error {
+	return stopCollector(ctx, log, prometheusCmd)
+}
+
+// StopLogsCollector ensures promtail is not running.
+func StopLogsCollector(ctx context.Context, log logging.Logger) error {
+	return stopCollector(ctx, log, promtailCmd)
+}
+
+// stopCollector stops the collector process if it is running.
+func stopCollector(ctx context.Context, log logging.Logger, cmdName string) error {
 	if _, ok := ctx.Deadline(); !ok {
 		return errors.New("unable to start collectors with a context without a deadline")
 	}
-	for _, cmdName := range []string{promtailCmd, prometheusCmd} {
-		// Determine if the process is running
-		workingDir, err := getWorkingDir(cmdName)
-		if err != nil {
-			return err
-		}
-		pidPath := getPIDPath(workingDir)
-		proc, err := processFromPIDFile(workingDir, pidPath)
-		if err != nil {
-			return err
-		}
-		if proc == nil {
-			log.Info("collector not running",
-				zap.String("cmd", cmdName),
-			)
-			continue
-		}
 
-		log.Info("sending SIGTERM to collector process",
-			zap.String("cmd", cmdName),
-			zap.Int("pid", proc.Pid),
-		)
-		if err := proc.Signal(syscall.SIGTERM); err != nil {
-			return fmt.Errorf("failed to send SIGTERM to pid %d: %w", proc.Pid, err)
-		}
-
-		log.Info("waiting for collector process to stop",
-			zap.String("cmd", cmdName),
-			zap.Int("pid", proc.Pid),
-		)
-		err = pollUntilContextCancel(
-			ctx,
-			func(_ context.Context) (bool, error) {
-				p, err := getProcess(proc.Pid)
-				if err != nil {
-					return false, fmt.Errorf("failed to retrieve process: %w", err)
-				}
-				if p == nil {
-					// Process is no longer running
-
-					// Attempt to clear the PID file. Not critical that it is removed, just good housekeeping.
-					if err := clearStalePIDFile(log, cmdName, pidPath); err != nil {
-						log.Warn("failed to remove stale PID file",
-							zap.String("cmd", cmdName),
-							zap.String("pidFile", pidPath),
-							zap.Error(err),
-						)
-					}
-				}
-				return p == nil, nil
-			},
-		)
-		if err != nil {
-			return err
-		}
-		log.Info("collector stopped",
-			zap.String("cmdName", cmdName),
-		)
+	// Determine if the process is running
+	workingDir, err := getWorkingDir(cmdName)
+	if err != nil {
+		return err
 	}
+	pidPath := getPIDPath(workingDir)
+	proc, err := processFromPIDFile(workingDir, pidPath)
+	if err != nil {
+		return err
+	}
+	if proc == nil {
+		log.Info("collector not running",
+			zap.String("cmd", cmdName),
+		)
+		return nil
+	}
+
+	log.Info("sending SIGTERM to collector process",
+		zap.String("cmd", cmdName),
+		zap.Int("pid", proc.Pid),
+	)
+	if err := proc.Signal(syscall.SIGTERM); err != nil {
+		return fmt.Errorf("failed to send SIGTERM to pid %d: %w", proc.Pid, err)
+	}
+
+	log.Info("waiting for collector process to stop",
+		zap.String("cmd", cmdName),
+		zap.Int("pid", proc.Pid),
+	)
+	err = pollUntilContextCancel(
+		ctx,
+		func(_ context.Context) (bool, error) {
+			p, err := getProcess(proc.Pid)
+			if err != nil {
+				return false, fmt.Errorf("failed to retrieve process: %w", err)
+			}
+			if p == nil {
+				// Process is no longer running
+
+				// Attempt to clear the PID file. Not critical that it is removed, just good housekeeping.
+				if err := clearStalePIDFile(log, cmdName, pidPath); err != nil {
+					log.Warn("failed to remove stale PID file",
+						zap.String("cmd", cmdName),
+						zap.String("pidFile", pidPath),
+						zap.Error(err),
+					)
+				}
+			}
+			return p == nil, nil
+		},
+	)
+	if err != nil {
+		return err
+	}
+	log.Info("collector stopped",
+		zap.String("cmdName", cmdName),
+	)
 
 	return nil
 }
@@ -147,7 +163,7 @@ func startPrometheus(ctx context.Context, log logging.Logger) error {
 	cmdName := prometheusCmd
 
 	args := fmt.Sprintf(
-		"--config.file=%s.yaml --web.listen-address=%s --enable-feature=agent --storage.agent.path=./data",
+		"--config.file=%s.yaml --web.listen-address=%s --agent --storage.agent.path=./data",
 		cmdName,
 		prometheusListenAddress,
 	)
@@ -160,6 +176,9 @@ func startPrometheus(ctx context.Context, log logging.Logger) error {
 	serviceDiscoveryDir, err := getServiceDiscoveryDir(cmdName)
 	if err != nil {
 		return err
+	}
+	if err := os.MkdirAll(serviceDiscoveryDir, perms.ReadWriteExecute); err != nil {
+		return fmt.Errorf("failed to create service discovery dir: %w", err)
 	}
 
 	config := fmt.Sprintf(`
@@ -205,6 +224,9 @@ func startPromtail(ctx context.Context, log logging.Logger) error {
 	if err != nil {
 		return err
 	}
+	if err := os.MkdirAll(serviceDiscoveryDir, perms.ReadWriteExecute); err != nil {
+		return fmt.Errorf("failed to create service discovery dir: %w", err)
+	}
 
 	config := fmt.Sprintf(`
 server:
@@ -238,12 +260,77 @@ func getWorkingDir(cmdName string) (string, error) {
 	return filepath.Join(tmpnetDir, cmdName), nil
 }
 
+// GetPrometheusServiceDiscoveryDir returns the path for prometheus file-based
+// service discovery configuration.
+func GetPrometheusServiceDiscoveryDir() (string, error) {
+	return getServiceDiscoveryDir(prometheusCmd)
+}
+
 func getServiceDiscoveryDir(cmdName string) (string, error) {
 	tmpnetDir, err := getTmpnetPath()
 	if err != nil {
 		return "", err
 	}
 	return filepath.Join(tmpnetDir, cmdName, "file_sd_configs"), nil
+}
+
+// SDConfig represents a Prometheus service discovery config entry.
+//
+// file_sd_config docs: https://prometheus.io/docs/prometheus/latest/configuration/configuration/#file_sd_config
+type SDConfig struct {
+	Targets []string          `json:"targets"`
+	Labels  map[string]string `json:"labels"`
+}
+
+// WritePrometheusSDConfig writes the SDConfig with the provided name
+// to the location expected by the prometheus instance start by tmpnet.
+//
+// If withGitHubLabels is true, checks env vars for GitHub-specific labels
+// and adds them as labels if present before writing the SDConfig.
+//
+// Returns the path to the written configuration file.
+func WritePrometheusSDConfig(name string, sdConfig SDConfig, withGitHubLabels bool) (string, error) {
+	serviceDiscoveryDir, err := GetPrometheusServiceDiscoveryDir()
+	if err != nil {
+		return "", fmt.Errorf("failed to get service discovery dir: %w", err)
+	}
+
+	if err := os.MkdirAll(serviceDiscoveryDir, perms.ReadWriteExecute); err != nil {
+		return "", fmt.Errorf("failed to create service discovery dir: %w", err)
+	}
+
+	if withGitHubLabels {
+		sdConfig = applyGitHubLabels(sdConfig)
+	}
+
+	configPath := filepath.Join(serviceDiscoveryDir, name+".json")
+	configData, err := DefaultJSONMarshal([]SDConfig{sdConfig})
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal config: %w", err)
+	}
+
+	if err := os.WriteFile(configPath, configData, perms.ReadWrite); err != nil {
+		return "", fmt.Errorf("failed to write config file: %w", err)
+	}
+
+	return configPath, nil
+}
+
+func applyGitHubLabels(sdConfig SDConfig) SDConfig {
+	maps.Copy(sdConfig.Labels, GetGitHubLabels())
+	return sdConfig
+}
+
+func getLogFilename(cmdName string) string {
+	return cmdName + ".log"
+}
+
+func getLogPath(cmdName string) (string, error) {
+	tmpnetDir, err := getTmpnetPath()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(tmpnetDir, cmdName, getLogFilename(cmdName)), nil
 }
 
 func getPIDPath(workingDir string) string {
@@ -399,12 +486,13 @@ func startCollectorProcess(
 	workingDir string,
 	pidPath string,
 ) error {
-	logFilename := cmdName + ".log"
+	logFilename := getLogFilename(cmdName)
 	fullCmd := "nohup " + cmdName + " " + args + " > " + logFilename + " 2>&1 & echo -n \"$!\" > " + pidPath
 	log.Info("starting collector",
 		zap.String("cmd", cmdName),
 		zap.String("workingDir", workingDir),
 		zap.String("fullCmd", fullCmd),
+		zap.String("logPath", filepath.Join(workingDir, logFilename)),
 	)
 
 	cmd := exec.Command("bash", "-c", fullCmd)
@@ -482,11 +570,16 @@ func checkReadiness(ctx context.Context, url string) (bool, string, error) {
 
 // waitForReadiness waits until the given readiness URL returns 200
 func waitForReadiness(ctx context.Context, log logging.Logger, cmdName string, readinessURL string) error {
+	logPath, err := getLogPath(cmdName)
+	if err != nil {
+		return err
+	}
 	log.Info("waiting for collector readiness",
 		zap.String("cmd", cmdName),
 		zap.String("url", readinessURL),
+		zap.String("logPath", logPath),
 	)
-	err := pollUntilContextCancel(
+	err = pollUntilContextCancel(
 		ctx,
 		func(_ context.Context) (bool, error) {
 			ready, body, err := checkReadiness(ctx, readinessURL)

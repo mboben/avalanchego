@@ -1,4 +1,4 @@
-// Copyright (C) 2019-2024, Ava Labs, Inc. All rights reserved.
+// Copyright (C) 2019-2025, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
 package genesis
@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ava-labs/coreth/core"
+	"github.com/ava-labs/libevm/core"
 	"github.com/stretchr/testify/require"
 
 	_ "embed"
@@ -31,6 +31,9 @@ var (
 	invalidGenesisConfigJSON = []byte(`{
 		"networkID": 9999}}}}
 	}`)
+
+	//go:embed genesis_test_invalid_allocations.json
+	customGenesisConfigInvalidAllocationsJSON []byte
 
 	genesisStakingCfg = &StakingConfig{
 		MaxStakeDuration: 365 * 24 * time.Hour,
@@ -210,6 +213,11 @@ func TestGenesisFromFile(t *testing.T) {
 			networkID:       9999,
 			missingFilepath: "missing.json",
 			expectedErr:     os.ErrNotExist,
+		},
+		"custom (locked allocations amount too low)": {
+			networkID:    9999,
+			customConfig: customGenesisConfigInvalidAllocationsJSON,
+			expectedErr:  errAllocationsLockedAmountTooLow,
 		},
 	}
 

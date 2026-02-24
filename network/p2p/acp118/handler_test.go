@@ -1,4 +1,4 @@
-// Copyright (C) 2019-2024, Ava Labs, Inc. All rights reserved.
+// Copyright (C) 2019-2025, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
 package acp118
@@ -11,6 +11,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/ava-labs/avalanchego/cache"
+	"github.com/ava-labs/avalanchego/cache/lru"
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/network/p2p"
 	"github.com/ava-labs/avalanchego/network/p2p/p2ptest"
@@ -52,10 +53,8 @@ func TestHandler(t *testing.T) {
 			},
 		},
 		{
-			name: "signature is cached",
-			cacher: &cache.LRU[ids.ID, []byte]{
-				Size: 1,
-			},
+			name:   "signature is cached",
+			cacher: lru.NewCache[ids.ID, []byte](1),
 			verifier: &testVerifier{
 				Errs: []*common.AppError{
 					nil,

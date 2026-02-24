@@ -1,4 +1,4 @@
-// Copyright (C) 2019-2024, Ava Labs, Inc. All rights reserved.
+// Copyright (C) 2019-2025, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
 package p
@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/onsi/ginkgo/v2"
-	"github.com/spf13/cast"
 	"github.com/stretchr/testify/require"
 
 	"github.com/ava-labs/avalanchego/api/info"
@@ -44,8 +43,7 @@ var _ = e2e.DescribePChain("[Interchain Workflow]", ginkgo.Label(e2e.UsesCChainL
 		)
 
 		tc.By("checking that the network has a compatible minimum stake duration", func() {
-			minStakeDuration := cast.ToDuration(network.DefaultFlags[config.MinStakeDurationKey])
-			require.Equal(tmpnet.DefaultMinStakeDuration, minStakeDuration)
+			require.Equal(tmpnet.DefaultMinStakeDuration, network.DefaultFlags[config.MinStakeDurationKey])
 		})
 
 		tc.By("creating wallet with a funded key to send from and recipient key to deliver to")
@@ -108,11 +106,11 @@ var _ = e2e.DescribePChain("[Interchain Workflow]", ginkgo.Label(e2e.UsesCChainL
 		})
 
 		tc.By("adding new node and waiting for it to report healthy")
-		node := e2e.AddEphemeralNode(tc, network, tmpnet.FlagsMap{})
+		node := e2e.AddEphemeralNode(tc, network, tmpnet.NewEphemeralNode(tmpnet.FlagsMap{}))
 		e2e.WaitForHealthy(tc, node)
 
 		tc.By("retrieving new node's id and pop")
-		uri := e2e.GetLocalURI(tc, node)
+		uri := node.GetAccessibleURI()
 		infoClient := info.NewClient(uri)
 		nodeID, nodePOP, err := infoClient.GetNodeID(tc.DefaultContext())
 		require.NoError(err)

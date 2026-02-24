@@ -1,4 +1,4 @@
-// Copyright (C) 2019-2024, Ava Labs, Inc. All rights reserved.
+// Copyright (C) 2019-2025, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
 package bootstrap
@@ -166,7 +166,7 @@ func (b *Bootstrapper) Clear(context.Context) error {
 
 func (b *Bootstrapper) Start(ctx context.Context, startReqID uint32) error {
 	b.Ctx.State.Set(snow.EngineState{
-		Type:  p2p.EngineType_ENGINE_TYPE_SNOWMAN,
+		Type:  p2p.EngineType_ENGINE_TYPE_CHAIN,
 		State: snow.Bootstrapping,
 	})
 	if err := b.VM.SetState(ctx, snow.Bootstrapping); err != nil {
@@ -755,7 +755,7 @@ func (b *Bootstrapper) restartBootstrapping(ctx context.Context) error {
 
 func (b *Bootstrapper) Notify(_ context.Context, msg common.Message) error {
 	if msg != common.StateSyncDone {
-		b.Ctx.Log.Warn("received an unexpected message from the VM",
+		b.Ctx.Log.Info("received an unexpected message from the VM",
 			zap.Stringer("msg", msg),
 		)
 		return nil

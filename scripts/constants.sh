@@ -17,7 +17,7 @@ avalanchego_path="$AVALANCHE_PATH/build/avalanchego"
 GOPATH="$(go env GOPATH)"
 
 # Settings for coreth
-coreth_version=${CORETH_VERSION:-'v0.15.0-rc.0'}
+coreth_version=${CORETH_VERSION:-'v0.15.4-rc.3'}
 plugin_dir=${PLUGIN_DIR:-$HOME/.avalanchego/plugins}
 evm_path=${EVM_PATH:-$plugin_dir/evm}
 coreth_path="$AVALANCHE_PATH/../coreth"
@@ -65,4 +65,4 @@ export CGO_CFLAGS="-O2 -D__BLST_PORTABLE__"
 export CGO_ENABLED=1 # Required for cross-compilation
 
 # Disable version control fallbacks
-export GOPROXY="https://proxy.golang.org"
+export GOPROXY="${GOPROXY:-https://proxy.golang.org}"

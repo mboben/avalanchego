@@ -1,4 +1,4 @@
-// Copyright (C) 2019-2024, Ava Labs, Inc. All rights reserved.
+// Copyright (C) 2019-2025, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
 package e2e
@@ -16,6 +16,8 @@ import (
 	"github.com/ava-labs/avalanchego/wallet/subnet/primary/common"
 )
 
+var _ tests.TestContext = (*GinkgoTestContext)(nil)
+
 type ginkgoWriteCloser struct{}
 
 func (*ginkgoWriteCloser) Write(p []byte) (n int, err error) {
@@ -31,13 +33,14 @@ func (*ginkgoWriteCloser) Close() error {
 // Define a simple encoder config appropriate for logging with ginkgo
 var ginkgoEncoderConfig = zapcore.EncoderConfig{
 	// Time, name and caller are omitted for consistency with previous output.
-	TimeKey:       "",
-	LevelKey:      "level",
-	NameKey:       "",
-	CallerKey:     "",
-	MessageKey:    "msg",
-	StacktraceKey: "stacktrace",
-	EncodeLevel:   logging.ConsoleColorLevelEncoder,
+	TimeKey:        "",
+	LevelKey:       "level",
+	NameKey:        "",
+	CallerKey:      "",
+	MessageKey:     "msg",
+	StacktraceKey:  "stacktrace",
+	EncodeLevel:    logging.ConsoleColorLevelEncoder,
+	EncodeDuration: zapcore.StringDurationEncoder,
 }
 
 // NewGinkgoLogger returns a logger with limited output
@@ -45,7 +48,7 @@ func newGinkgoLogger(cfg zapcore.Encoder) logging.Logger {
 	return logging.NewLogger(
 		"",
 		logging.NewWrappedCore(
-			logging.Verbo,
+			logging.Info,
 			&ginkgoWriteCloser{},
 			cfg,
 		),
@@ -112,6 +115,10 @@ func (tc *GinkgoTestContext) DefaultContext() context.Context {
 // Helper simplifying use via an option of a timed context configured with the default timeout.
 func (tc *GinkgoTestContext) WithDefaultContext() common.Option {
 	return tests.WithDefaultContext(tc)
+}
+
+func (*GinkgoTestContext) GetDefaultContextParent() context.Context {
+	return context.Background()
 }
 
 // Re-implementation of testify/require.Eventually that is compatible with ginkgo. testify's

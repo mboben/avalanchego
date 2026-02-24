@@ -16,7 +16,10 @@ print_usage() {
 race=''
 while getopts 'r' flag; do
   case "${flag}" in
-    r) race='-r' ;;
+    r)
+      echo "Building with race detection enabled"
+      race='-race'
+      ;;
     *) print_usage
       exit 1 ;;
   esac
@@ -25,6 +28,7 @@ done
 # Avalanchego root folder
 AVALANCHE_PATH=$( cd "$( dirname "${BASH_SOURCE[0]}" )"; cd .. && pwd )
 CORETH_PATH=$( cd "$( dirname "${BASH_SOURCE[0]}" )"; cd ../../coreth && pwd )
+LIBEVM_PATH=$( cd "$( dirname "${BASH_SOURCE[0]}" )"; cd ../../libevm && pwd )
 # Load the versions
 source "$AVALANCHE_PATH"/scripts/versions.sh
 # Load the constants
@@ -40,6 +44,7 @@ echo "Syncing with sources at GOPATH: $GOPATH"
 
 rsync -ar --delete $AVALANCHE_PATH/* $GOPATH/pkg/mod/github.com/ava-labs/avalanchego@$avalanche_version
 rsync -ar --delete $CORETH_PATH/* $GOPATH/pkg/mod/github.com/ava-labs/coreth@$coreth_version
+rsync -ar --delete $LIBEVM_PATH/* $GOPATH/pkg/mod/github.com/ava-labs/libevm@$libevm_version
 
 # Build avalanchego
 "$AVALANCHE_PATH"/scripts/build_avalanche.sh $build_args

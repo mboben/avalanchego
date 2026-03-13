@@ -61,11 +61,11 @@ var (
 	//  FortunaTime :              UnscheduledActivationTime,
 	// }
 	Flare = Config{
-		ApricotPhase1Time:     InitiallyActiveTime,
-		ApricotPhase2Time:     InitiallyActiveTime,
-		ApricotPhase3Time:     InitiallyActiveTime,
-		ApricotPhase4Time:     InitiallyActiveTime,
-		ApricotPhase5Time:     InitiallyActiveTime,
+		ApricotPhase1Time:     ZeroTime,
+		ApricotPhase2Time:     ZeroTime,
+		ApricotPhase3Time:     ZeroTime,
+		ApricotPhase4Time:     ZeroTime,
+		ApricotPhase5Time:     ZeroTime,
 		ApricotPhasePre6Time:  time.Date(2024, time.December, 17, 12, 0, 0, 0, time.UTC),
 		ApricotPhase6Time:     time.Date(2024, time.December, 17, 13, 0, 0, 0, time.UTC),
 		ApricotPhasePost6Time: time.Date(2024, time.December, 17, 14, 0, 0, 0, time.UTC),
@@ -77,8 +77,8 @@ var (
 		GraniteTime:           UnscheduledActivationTime,
 	}
 	Songbird = Config{
-		ApricotPhase1Time:      InitiallyActiveTime,
-		ApricotPhase2Time:      InitiallyActiveTime,
+		ApricotPhase1Time:      ZeroTime,
+		ApricotPhase2Time:      ZeroTime,
 		ApricotPhase3Time:      time.Date(2022, time.March, 7, 14, 0, 0, 0, time.UTC),
 		ApricotPhase4Time:      time.Date(2022, time.March, 7, 15, 0, 0, 0, time.UTC),
 		ApricotPhase5Time:      time.Date(2022, time.March, 7, 16, 0, 0, 0, time.UTC),
@@ -94,11 +94,11 @@ var (
 		GraniteTime:            UnscheduledActivationTime,
 	}
 	Costwo = Config{
-		ApricotPhase1Time:     InitiallyActiveTime,
-		ApricotPhase2Time:     InitiallyActiveTime,
-		ApricotPhase3Time:     InitiallyActiveTime,
-		ApricotPhase4Time:     InitiallyActiveTime,
-		ApricotPhase5Time:     InitiallyActiveTime,
+		ApricotPhase1Time:     ZeroTime,
+		ApricotPhase2Time:     ZeroTime,
+		ApricotPhase3Time:     ZeroTime,
+		ApricotPhase4Time:     ZeroTime,
+		ApricotPhase5Time:     ZeroTime,
 		ApricotPhasePre6Time:  time.Date(2024, time.November, 26, 12, 0, 0, 0, time.UTC),
 		ApricotPhase6Time:     time.Date(2024, time.November, 26, 13, 0, 0, 0, time.UTC),
 		ApricotPhasePost6Time: time.Date(2024, time.November, 26, 14, 0, 0, 0, time.UTC),
@@ -110,8 +110,8 @@ var (
 		GraniteTime:           UnscheduledActivationTime,
 	}
 	Coston = Config{
-		ApricotPhase1Time:      InitiallyActiveTime,
-		ApricotPhase2Time:      InitiallyActiveTime,
+		ApricotPhase1Time:      ZeroTime,
+		ApricotPhase2Time:      ZeroTime,
 		ApricotPhase3Time:      time.Date(2022, time.February, 25, 14, 0, 0, 0, time.UTC),
 		ApricotPhase4Time:      time.Date(2022, time.February, 25, 15, 0, 0, 0, time.UTC),
 		ApricotPhase5Time:      time.Date(2022, time.February, 25, 16, 0, 0, 0, time.UTC),

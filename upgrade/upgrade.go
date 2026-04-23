@@ -37,7 +37,8 @@ var (
 		DurangoTime:               time.Date(2024, time.March, 6, 16, 0, 0, 0, time.UTC),
 		EtnaTime:                  time.Date(2024, time.December, 16, 17, 0, 0, 0, time.UTC),
 		FortunaTime:               time.Date(2025, time.April, 8, 15, 0, 0, 0, time.UTC),
-		GraniteTime:               UnscheduledActivationTime,
+		GraniteTime:               time.Date(2025, time.November, 19, 16, 0, 0, 0, time.UTC),
+		GraniteEpochDuration:      5 * time.Minute,
 	}
 	// Fuji = Config{
 	// 	ApricotPhase1Time:            time.Date(2021, time.March, 26, 14, 0, 0, 0, time.UTC),
@@ -59,6 +60,8 @@ var (
 	// 	DurangoTime:               time.Date(2024, time.February, 13, 16, 0, 0, 0, time.UTC),
 	// 	EtnaTime:                  time.Date(2024, time.November, 25, 16, 0, 0, 0, time.UTC),
 	//  FortunaTime :              UnscheduledActivationTime,
+	// 	GraniteTime:               time.Date(2025, time.October, 29, 15, 0, 0, 0, time.UTC),
+	// 	GraniteEpochDuration:      5 * time.Minute,
 	// }
 	Flare = Config{
 		ApricotPhase1Time:     ZeroTime,
@@ -75,6 +78,7 @@ var (
 		EtnaTime:              time.Date(2025, time.December, 2, 12, 0, 0, 0, time.UTC),
 		FortunaTime:           time.Date(2026, time.April, 14, 12, 0, 0, 0, time.UTC),
 		GraniteTime:           UnscheduledActivationTime,
+		GraniteEpochDuration:  5 * time.Minute,
 	}
 	Songbird = Config{
 		ApricotPhase1Time:      ZeroTime,
@@ -92,6 +96,7 @@ var (
 		EtnaTime:               time.Date(2025, time.November, 25, 12, 0, 0, 0, time.UTC),
 		FortunaTime:            time.Date(2026, time.March, 31, 12, 0, 0, 0, time.UTC),
 		GraniteTime:            UnscheduledActivationTime,
+		GraniteEpochDuration:   5 * time.Minute,
 	}
 	Costwo = Config{
 		ApricotPhase1Time:     ZeroTime,
@@ -108,6 +113,7 @@ var (
 		EtnaTime:              time.Date(2025, time.November, 13, 14, 0, 0, 0, time.UTC),
 		FortunaTime:           time.Date(2026, time.March, 24, 12, 0, 0, 0, time.UTC),
 		GraniteTime:           UnscheduledActivationTime,
+		GraniteEpochDuration:  5 * time.Minute,
 	}
 	Coston = Config{
 		ApricotPhase1Time:      ZeroTime,
@@ -125,6 +131,7 @@ var (
 		EtnaTime:               time.Date(2025, time.November, 13, 10, 0, 0, 0, time.UTC),
 		FortunaTime:            time.Date(2026, time.March, 17, 12, 0, 0, 0, time.UTC),
 		GraniteTime:            UnscheduledActivationTime,
+		GraniteEpochDuration:   5 * time.Minute,
 	}
 	LocalFlare = Config{
 		ApricotPhase1Time:            ZeroTime,
@@ -142,7 +149,8 @@ var (
 		DurangoTime:                  ZeroTime,
 		EtnaTime:                     ZeroTime,
 		FortunaTime:                  ZeroTime,
-		GraniteTime:                  UnscheduledActivationTime,
+		GraniteTime:                  ZeroTime,
+		GraniteEpochDuration:         5 * time.Minute,
 	}
 	Local = Config{
 		ApricotPhase1Time:            ZeroTime,
@@ -161,7 +169,8 @@ var (
 		DurangoTime:                  ZeroTime,
 		EtnaTime:                     ZeroTime,
 		FortunaTime:                  ZeroTime,
-		GraniteTime:                  UnscheduledActivationTime,
+		GraniteTime:                  ZeroTime,
+		GraniteEpochDuration:         5 * time.Minute,
 	}
 	Default = Config{
 		ApricotPhase1Time:            InitiallyActiveTime,
@@ -179,30 +188,32 @@ var (
 		DurangoTime:                  InitiallyActiveTime,
 		EtnaTime:                     InitiallyActiveTime,
 		FortunaTime:                  InitiallyActiveTime,
-		GraniteTime:                  UnscheduledActivationTime,
+		GraniteTime:                  InitiallyActiveTime,
+		GraniteEpochDuration:         30 * time.Second,
 	}
 
 	ErrInvalidUpgradeTimes = errors.New("invalid upgrade configuration")
 )
 
 type Config struct {
-	ApricotPhase1Time            time.Time `json:"apricotPhase1Time"`
-	ApricotPhase2Time            time.Time `json:"apricotPhase2Time"`
-	ApricotPhase3Time            time.Time `json:"apricotPhase3Time"`
-	ApricotPhase4Time            time.Time `json:"apricotPhase4Time"`
-	ApricotPhase4MinPChainHeight uint64    `json:"apricotPhase4MinPChainHeight"`
-	ApricotPhase5Time            time.Time `json:"apricotPhase5Time"`
-	SongbirdTransitionTime       time.Time `json:"songbirdTransitionTime"`
-	ApricotPhasePre6Time         time.Time `json:"apricotPhasePre6Time"`
-	ApricotPhase6Time            time.Time `json:"apricotPhase6Time"`
-	ApricotPhasePost6Time        time.Time `json:"apricotPhasePost6Time"`
-	BanffTime                    time.Time `json:"banffTime"`
-	CortinaTime                  time.Time `json:"cortinaTime"`
-	CortinaXChainStopVertexID    ids.ID    `json:"cortinaXChainStopVertexID"`
-	DurangoTime                  time.Time `json:"durangoTime"`
-	EtnaTime                     time.Time `json:"etnaTime"`
-	FortunaTime                  time.Time `json:"fortunaTime"`
-	GraniteTime                  time.Time `json:"graniteTime"`
+	ApricotPhase1Time            time.Time     `json:"apricotPhase1Time"`
+	ApricotPhase2Time            time.Time     `json:"apricotPhase2Time"`
+	ApricotPhase3Time            time.Time     `json:"apricotPhase3Time"`
+	ApricotPhase4Time            time.Time     `json:"apricotPhase4Time"`
+	ApricotPhase4MinPChainHeight uint64        `json:"apricotPhase4MinPChainHeight"`
+	ApricotPhase5Time            time.Time     `json:"apricotPhase5Time"`
+	SongbirdTransitionTime       time.Time     `json:"songbirdTransitionTime"`
+	ApricotPhasePre6Time         time.Time     `json:"apricotPhasePre6Time"`
+	ApricotPhase6Time            time.Time     `json:"apricotPhase6Time"`
+	ApricotPhasePost6Time        time.Time     `json:"apricotPhasePost6Time"`
+	BanffTime                    time.Time     `json:"banffTime"`
+	CortinaTime                  time.Time     `json:"cortinaTime"`
+	CortinaXChainStopVertexID    ids.ID        `json:"cortinaXChainStopVertexID"`
+	DurangoTime                  time.Time     `json:"durangoTime"`
+	EtnaTime                     time.Time     `json:"etnaTime"`
+	FortunaTime                  time.Time     `json:"fortunaTime"`
+	GraniteTime                  time.Time     `json:"graniteTime"`
+	GraniteEpochDuration         time.Duration `json:"graniteEpochDuration"`
 }
 
 func (c *Config) Validate() error {

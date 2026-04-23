@@ -17,7 +17,7 @@ avalanchego_path="$AVALANCHE_PATH/build/avalanchego"
 GOPATH="$(go env GOPATH)"
 
 # Settings for coreth
-coreth_version=${CORETH_VERSION:-'v0.15.4-rc.3'}
+coreth_version=${CORETH_VERSION:-'v0.16.0-rc.0'}
 plugin_dir=${PLUGIN_DIR:-$HOME/.avalanchego/plugins}
 evm_path=${EVM_PATH:-$plugin_dir/evm}
 coreth_path="$AVALANCHE_PATH/../coreth"

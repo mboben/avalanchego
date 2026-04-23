@@ -7,6 +7,5 @@
 
 # Set up the versions to be used
 # Don't export them as their used in the context of other calls
-coreth_version=${CORETH_VERSION:-'v0.15.4-rc.3'}
-avalanche_version=${AVALANCHE_VERSION:-'v1.13.5'}
-libevm_version=${LIBEVM_VERSION:-'v1.13.14-0.3.0.rc.6'}
+coreth_version=${CORETH_VERSION:-'v0.16.0-rc.0'}
+avalanche_version=${AVALANCHE_VERSION:-'v1.14.0'}

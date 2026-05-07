@@ -87,13 +87,18 @@ func (s *State) MaxCapacity() gas.Gas {
 	return mulWithUpperBound(targetPerSecond, TargetToMaxCapacity)
 }
 
-// GasPrice returns the current required fee per gas.
-//
-// GasPrice = MinGasPrice * e^(Excess / (Target() * TargetToPriceUpdateConversion))
+// GasPrice() is equivalent to GasPriceWithMin(MinGasPrice).
 func (s *State) GasPrice() gas.Price {
+	return s.GasPriceWithMin(MinGasPrice)
+}
+
+// GasPriceWithMin returns the current required fee per gas using a supplied minimum
+//
+// Price = minGasPrice * e^(Excess / (Target() * TargetToPriceUpdateConversion))
+func (s *State) GasPriceWithMin(minGasPrice gas.Price) gas.Price {
 	targetPerSecond := s.Target()
 	priceUpdateConversion := mulWithUpperBound(targetPerSecond, TargetToPriceUpdateConversion) // K
-	return gas.CalculatePrice(MinGasPrice, s.Gas.Excess, priceUpdateConversion)
+	return gas.CalculatePrice(minGasPrice, s.Gas.Excess, priceUpdateConversion)
 }
 
 // AdvanceSeconds increases the gas capacity and decreases the gas excess based on

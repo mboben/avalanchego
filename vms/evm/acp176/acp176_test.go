@@ -861,6 +861,34 @@ func TestGasPrice(t *testing.T) {
 	}
 }
 
+// TestGasPriceWithMin asserts that GasPrice() delegates to
+// GasPriceWithMin(MinGasPrice) and that supplying a 500 GWei floor at zero
+// excess returns exactly 500 GWei (the asymptotic floor of the formula).
+func TestGasPriceWithMin(t *testing.T) {
+	const graniteMin gas.Price = 500_000_000_000 // 500 GWei
+
+	t.Run("delegates_to_default", func(t *testing.T) {
+		for _, test := range readerTests {
+			require.Equal(t, test.state.GasPrice(), test.state.GasPriceWithMin(MinGasPrice), test.name)
+		}
+	})
+
+	t.Run("zero_excess_returns_floor", func(t *testing.T) {
+		s := State{Gas: gas.State{Excess: 0}, TargetExcess: 0}
+		require.Equal(t, graniteMin, s.GasPriceWithMin(graniteMin))
+	})
+
+	t.Run("nonzero_excess_at_least_floor", func(t *testing.T) {
+		// With any nonzero excess the formula `floor * e^(excess/K)` is
+		// strictly above `floor`, so the returned price must be >= floor
+		// across all reader test states.
+		for _, test := range readerTests {
+			got := test.state.GasPriceWithMin(graniteMin)
+			require.GreaterOrEqual(t, uint64(got), uint64(graniteMin), test.name)
+		}
+	})
+}
+
 func BenchmarkGasPrice(b *testing.B) {
 	for _, test := range readerTests {
 		b.Run(test.name, func(b *testing.B) {

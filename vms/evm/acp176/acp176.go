@@ -43,6 +43,27 @@ const (
 
 var ErrStateInsufficientLength = errors.New("insufficient length for fee state")
 
+// Params holds the per-fork ACP-176 parameter set. The package-level
+// constants [MinTargetPerSecond] (P), [TargetConversion] (D),
+// [MaxTargetExcessDiff] (Q) and [MinGasPrice] (M) are the default acp176
+// parameters; callers may supply alternate values via [DefaultParams] copies
+// to the `*With` method variants below.
+type Params struct {
+	MinTargetPerSecond  gas.Gas   // P
+	TargetConversion    gas.Gas   // D
+	MaxTargetExcessDiff gas.Gas   // Q
+	MinGasPrice         gas.Price // M
+}
+
+// DefaultParams is the default acp176 parameter set, matching the
+// package-level constants.
+var DefaultParams = &Params{
+	MinTargetPerSecond:  MinTargetPerSecond,
+	TargetConversion:    TargetConversion,
+	MaxTargetExcessDiff: MaxTargetExcessDiff,
+	MinGasPrice:         MinGasPrice,
+}
+
 // State represents the current state of the gas pricing and constraints.
 type State struct {
 	Gas          gas.State
@@ -70,42 +91,75 @@ func ParseState(bytes []byte) (State, error) {
 	}, nil
 }
 
-// Target returns the target gas consumed per second, `T`.
+// Target returns the target gas consumed per second, `T`, using the default
+// acp176 parameters.
 //
 // Target = MinTargetPerSecond * e^(TargetExcess / TargetConversion)
 func (s *State) Target() gas.Gas {
+	return s.TargetWith(DefaultParams)
+}
+
+// TargetWith returns the target gas consumed per second using a caller-supplied
+// parameter set.
+func (s *State) TargetWith(p *Params) gas.Gas {
 	return gas.Gas(gas.CalculatePrice(
-		MinTargetPerSecond,
+		gas.Price(p.MinTargetPerSecond),
 		s.TargetExcess,
-		TargetConversion,
+		p.TargetConversion,
 	))
 }
 
-// MaxCapacity returns the maximum possible accrued gas capacity, `C`.
+// MaxCapacity returns the maximum possible accrued gas capacity, `C`, using
+// the default acp176 parameters.
 func (s *State) MaxCapacity() gas.Gas {
-	targetPerSecond := s.Target()
+	return s.MaxCapacityWith(DefaultParams)
+}
+
+// MaxCapacityWith returns the maximum possible accrued gas capacity using a
+// caller-supplied parameter set.
+func (s *State) MaxCapacityWith(p *Params) gas.Gas {
+	targetPerSecond := s.TargetWith(p)
 	return mulWithUpperBound(targetPerSecond, TargetToMaxCapacity)
 }
 
-// GasPrice() is equivalent to GasPriceWithMin(MinGasPrice).
+// GasPrice returns the current required fee per gas using the default acp176
+// parameters. Equivalent to GasPriceWith(DefaultParams).
 func (s *State) GasPrice() gas.Price {
-	return s.GasPriceWithMin(MinGasPrice)
+	return s.GasPriceWith(DefaultParams)
 }
 
-// GasPriceWithMin returns the current required fee per gas using a supplied minimum
+// GasPriceWithMin returns the current required fee per gas using a
+// caller-supplied price floor with the rest of the default acp176
+// parameters.
 //
-// Price = minGasPrice * e^(Excess / (Target() * TargetToPriceUpdateConversion))
+// Equivalent to GasPriceWith(p) where p == DefaultParams except for MinGasPrice.
 func (s *State) GasPriceWithMin(minGasPrice gas.Price) gas.Price {
-	targetPerSecond := s.Target()
+	p := DefaultParams
+	p.MinGasPrice = minGasPrice
+	return s.GasPriceWith(p)
+}
+
+// GasPriceWith returns the current required fee per gas using a caller-supplied
+// parameter set.
+//
+// Price = p.MinGasPrice * e^(Excess / (TargetWith(p) * TargetToPriceUpdateConversion))
+func (s *State) GasPriceWith(p *Params) gas.Price {
+	targetPerSecond := s.TargetWith(p)
 	priceUpdateConversion := mulWithUpperBound(targetPerSecond, TargetToPriceUpdateConversion) // K
-	return gas.CalculatePrice(minGasPrice, s.Gas.Excess, priceUpdateConversion)
+	return gas.CalculatePrice(p.MinGasPrice, s.Gas.Excess, priceUpdateConversion)
 }
 
 // AdvanceSeconds increases the gas capacity and decreases the gas excess based on
-// the elapsed seconds.
+// the elapsed seconds, using the default acp176 parameters.
 // This is used in Fortuna.
 func (s *State) AdvanceSeconds(seconds uint64) {
-	targetPerSecond := s.Target()
+	s.AdvanceSecondsWith(DefaultParams, seconds)
+}
+
+// AdvanceSecondsWith advances the gas state by `seconds` using a caller-supplied
+// parameter set.
+func (s *State) AdvanceSecondsWith(p *Params, seconds uint64) {
+	targetPerSecond := s.TargetWith(p)
 	maxPerSecond := mulWithUpperBound(targetPerSecond, TargetToMax)    // R
 	maxCapacity := mulWithUpperBound(maxPerSecond, TimeToFillCapacity) // C
 	s.Gas = s.Gas.AdvanceTime(
@@ -117,10 +171,16 @@ func (s *State) AdvanceSeconds(seconds uint64) {
 }
 
 // AdvanceMilliseconds increases the gas capacity and decreases the gas excess based on
-// the elapsed milliseconds.
+// the elapsed milliseconds, using the default acp176 parameters.
 // This is used in Granite.
 func (s *State) AdvanceMilliseconds(milliseconds uint64) {
-	targetPerSecond := s.Target()
+	s.AdvanceMillisecondsWith(DefaultParams, milliseconds)
+}
+
+// AdvanceMillisecondsWith advances the gas state by `milliseconds` using a
+// caller-supplied parameter set.
+func (s *State) AdvanceMillisecondsWith(p *Params, milliseconds uint64) {
+	targetPerSecond := s.TargetWith(p)
 	targetPerMS := targetPerSecond / 1000
 	maxPerMS := targetPerMS * TargetToMax                              // R - this can't overflow since 1000 > TargetToMax.
 	maxPerSecond := mulWithUpperBound(targetPerSecond, TargetToMax)    // rate used for calculating maxCapacity
@@ -165,11 +225,18 @@ func (s *State) ConsumeGas(
 }
 
 // UpdateTargetExcess updates the targetExcess to be as close as possible to the
-// desiredTargetExcess without exceeding the maximum targetExcess change.
+// desiredTargetExcess without exceeding the maximum targetExcess change, using
+// the default acp176 parameters.
 func (s *State) UpdateTargetExcess(desiredTargetExcess gas.Gas) {
-	previousTargetPerSecond := s.Target()
-	s.TargetExcess = targetExcess(s.TargetExcess, desiredTargetExcess)
-	newTargetPerSecond := s.Target()
+	s.UpdateTargetExcessWith(DefaultParams, desiredTargetExcess)
+}
+
+// UpdateTargetExcessWith updates the targetExcess using a caller-supplied
+// parameter set; the per-block change is capped by p.MaxTargetExcessDiff.
+func (s *State) UpdateTargetExcessWith(p *Params, desiredTargetExcess gas.Gas) {
+	previousTargetPerSecond := s.TargetWith(p)
+	s.TargetExcess = targetExcess(s.TargetExcess, desiredTargetExcess, p.MaxTargetExcessDiff)
+	newTargetPerSecond := s.TargetWith(p)
 	s.Gas.Excess = scaleExcess(
 		s.Gas.Excess,
 		newTargetPerSecond,
@@ -191,24 +258,34 @@ func (s *State) Bytes() []byte {
 }
 
 // DesiredTargetExcess calculates the optimal desiredTargetExcess given the
-// desired target.
+// desired target, using the default acp176 parameters.
 func DesiredTargetExcess(desiredTarget gas.Gas) gas.Gas {
-	// This could be solved directly by calculating D * ln(desiredTarget / P)
-	// using floating point math. However, it introduces inaccuracies. So, we
-	// use a binary search to find the closest integer solution.
+	return DesiredTargetExcessWith(DefaultParams, desiredTarget)
+}
+
+// DesiredTargetExcessWith calculates the optimal desiredTargetExcess given the
+// desired target, using a caller-supplied parameter set.
+func DesiredTargetExcessWith(p *Params, desiredTarget gas.Gas) gas.Gas {
+	// This could be solved directly by calculating
+	// p.TargetConversion * ln(desiredTarget / p.MinTargetPerSecond) using
+	// floating point math. However, it introduces inaccuracies. So, we use a
+	// binary search to find the closest integer solution. The upper bound
+	// [maxTargetExcess] is conservative enough to cover non-default parameter
+	// sets that share the same order of magnitude as the default acp176
+	// parameters; an excess past it would map to gas/sec > MaxUint64.
 	return gas.Gas(sort.Search(maxTargetExcess, func(targetExcessGuess int) bool {
 		state := State{
 			TargetExcess: gas.Gas(targetExcessGuess),
 		}
-		return state.Target() >= desiredTarget
+		return state.TargetWith(p) >= desiredTarget
 	}))
 }
 
 // targetExcess calculates the optimal new targetExcess for a block proposer to
-// include given the current and desired excess values.
-func targetExcess(excess, desired gas.Gas) gas.Gas {
+// include given the current and desired excess values, capped by maxChange.
+func targetExcess(excess, desired, maxChange gas.Gas) gas.Gas {
 	change := safemath.AbsDiff(excess, desired)
-	change = min(change, MaxTargetExcessDiff)
+	change = min(change, maxChange)
 	if excess < desired {
 		return excess + change
 	}

@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"math/big"
 	"sync"
 	"time"
 
@@ -48,6 +49,7 @@ func NewValidators(
 		subnetID:                 subnetID,
 		validators:               validators,
 		maxValidatorSetStaleness: maxValidatorSetStaleness,
+		totalWeight:              new(big.Int),
 	}
 }
 
@@ -63,7 +65,7 @@ type Validators struct {
 	connectedValidators set.Set[ids.NodeID]
 	validatorList       []validator
 	validatorSet        set.Set[ids.NodeID]
-	totalWeight         uint64
+	totalWeight         *big.Int
 	lastUpdated         time.Time
 }
 
@@ -120,14 +122,14 @@ func (v *Validators) refresh(ctx context.Context) {
 	// Even though validatorList may be nil, truncating will not panic.
 	v.validatorList = v.validatorList[:0]
 	v.validatorSet.Clear()
-	v.totalWeight = 0
+	v.totalWeight.SetUint64(0)
 	for nodeID, vdr := range validatorSet {
 		v.validatorList = append(v.validatorList, validator{
 			nodeID: nodeID,
 			weight: vdr.Weight,
 		})
 		v.validatorSet.Add(nodeID)
-		v.totalWeight += vdr.Weight
+		v.totalWeight.Add(v.totalWeight, new(big.Int).SetUint64(vdr.Weight))
 	}
 	utils.Sort(v.validatorList)
 
@@ -179,19 +181,31 @@ func (v *Validators) Top(ctx context.Context, percentage float64) []ids.NodeID {
 	var (
 		maxSize      = int(math.Ceil(percentage * float64(len(v.validatorList))))
 		top          = make([]ids.NodeID, 0, maxSize)
-		currentStake uint64
-		targetStake  = uint64(math.Ceil(percentage * float64(v.totalWeight)))
+		currentStake = new(big.Int)
+		targetStake  = ceilStake(v.totalWeight, percentage)
 	)
 
 	for _, vdr := range v.validatorList {
-		if currentStake >= targetStake {
+		if currentStake.Cmp(targetStake) >= 0 {
 			break
 		}
 		top = append(top, vdr.nodeID)
-		currentStake += vdr.weight
+		currentStake.Add(currentStake, new(big.Int).SetUint64(vdr.weight))
 	}
 
 	return top
+}
+
+// ceilStake returns ceil(total * percentage) as a *big.Int. percentage is
+// expected to be in [0, 1].
+func ceilStake(total *big.Int, percentage float64) *big.Int {
+	scaled := new(big.Float).SetInt(total)
+	scaled.Mul(scaled, big.NewFloat(percentage))
+	result, acc := scaled.Int(nil)
+	if acc == big.Below {
+		result.Add(result, big.NewInt(1))
+	}
+	return result
 }
 
 // Has returns if nodeID is a connected validator

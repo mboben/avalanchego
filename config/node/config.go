@@ -78,7 +78,7 @@ type StakingConfig struct {
 	SybilProtectionDisabledWeight uint64          `json:"sybilProtectionDisabledWeight"`
 	StakingTLSKeyPath             string          `json:"stakingTLSKeyPath"`
 	StakingTLSCertPath            string          `json:"stakingTLSCertPath"`
-	StakingSignerConfig           `json:"stakingSingerConfig"`
+	StakingSignerConfig           `json:"-"`
 }
 
 type StakingSignerConfig struct {

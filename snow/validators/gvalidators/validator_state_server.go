@@ -5,6 +5,7 @@ package gvalidators
 
 import (
 	"context"
+	"math/big"
 
 	"google.golang.org/protobuf/types/known/emptypb"
 
@@ -58,7 +59,7 @@ func (s *Server) GetWarpValidatorSets(ctx context.Context, req *pb.GetWarpValida
 	for subnetID, vdrs := range validatorSets {
 		proto = append(proto, &pb.WarpValidatorSet{
 			SubnetId:    subnetID[:],
-			TotalWeight: vdrs.TotalWeight,
+			TotalWeight: totalWeightBytes(vdrs.TotalWeight),
 			Validators:  warpValidatorsToProto(vdrs.Validators),
 		})
 	}
@@ -77,9 +78,18 @@ func (s *Server) GetWarpValidatorSet(ctx context.Context, req *pb.GetWarpValidat
 		return nil, err
 	}
 	return &pb.GetWarpValidatorSetResponse{
-		TotalWeight: validatorSet.TotalWeight,
+		TotalWeight: totalWeightBytes(validatorSet.TotalWeight),
 		Validators:  warpValidatorsToProto(validatorSet.Validators),
 	}, nil
+}
+
+// totalWeightBytes encodes a *big.Int total weight for the proto wire,
+// treating nil as zero (empty bytes).
+func totalWeightBytes(w *big.Int) []byte {
+	if w == nil {
+		return nil
+	}
+	return w.Bytes()
 }
 
 func (s *Server) GetValidatorSet(ctx context.Context, req *pb.GetValidatorSetRequest) (*pb.GetValidatorSetResponse, error) {

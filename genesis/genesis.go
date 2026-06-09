@@ -423,9 +423,6 @@ func FromConfig(config *Config) ([]byte, ids.ID, error) {
 	}
 
 	// Specify the chains that exist upon this network's creation
-	if err != nil {
-		return nil, ids.Empty, fmt.Errorf("couldn't encode message: %w", err)
-	}
 	chains := []genesis.Chain{
 		{
 			GenesisData: avmGenesisBytes,

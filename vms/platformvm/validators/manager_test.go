@@ -6,6 +6,7 @@ package validators_test
 import (
 	"bytes"
 	"math"
+	"math/big"
 	"testing"
 	"time"
 
@@ -245,13 +246,13 @@ func TestGetWarpValidatorSets(t *testing.T) {
 				NodeIDs:        []ids.NodeID{primaryStaker1.NodeID},
 			},
 		},
-		TotalWeight: genesistest.DefaultValidatorWeight*uint64(len(genesistest.DefaultNodeIDs)) + 2,
+		TotalWeight: new(big.Int).SetUint64(genesistest.DefaultValidatorWeight*uint64(len(genesistest.DefaultNodeIDs)) + 2),
 	}
 	expectedValidators := []map[ids.ID]validators.WarpSet{
 		{
 			constants.PrimaryNetworkID: {
 				Validators:  []*validators.Warp{},
-				TotalWeight: genesistest.DefaultValidatorWeight * uint64(len(genesistest.DefaultNodeIDs)),
+				TotalWeight: new(big.Int).SetUint64(genesistest.DefaultValidatorWeight * uint64(len(genesistest.DefaultNodeIDs))),
 			},
 		}, // Subnet didn't exist at genesis
 		{
@@ -264,7 +265,7 @@ func TestGetWarpValidatorSets(t *testing.T) {
 						NodeIDs:        []ids.NodeID{primaryStaker0.NodeID},
 					},
 				},
-				TotalWeight: genesistest.DefaultValidatorWeight*uint64(len(genesistest.DefaultNodeIDs)) + 1,
+				TotalWeight: new(big.Int).SetUint64(genesistest.DefaultValidatorWeight*uint64(len(genesistest.DefaultNodeIDs)) + 1),
 			},
 			subnetID: {
 				Validators: []*validators.Warp{
@@ -275,11 +276,31 @@ func TestGetWarpValidatorSets(t *testing.T) {
 						NodeIDs:        []ids.NodeID{subnetStaker0.NodeID},
 					},
 				},
-				TotalWeight: 1,
+				TotalWeight: big.NewInt(1),
 			},
 		}, // Subnet was added at height 1
 		{
 			constants.PrimaryNetworkID: expectedPrimaryNetworkWithAllValidators,
+			subnetID: {
+				Validators: []*validators.Warp{
+					{
+						PublicKey:      pk0,
+						PublicKeyBytes: pk0Bytes,
+						Weight:         1,
+						NodeIDs:        []ids.NodeID{subnetStaker0.NodeID},
+					},
+					{
+						PublicKey:      pk1,
+						PublicKeyBytes: pk1Bytes,
+						Weight:         math.MaxUint64,
+						NodeIDs:        []ids.NodeID{subnetStaker1.NodeID},
+					},
+				},
+				TotalWeight: new(big.Int).Add(
+					new(big.Int).SetUint64(math.MaxUint64),
+					big.NewInt(1),
+				),
+			},
 		}, // Subnet overflow occurred at height 1
 		{
 			constants.PrimaryNetworkID: expectedPrimaryNetworkWithAllValidators,
@@ -292,7 +313,7 @@ func TestGetWarpValidatorSets(t *testing.T) {
 						NodeIDs:        []ids.NodeID{subnetStaker0.NodeID},
 					},
 				},
-				TotalWeight: 1,
+				TotalWeight: big.NewInt(1),
 			},
 		}, // Subnet overflow was removed at height 2
 		{
@@ -317,6 +338,10 @@ func TestGetWarpValidatorSets(t *testing.T) {
 		// Treat nil and empty slices as the same
 		if len(actualSubnet.Validators) == 0 {
 			actualSubnet.Validators = nil
+		}
+		// Treat a nil *big.Int and a zero *big.Int as the same
+		if actualSubnet.TotalWeight != nil && actualSubnet.TotalWeight.Sign() == 0 {
+			actualSubnet.TotalWeight = nil
 		}
 		require.Equal(expected[subnetID], actualSubnet)
 	}

@@ -232,6 +232,26 @@ func TestEvery(t *testing.T) {
 	<-ctx.Done()
 }
 
+func TestEveryWithNonPositiveFrequency(t *testing.T) {
+	for _, frequency := range []time.Duration{
+		0,
+		-time.Second,
+	} {
+		t.Run(frequency.String(), func(t *testing.T) {
+			calls := 0
+			gossiper := &TestGossiper{
+				GossipF: func(context.Context) error {
+					calls++
+					return nil
+				},
+			}
+
+			Every(t.Context(), logging.NoLog{}, gossiper, frequency)
+			require.Zero(t, calls)
+		})
+	}
+}
+
 func TestValidatorGossiper(t *testing.T) {
 	require := require.New(t)
 

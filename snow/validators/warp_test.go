@@ -6,7 +6,7 @@ package validators_test
 import (
 	"encoding/hex"
 	"encoding/json"
-	"math"
+	"math/big"
 	"strconv"
 	"testing"
 
@@ -16,8 +16,6 @@ import (
 	"github.com/ava-labs/avalanchego/snow/validators/validatorstest"
 	"github.com/ava-labs/avalanchego/utils/crypto/bls"
 	"github.com/ava-labs/avalanchego/utils/crypto/bls/signer/localsigner"
-
-	safemath "github.com/ava-labs/avalanchego/utils/math"
 
 	. "github.com/ava-labs/avalanchego/snow/validators"
 )
@@ -75,7 +73,7 @@ func TestWarpSetJSON(t *testing.T) {
 				},
 			},
 		},
-		TotalWeight: 54321,
+		TotalWeight: big.NewInt(54321),
 	}
 	wsJSON, err := json.MarshalIndent(ws, "", "\t")
 	require.NoError(t, err)
@@ -100,6 +98,15 @@ func TestWarpSetJSON(t *testing.T) {
 	require.Equal(t, ws, parsedWS)
 }
 
+func TestWarpSetMarshalJSONNilTotalWeight(t *testing.T) {
+	// A zero-value WarpSet (TotalWeight == nil) must not panic on MarshalJSON;
+	// nil is treated as zero.
+	ws := WarpSet{}
+	wsJSON, err := json.Marshal(ws)
+	require.NoError(t, err)
+	require.JSONEq(t, `{"validators":null,"totalWeight":"0"}`, string(wsJSON))
+}
+
 func TestFlattenValidatorSet(t *testing.T) {
 	var (
 		vdrs    = validatorstest.NewWarpSet(t, 3)
@@ -114,18 +121,6 @@ func TestFlattenValidatorSet(t *testing.T) {
 		wantErr    error
 	}{
 		{
-			name: "overflow",
-			validators: map[ids.NodeID]*GetValidatorOutput{
-				nodeID0: validatorstest.WarpToOutput(vdrs.Validators[0]),
-				nodeID1: {
-					NodeID:    nodeID1,
-					PublicKey: vdrs.Validators[1].PublicKey,
-					Weight:    math.MaxUint64,
-				},
-			},
-			wantErr: safemath.ErrOverflow,
-		},
-		{
 			name: "nil_public_key_skipped",
 			validators: map[ids.NodeID]*GetValidatorOutput{
 				nodeID0: validatorstest.WarpToOutput(vdrs.Validators[0]),
@@ -137,7 +132,7 @@ func TestFlattenValidatorSet(t *testing.T) {
 			},
 			want: WarpSet{
 				Validators:  []*Warp{vdrs.Validators[0]},
-				TotalWeight: vdrs.Validators[0].Weight + 5,
+				TotalWeight: new(big.Int).SetUint64(vdrs.Validators[0].Weight + 5),
 			},
 		},
 		{

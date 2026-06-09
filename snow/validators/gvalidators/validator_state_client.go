@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/big"
 
 	"google.golang.org/protobuf/types/known/emptypb"
 
@@ -86,7 +87,7 @@ func (c *Client) GetWarpValidatorSets(
 		}
 		validatorSets[subnetID] = validators.WarpSet{
 			Validators:  vdrs,
-			TotalWeight: validatorSet.GetTotalWeight(),
+			TotalWeight: new(big.Int).SetBytes(validatorSet.GetTotalWeight()),
 		}
 	}
 
@@ -119,7 +120,7 @@ func (c *Client) GetWarpValidatorSet(
 	}
 	return validators.WarpSet{
 		Validators:  vdrs,
-		TotalWeight: resp.GetTotalWeight(),
+		TotalWeight: new(big.Int).SetBytes(resp.GetTotalWeight()),
 	}, nil
 }
 

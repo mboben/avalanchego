@@ -112,7 +112,7 @@ var (
 		DurangoTime:           time.Date(2025, time.June, 24, 12, 0, 0, 0, time.UTC),
 		EtnaTime:              time.Date(2025, time.November, 13, 14, 0, 0, 0, time.UTC),
 		FortunaTime:           time.Date(2026, time.March, 24, 12, 0, 0, 0, time.UTC),
-		GraniteTime:           UnscheduledActivationTime,
+		GraniteTime:           time.Date(2026, time.June, 16, 12, 0, 0, 0, time.UTC),
 		GraniteEpochDuration:  5 * time.Minute,
 	}
 	Coston = Config{
@@ -130,7 +130,7 @@ var (
 		DurangoTime:            time.Date(2025, time.July, 1, 12, 0, 0, 0, time.UTC),
 		EtnaTime:               time.Date(2025, time.November, 13, 10, 0, 0, 0, time.UTC),
 		FortunaTime:            time.Date(2026, time.March, 17, 12, 0, 0, 0, time.UTC),
-		GraniteTime:            UnscheduledActivationTime,
+		GraniteTime:            time.Date(2026, time.June, 11, 12, 0, 0, 0, time.UTC),
 		GraniteEpochDuration:   5 * time.Minute,
 	}
 	LocalFlare = Config{
@@ -223,6 +223,11 @@ func (c *Config) Validate() error {
 		c.ApricotPhase3Time,
 		c.ApricotPhase4Time,
 		c.ApricotPhase5Time,
+	}
+	if !c.SongbirdTransitionTime.IsZero() {
+		upgrades = append(upgrades, c.SongbirdTransitionTime)
+	}
+	upgrades = append(upgrades,
 		c.ApricotPhasePre6Time,
 		c.ApricotPhase6Time,
 		c.ApricotPhasePost6Time,
@@ -232,7 +237,7 @@ func (c *Config) Validate() error {
 		c.EtnaTime,
 		c.FortunaTime,
 		c.GraniteTime,
-	}
+	)
 	for i := 0; i < len(upgrades)-1; i++ {
 		if upgrades[i].After(upgrades[i+1]) {
 			return fmt.Errorf("%w: upgrade %d (%s) is after upgrade %d (%s)",

@@ -7,18 +7,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/big"
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/snow/validators"
 	"github.com/ava-labs/avalanchego/utils/crypto/bls"
-	"github.com/ava-labs/avalanchego/utils/math"
 	"github.com/ava-labs/avalanchego/utils/set"
 )
 
-var (
-	ErrUnknownValidator = errors.New("unknown validator")
-	ErrWeightOverflow   = errors.New("weight overflowed")
-)
+var ErrUnknownValidator = errors.New("unknown validator")
 
 // ValidatorState defines the functions that must be implemented to get
 // the canonical validator set for warp message validation.
@@ -87,18 +84,12 @@ func FilterValidators(
 }
 
 // SumWeight returns the total weight of the provided validators.
-func SumWeight(vdrs []*validators.Warp) (uint64, error) {
-	var (
-		weight uint64
-		err    error
-	)
+func SumWeight(vdrs []*validators.Warp) *big.Int {
+	weight := new(big.Int)
 	for _, vdr := range vdrs {
-		weight, err = math.Add(weight, vdr.Weight)
-		if err != nil {
-			return 0, fmt.Errorf("%w: %w", ErrWeightOverflow, err)
-		}
+		weight.Add(weight, new(big.Int).SetUint64(vdr.Weight))
 	}
-	return weight, nil
+	return weight
 }
 
 // AggregatePublicKeys returns the public key of the provided validators.

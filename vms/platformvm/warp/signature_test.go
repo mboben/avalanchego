@@ -5,6 +5,7 @@ package warp
 
 import (
 	"errors"
+	"math/big"
 	"strconv"
 	"testing"
 
@@ -173,9 +174,9 @@ func TestSignatureVerification(t *testing.T) {
 					testVdrs[0].vdr,
 					testVdrs[2].vdr,
 				},
-				TotalWeight: testVdrs[0].vdr.Weight +
+				TotalWeight: new(big.Int).SetUint64(testVdrs[0].vdr.Weight +
 					testVdrs[1].vdr.Weight +
-					testVdrs[2].vdr.Weight,
+					testVdrs[2].vdr.Weight),
 			},
 			quorumDen: 2,
 			signature: &BitSetSignature{
@@ -191,9 +192,9 @@ func TestSignatureVerification(t *testing.T) {
 				Validators: []*validators.Warp{
 					testVdrs[0].vdr,
 				},
-				TotalWeight: testVdrs[0].vdr.Weight +
+				TotalWeight: new(big.Int).SetUint64(testVdrs[0].vdr.Weight +
 					testVdrs[1].vdr.Weight +
-					testVdrs[2].vdr.Weight,
+					testVdrs[2].vdr.Weight),
 			},
 			quorumDen: 10000,
 			signature: &BitSetSignature{
@@ -209,9 +210,9 @@ func TestSignatureVerification(t *testing.T) {
 				Validators: []*validators.Warp{
 					testVdrs[0].vdr,
 				},
-				TotalWeight: testVdrs[0].vdr.Weight +
+				TotalWeight: new(big.Int).SetUint64(testVdrs[0].vdr.Weight +
 					testVdrs[1].vdr.Weight +
-					testVdrs[2].vdr.Weight,
+					testVdrs[2].vdr.Weight),
 			},
 			quorumDen: 10000,
 			signature: &BitSetSignature{
@@ -229,9 +230,9 @@ func TestSignatureVerification(t *testing.T) {
 					testVdrs[1].vdr,
 					testVdrs[2].vdr,
 				},
-				TotalWeight: testVdrs[0].vdr.Weight +
+				TotalWeight: new(big.Int).SetUint64(testVdrs[0].vdr.Weight +
 					testVdrs[1].vdr.Weight +
-					testVdrs[2].vdr.Weight,
+					testVdrs[2].vdr.Weight),
 			},
 			quorumDen: 2,
 			signature: &BitSetSignature{
@@ -247,9 +248,9 @@ func TestSignatureVerification(t *testing.T) {
 				Validators: []*validators.Warp{
 					testVdrs[0].vdr,
 				},
-				TotalWeight: testVdrs[0].vdr.Weight +
+				TotalWeight: new(big.Int).SetUint64(testVdrs[0].vdr.Weight +
 					testVdrs[1].vdr.Weight +
-					testVdrs[2].vdr.Weight,
+					testVdrs[2].vdr.Weight),
 			},
 			quorumDen: 2,
 			signature: &BitSetSignature{
@@ -265,9 +266,9 @@ func TestSignatureVerification(t *testing.T) {
 				Validators: []*validators.Warp{
 					testVdrs[0].vdr,
 				},
-				TotalWeight: testVdrs[0].vdr.Weight +
+				TotalWeight: new(big.Int).SetUint64(testVdrs[0].vdr.Weight +
 					testVdrs[1].vdr.Weight +
-					testVdrs[2].vdr.Weight,
+					testVdrs[2].vdr.Weight),
 			},
 			quorumDen: 10000,
 			signature: &BitSetSignature{
@@ -283,9 +284,9 @@ func TestSignatureVerification(t *testing.T) {
 				Validators: []*validators.Warp{
 					testVdrs[0].vdr,
 				},
-				TotalWeight: testVdrs[0].vdr.Weight +
+				TotalWeight: new(big.Int).SetUint64(testVdrs[0].vdr.Weight +
 					testVdrs[1].vdr.Weight +
-					testVdrs[2].vdr.Weight,
+					testVdrs[2].vdr.Weight),
 			},
 			quorumDen: 10000,
 			signature: &BitSetSignature{
@@ -302,9 +303,9 @@ func TestSignatureVerification(t *testing.T) {
 					testVdrs[0].vdr,
 					testVdrs[2].vdr,
 				},
-				TotalWeight: testVdrs[0].vdr.Weight +
+				TotalWeight: new(big.Int).SetUint64(testVdrs[0].vdr.Weight +
 					testVdrs[1].vdr.Weight +
-					testVdrs[2].vdr.Weight,
+					testVdrs[2].vdr.Weight),
 			},
 			quorumDen: 2,
 			signature: &BitSetSignature{
@@ -321,9 +322,9 @@ func TestSignatureVerification(t *testing.T) {
 					testVdrs[1].vdr,
 					testVdrs[2].vdr,
 				},
-				TotalWeight: testVdrs[0].vdr.Weight +
+				TotalWeight: new(big.Int).SetUint64(testVdrs[0].vdr.Weight +
 					testVdrs[1].vdr.Weight +
-					testVdrs[2].vdr.Weight,
+					testVdrs[2].vdr.Weight),
 			},
 			quorumDen: 2,
 			signature: &BitSetSignature{
@@ -344,6 +345,16 @@ func TestSignatureVerification(t *testing.T) {
 			require.ErrorIs(t, err, tt.wantErr)
 		})
 	}
+}
+
+func TestVerifyWeightNilArgs(t *testing.T) {
+	require := require.New(t)
+	// Both nil: 0/0 trivially satisfies the threshold (no insufficient weight).
+	require.NoError(VerifyWeight(nil, nil, 1, 1))
+	// Nil totalWeight, non-zero sigWeight: should still be fine (sig over zero total).
+	require.NoError(VerifyWeight(big.NewInt(5), nil, 1, 1))
+	// Nil sigWeight, non-zero totalWeight: insufficient.
+	require.ErrorIs(VerifyWeight(nil, big.NewInt(5), 1, 1), ErrInsufficientWeight)
 }
 
 func BenchmarkSignatureVerification(b *testing.B) {

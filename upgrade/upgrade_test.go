@@ -24,6 +24,26 @@ func TestValidDefaultUpgrades(t *testing.T) {
 			upgrade: Flare,
 		},
 		{
+			name:    "Songbird",
+			upgrade: Songbird,
+		},
+		{
+			name:    "Costwo",
+			upgrade: Costwo,
+		},
+		{
+			name:    "Coston",
+			upgrade: Coston,
+		},
+		{
+			name:    "LocalFlare",
+			upgrade: LocalFlare,
+		},
+		{
+			name:    "Local",
+			upgrade: Local,
+		},
+		{
 			name:    "Mainnet",
 			upgrade: Mainnet,
 		},
@@ -43,6 +63,22 @@ func TestInvalidUpgrade(t *testing.T) {
 		ApricotPhase1Time: firstUpgradeTime,
 		ApricotPhase2Time: invalidSecondUpgradeTime,
 	}
+	err := upgrade.Validate()
+	require.ErrorIs(err, ErrInvalidUpgradeTimes)
+}
+
+func TestInvalidSongbirdTransitionUpgrade(t *testing.T) {
+	require := require.New(t)
+	upgrade := Config{
+		ApricotPhase1Time:      ZeroTime,
+		ApricotPhase2Time:      ZeroTime,
+		ApricotPhase3Time:      ZeroTime,
+		ApricotPhase4Time:      ZeroTime,
+		ApricotPhase5Time:      time.Unix(10, 0),
+		SongbirdTransitionTime: time.Unix(30, 0),
+		ApricotPhasePre6Time:   time.Unix(20, 0),
+	}
+
 	err := upgrade.Validate()
 	require.ErrorIs(err, ErrInvalidUpgradeTimes)
 }

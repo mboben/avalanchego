@@ -6,6 +6,7 @@ package warp
 import (
 	"context"
 	"math"
+	"math/big"
 	"strconv"
 	"testing"
 
@@ -26,7 +27,7 @@ func TestGetCanonicalValidatorSet(t *testing.T) {
 		name           string
 		stateF         func(*gomock.Controller) validators.State
 		expectedVdrs   []*validators.Warp
-		expectedWeight uint64
+		expectedWeight *big.Int
 		expectedErr    error
 	}
 
@@ -62,7 +63,7 @@ func TestGetCanonicalValidatorSet(t *testing.T) {
 				return state
 			},
 			expectedVdrs:   []*validators.Warp{testVdrs[0].vdr, testVdrs[1].vdr},
-			expectedWeight: 6,
+			expectedWeight: big.NewInt(6),
 			expectedErr:    nil,
 		},
 		{
@@ -103,7 +104,7 @@ func TestGetCanonicalValidatorSet(t *testing.T) {
 				},
 				testVdrs[1].vdr,
 			},
-			expectedWeight: 9,
+			expectedWeight: big.NewInt(9),
 			expectedErr:    nil,
 		},
 		{
@@ -128,7 +129,7 @@ func TestGetCanonicalValidatorSet(t *testing.T) {
 				return state
 			},
 			expectedVdrs:   []*validators.Warp{testVdrs[1].vdr},
-			expectedWeight: 6,
+			expectedWeight: big.NewInt(6),
 			expectedErr:    nil,
 		},
 	}
@@ -268,30 +269,32 @@ func TestSumWeight(t *testing.T) {
 	type test struct {
 		name        string
 		vdrs        []*validators.Warp
-		expectedSum uint64
-		expectedErr error
+		expectedSum *big.Int
 	}
 
 	tests := []test{
 		{
 			name:        "empty",
 			vdrs:        []*validators.Warp{},
-			expectedSum: 0,
+			expectedSum: big.NewInt(0),
 		},
 		{
 			name:        "one",
 			vdrs:        []*validators.Warp{vdr0},
-			expectedSum: 1,
+			expectedSum: big.NewInt(1),
 		},
 		{
 			name:        "two",
 			vdrs:        []*validators.Warp{vdr0, vdr1},
-			expectedSum: 3,
+			expectedSum: big.NewInt(3),
 		},
 		{
-			name:        "overflow",
-			vdrs:        []*validators.Warp{vdr0, vdr2},
-			expectedErr: ErrWeightOverflow,
+			name: "no_overflow",
+			vdrs: []*validators.Warp{vdr0, vdr2},
+			expectedSum: new(big.Int).Add(
+				new(big.Int).SetUint64(math.MaxUint64),
+				big.NewInt(1),
+			),
 		},
 	}
 
@@ -299,11 +302,7 @@ func TestSumWeight(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			require := require.New(t)
 
-			sum, err := SumWeight(tt.vdrs)
-			require.ErrorIs(err, tt.expectedErr)
-			if tt.expectedErr != nil {
-				return
-			}
+			sum := SumWeight(tt.vdrs)
 			require.Equal(tt.expectedSum, sum)
 		})
 	}

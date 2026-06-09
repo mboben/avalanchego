@@ -4,6 +4,7 @@
 package validatorstest
 
 import (
+	"math/big"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -41,7 +42,7 @@ func NewWarpSet(t testing.TB, n uint64) validators.WarpSet {
 	utils.Sort(vdrs)
 	return validators.WarpSet{
 		Validators:  vdrs,
-		TotalWeight: n,
+		TotalWeight: new(big.Int).SetUint64(n),
 	}
 }
 

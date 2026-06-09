@@ -582,6 +582,10 @@ func (p *PushGossiper[_]) updateMetrics(nowUnixNano float64) {
 
 // Every calls [Gossip] every [frequency] amount of time.
 func Every(ctx context.Context, log logging.Logger, gossiper Gossiper, frequency time.Duration) {
+	if frequency <= 0 {
+		return
+	}
+
 	ticker := time.NewTicker(frequency)
 	defer ticker.Stop()
 

@@ -127,7 +127,7 @@ func (s *state) GetStartTime(nodeID ids.NodeID) (time.Time, error) {
 		return time.Time{}, database.ErrNotFound
 	}
 
-	return time.Unix(int64(v.LastUpdated), 0), nil
+	return time.Unix(int64(v.StartTime), 0), nil
 }
 
 // addNewValidator adds a new validator to the state and marks it for

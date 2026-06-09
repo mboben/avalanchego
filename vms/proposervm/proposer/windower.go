@@ -112,6 +112,9 @@ func New(state validators.State, subnetID, chainID ids.ID) Windower {
 	}
 }
 
+// Proposers is only used by the pre-Durango windowing path. Post-Durango
+// proposer selection uses ExpectedProposer/MinDelayForProposer, which rely on
+// the adjusted-weight sampler and do not sum total stake here.
 func (w *windower) Proposers(ctx context.Context, blockHeight, pChainHeight uint64, maxWindows int) ([]ids.NodeID, error) {
 	// Note: The 32-bit prng is used here for legacy reasons. All other usages
 	// of a prng in this file should use the 64-bit version.

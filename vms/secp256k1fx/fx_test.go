@@ -4,6 +4,7 @@
 package secp256k1fx
 
 import (
+	"encoding/hex"
 	"testing"
 	"time"
 
@@ -13,7 +14,9 @@ import (
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/cb58"
 	"github.com/ava-labs/avalanchego/utils/crypto/secp256k1"
+	"github.com/ava-labs/avalanchego/utils/hashing"
 	"github.com/ava-labs/avalanchego/utils/logging"
+	"github.com/ava-labs/libevm/accounts"
 )
 
 var (
@@ -102,6 +105,98 @@ func TestFxVerifyTransfer(t *testing.T) {
 	}
 
 	require.NoError(fx.VerifyTransfer(tx, in, cred, out))
+}
+
+// Flare-specific: VerifyCredentials must accept signatures produced over the
+// EIP-191-prefixed hash of the hex-encoded tx hash (fx.go:210-218).
+func TestFxVerifyTransferEthSignature(t *testing.T) {
+	require := require.New(t)
+	vm := TestVM{
+		Codec: linearcodec.NewDefault(),
+		Log:   logging.NoLog{},
+	}
+	date := time.Date(2019, time.January, 19, 16, 25, 17, 3, time.UTC)
+	vm.Clk.Set(date)
+	fx := Fx{}
+	require.NoError(fx.Initialize(&vm))
+	require.NoError(fx.Bootstrapping())
+	require.NoError(fx.Bootstrapped())
+
+	key := secp256k1.TestKeys()[0]
+	tx := &TestTx{UnsignedBytes: txBytes}
+
+	txHash := hashing.ComputeHash256(tx.Bytes())
+	txHashEth := accounts.TextHash([]byte(hex.EncodeToString(txHash)))
+	sigSlice, err := key.SignHash(txHashEth)
+	require.NoError(err)
+	var sig [secp256k1.SignatureLen]byte
+	copy(sig[:], sigSlice)
+
+	out := &TransferOutput{
+		Amt: 1,
+		OutputOwners: OutputOwners{
+			Threshold: 1,
+			Addrs:     []ids.ShortID{key.Address()},
+		},
+	}
+	in := &TransferInput{
+		Amt: 1,
+		Input: Input{
+			SigIndices: []uint32{0},
+		},
+	}
+	cred := &Credential{
+		Sigs: [][secp256k1.SignatureLen]byte{sig},
+	}
+
+	require.NoError(fx.VerifyTransfer(tx, in, cred, out))
+}
+
+// Flare-specific: an eth-prefixed signature from the wrong signer must still
+// be rejected — both recovery branches in VerifyCredentials should miss.
+func TestFxVerifyTransferEthSignatureWrongSigner(t *testing.T) {
+	require := require.New(t)
+	vm := TestVM{
+		Codec: linearcodec.NewDefault(),
+		Log:   logging.NoLog{},
+	}
+	date := time.Date(2019, time.January, 19, 16, 25, 17, 3, time.UTC)
+	vm.Clk.Set(date)
+	fx := Fx{}
+	require.NoError(fx.Initialize(&vm))
+	require.NoError(fx.Bootstrapping())
+	require.NoError(fx.Bootstrapped())
+
+	keys := secp256k1.TestKeys()
+	signer, expected := keys[0], keys[1]
+	tx := &TestTx{UnsignedBytes: txBytes}
+
+	txHash := hashing.ComputeHash256(tx.Bytes())
+	txHashEth := accounts.TextHash([]byte(hex.EncodeToString(txHash)))
+	sigSlice, err := signer.SignHash(txHashEth)
+	require.NoError(err)
+	var sig [secp256k1.SignatureLen]byte
+	copy(sig[:], sigSlice)
+
+	out := &TransferOutput{
+		Amt: 1,
+		OutputOwners: OutputOwners{
+			Threshold: 1,
+			Addrs:     []ids.ShortID{expected.Address()},
+		},
+	}
+	in := &TransferInput{
+		Amt: 1,
+		Input: Input{
+			SigIndices: []uint32{0},
+		},
+	}
+	cred := &Credential{
+		Sigs: [][secp256k1.SignatureLen]byte{sig},
+	}
+
+	err = fx.VerifyTransfer(tx, in, cred, out)
+	require.ErrorIs(err, ErrWrongSig)
 }
 
 func TestFxVerifyTransferNilTx(t *testing.T) {

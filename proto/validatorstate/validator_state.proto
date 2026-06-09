@@ -81,13 +81,13 @@ message GetWarpValidatorSetsResponse {
 }
 
 message GetWarpValidatorSetResponse {
-  uint64 total_weight = 1;
+  bytes total_weight = 1;
   repeated WarpValidator validators = 2;
 }
 
 message WarpValidatorSet {
   bytes subnet_id = 1;
-  uint64 total_weight = 2;
+  bytes total_weight = 2;
   repeated WarpValidator validators = 3;
 }
 

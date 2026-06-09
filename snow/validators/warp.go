@@ -6,6 +6,7 @@ package validators
 import (
 	"bytes"
 	"encoding/json"
+	"math/big"
 
 	"golang.org/x/exp/maps"
 
@@ -13,7 +14,6 @@ import (
 	"github.com/ava-labs/avalanchego/utils"
 	"github.com/ava-labs/avalanchego/utils/crypto/bls"
 	"github.com/ava-labs/avalanchego/utils/formatting"
-	"github.com/ava-labs/avalanchego/utils/math"
 
 	avajson "github.com/ava-labs/avalanchego/utils/json"
 )
@@ -25,18 +25,22 @@ type WarpSet struct {
 	Validators []*Warp
 	// The total weight of all the validators, including the ones that don't
 	// have a public key.
-	TotalWeight uint64
+	TotalWeight *big.Int
 }
 
 type jsonWarpSet struct {
 	Validators  []*Warp        `json:"validators"`
-	TotalWeight avajson.Uint64 `json:"totalWeight"`
+	TotalWeight avajson.BigInt `json:"totalWeight"`
 }
 
 func (w WarpSet) MarshalJSON() ([]byte, error) {
+	totalWeight := w.TotalWeight
+	if totalWeight == nil {
+		totalWeight = new(big.Int)
+	}
 	return json.Marshal(jsonWarpSet{
 		Validators:  w.Validators,
-		TotalWeight: avajson.Uint64(w.TotalWeight),
+		TotalWeight: avajson.NewBigInt(totalWeight),
 	})
 }
 
@@ -45,7 +49,7 @@ func (w *WarpSet) UnmarshalJSON(b []byte) error {
 	if err := json.Unmarshal(b, &j); err != nil {
 		return err
 	}
-	w.TotalWeight = uint64(j.TotalWeight)
+	w.TotalWeight = j.TotalWeight.ToBigInt()
 	w.Validators = j.Validators
 	return nil
 }
@@ -108,14 +112,10 @@ func (w *Warp) UnmarshalJSON(b []byte) error {
 func FlattenValidatorSet(vdrSet map[ids.NodeID]*GetValidatorOutput) (WarpSet, error) {
 	var (
 		vdrs        = make(map[string]*Warp, len(vdrSet))
-		totalWeight uint64
-		err         error
+		totalWeight = new(big.Int)
 	)
 	for _, vdr := range vdrSet {
-		totalWeight, err = math.Add(totalWeight, vdr.Weight)
-		if err != nil {
-			return WarpSet{}, err
-		}
+		totalWeight.Add(totalWeight, new(big.Int).SetUint64(vdr.Weight))
 
 		if vdr.PublicKey == nil {
 			continue
@@ -131,7 +131,10 @@ func FlattenValidatorSet(vdrSet map[ids.NodeID]*GetValidatorOutput) (WarpSet, er
 			vdrs[string(pkBytes)] = uniqueVdr
 		}
 
-		uniqueVdr.Weight += vdr.Weight // Impossible to overflow here
+		// Individual validator weights fit in uint64. Although BLS keys are not
+		// consensus-enforced unique, validators are expected to use unique keys; a
+		// shared-key aggregate exceeding uint64 is treated as out of scope.
+		uniqueVdr.Weight += vdr.Weight
 		uniqueVdr.NodeIDs = append(uniqueVdr.NodeIDs, vdr.NodeID)
 	}
 

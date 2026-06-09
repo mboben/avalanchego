@@ -536,7 +536,7 @@ func (x *GetWarpValidatorSetsResponse) GetValidatorSets() []*WarpValidatorSet {
 
 type GetWarpValidatorSetResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	TotalWeight   uint64                 `protobuf:"varint,1,opt,name=total_weight,json=totalWeight,proto3" json:"total_weight,omitempty"`
+	TotalWeight   []byte                 `protobuf:"bytes,1,opt,name=total_weight,json=totalWeight,proto3" json:"total_weight,omitempty"`
 	Validators    []*WarpValidator       `protobuf:"bytes,2,rep,name=validators,proto3" json:"validators,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -572,11 +572,11 @@ func (*GetWarpValidatorSetResponse) Descriptor() ([]byte, []int) {
 	return file_validatorstate_validator_state_proto_rawDescGZIP(), []int{10}
 }
 
-func (x *GetWarpValidatorSetResponse) GetTotalWeight() uint64 {
+func (x *GetWarpValidatorSetResponse) GetTotalWeight() []byte {
 	if x != nil {
 		return x.TotalWeight
 	}
-	return 0
+	return nil
 }
 
 func (x *GetWarpValidatorSetResponse) GetValidators() []*WarpValidator {
@@ -589,7 +589,7 @@ func (x *GetWarpValidatorSetResponse) GetValidators() []*WarpValidator {
 type WarpValidatorSet struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	SubnetId      []byte                 `protobuf:"bytes,1,opt,name=subnet_id,json=subnetId,proto3" json:"subnet_id,omitempty"`
-	TotalWeight   uint64                 `protobuf:"varint,2,opt,name=total_weight,json=totalWeight,proto3" json:"total_weight,omitempty"`
+	TotalWeight   []byte                 `protobuf:"bytes,2,opt,name=total_weight,json=totalWeight,proto3" json:"total_weight,omitempty"`
 	Validators    []*WarpValidator       `protobuf:"bytes,3,rep,name=validators,proto3" json:"validators,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -632,11 +632,11 @@ func (x *WarpValidatorSet) GetSubnetId() []byte {
 	return nil
 }
 
-func (x *WarpValidatorSet) GetTotalWeight() uint64 {
+func (x *WarpValidatorSet) GetTotalWeight() []byte {
 	if x != nil {
 		return x.TotalWeight
 	}
-	return 0
+	return nil
 }
 
 func (x *WarpValidatorSet) GetValidators() []*WarpValidator {
@@ -839,13 +839,13 @@ const file_validatorstate_validator_state_proto_rawDesc = "" +
 	"\x1cGetWarpValidatorSetsResponse\x12G\n" +
 	"\x0evalidator_sets\x18\x01 \x03(\v2 .validatorstate.WarpValidatorSetR\rvalidatorSets\"\x7f\n" +
 	"\x1bGetWarpValidatorSetResponse\x12!\n" +
-	"\ftotal_weight\x18\x01 \x01(\x04R\vtotalWeight\x12=\n" +
+	"\ftotal_weight\x18\x01 \x01(\fR\vtotalWeight\x12=\n" +
 	"\n" +
 	"validators\x18\x02 \x03(\v2\x1d.validatorstate.WarpValidatorR\n" +
 	"validators\"\x91\x01\n" +
 	"\x10WarpValidatorSet\x12\x1b\n" +
 	"\tsubnet_id\x18\x01 \x01(\fR\bsubnetId\x12!\n" +
-	"\ftotal_weight\x18\x02 \x01(\x04R\vtotalWeight\x12=\n" +
+	"\ftotal_weight\x18\x02 \x01(\fR\vtotalWeight\x12=\n" +
 	"\n" +
 	"validators\x18\x03 \x03(\v2\x1d.validatorstate.WarpValidatorR\n" +
 	"validators\"a\n" +

@@ -304,4 +304,24 @@ func TestGetWarpValidatorSet(t *testing.T) {
 		require.NoError(err)
 		require.Equal(expectedVdrSet, vdrSet)
 	})
+
+	t.Run("nil_total_weight", func(t *testing.T) {
+		// A WarpSet with nil TotalWeight must not panic the server; the wire
+		// encoding treats nil as zero bytes and the client decodes to a
+		// zero-valued *big.Int.
+		require := require.New(t)
+
+		subnetID := ids.GenerateTestID()
+		state := &validatorstest.State{
+			GetWarpValidatorSetF: func(_ context.Context, _ uint64, _ ids.ID) (validators.WarpSet, error) {
+				return validators.WarpSet{}, nil
+			},
+		}
+		c := newClient(t, state)
+
+		vdrSet, err := c.GetWarpValidatorSet(t.Context(), height, subnetID)
+		require.NoError(err)
+		require.NotNil(vdrSet.TotalWeight)
+		require.Equal(0, vdrSet.TotalWeight.Sign())
+	})
 }

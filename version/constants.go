@@ -18,20 +18,18 @@ const (
 	// require the plugin vm to upgrade to latest avalanchego release to be
 	// compatible.
 	RPCChainVMProtocol uint = 44
+
+	CurrentDatabase = "v1.4.5"
+	PrevDatabase    = "v1.0.0"
 )
 
 // These are globals that describe network upgrades and node versions
 var (
-	Current = &Semantic{
+	Current = &Application{
+		Name:  Client,
 		Major: 1,
 		Minor: 14,
 		Patch: 0,
-	}
-	CurrentApp = &Application{
-		Name:  Client,
-		Major: Current.Major,
-		Minor: Current.Minor,
-		Patch: Current.Patch,
 	}
 	MinimumCompatibleVersion = &Application{
 		Name:  Client,
@@ -89,27 +87,22 @@ var (
 	// RPCChainVMProtocolCompatibility maps RPCChainVMProtocol versions to the
 	// set of avalanchego versions that supported that version. This is not used
 	// by avalanchego, but is useful for downstream libraries.
-	RPCChainVMProtocolCompatibility map[uint][]*Semantic
+	RPCChainVMProtocolCompatibility map[uint][]string
 )
 
 func init() {
-	var parsedRPCChainVMCompatibility map[uint][]string
-	err := json.Unmarshal(rpcChainVMProtocolCompatibilityBytes, &parsedRPCChainVMCompatibility)
+	err := json.Unmarshal(rpcChainVMProtocolCompatibilityBytes, &RPCChainVMProtocolCompatibility)
 	if err != nil {
 		panic(err)
 	}
+}
 
-	RPCChainVMProtocolCompatibility = make(map[uint][]*Semantic)
-	for rpcChainVMProtocol, versionStrings := range parsedRPCChainVMCompatibility {
-		versions := make([]*Semantic, len(versionStrings))
-		for i, versionString := range versionStrings {
-			version, err := Parse(versionString)
-			if err != nil {
-				panic(err)
-			}
-			versions[i] = version
-		}
-		RPCChainVMProtocolCompatibility[rpcChainVMProtocol] = versions
+func GetCompatibility(upgradeTime time.Time) *Compatibility {
+	return &Compatibility{
+		Current:                   Current,
+		MinCompatibleAfterUpgrade: MinimumCompatibleVersion,
+		MinCompatible:             PrevMinimumCompatibleVersion,
+		UpgradeTime:               upgradeTime,
 	}
 }
 

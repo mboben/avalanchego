@@ -488,7 +488,10 @@ func NewBlockChain(
 
 	// if txlookup limit is 0 (uindexing disabled), we don't need to repair the tx index tail.
 	if bc.cacheConfig.TransactionHistory != 0 {
-		latestStateSynced := customrawdb.GetLatestSyncPerformed(bc.db)
+		latestStateSynced, err := customrawdb.GetLatestSyncPerformed(bc.db)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read latest state sync progress: %w", err)
+		}
 		bc.repairTxIndexTail(latestStateSynced)
 	}
 
@@ -1130,7 +1133,7 @@ func (bc *BlockChain) Accept(block *types.Block) error {
 
 		latestGasExcessGauge.Update(int64(s.Gas.Excess))
 		latestGasCapacityGauge.Update(int64(s.Gas.Capacity))
-		latestGasTargetGauge.Update(int64(s.Target()))
+		latestGasTargetGauge.Update(int64(s.TargetWith(extraConfig.ACP176Params(block.Time()))))
 	}
 	if extraConfig.IsGranite(block.Time()) {
 		extraHeader := customtypes.GetHeaderExtra(block.Header())

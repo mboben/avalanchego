@@ -170,7 +170,10 @@ func (service *AvaxAPI) GetAtomicTxStatus(_ *http.Request, args *api.JSONTxID, r
 	service.vm.Ctx.Lock.Lock()
 	defer service.vm.Ctx.Lock.Unlock()
 
-	_, status, height, _ := service.vm.GetAtomicTx(args.TxID)
+	_, status, height, err := service.vm.GetAtomicTx(args.TxID)
+	if err != nil {
+		return err
+	}
 
 	reply.Status = status
 	if status == atomic.Accepted {

@@ -95,6 +95,51 @@ func TestMempoolAddBloomReset(t *testing.T) {
 	require.True(ok)
 	require.Equal(maxFeeTx, tx)
 
+	addTxsToTriggerBloomReset(t, m)
+
+	// Mark maxFeeTx as Pending
+	m.CancelCurrentTxs()
+
+	m.Iterate(func(tx *atomic.Tx) bool {
+		require.True(m.bloom.Has(tx))
+		return true // Iterate over the whole mempool
+	})
+}
+
+func TestMempoolAddBloomResetIncludesIssuedTxs(t *testing.T) {
+	require := require.New(t)
+
+	ctx := snowtest.Context(t, snowtest.CChainID)
+	m, err := NewMempool(
+		NewTxs(ctx, 3),
+		prometheus.NewRegistry(),
+		nil,
+	)
+	require.NoError(err)
+
+	issuedTxs := []*atomic.Tx{
+		atomictest.GenerateTestImportTxWithGas(1, math.MaxUint64),
+		atomictest.GenerateTestImportTxWithGas(1, math.MaxUint64-1),
+	}
+	for _, issuedTx := range issuedTxs {
+		require.NoError(m.Add(issuedTx))
+		tx, ok := m.NextTx()
+		require.True(ok)
+		require.Equal(issuedTx, tx)
+	}
+	m.IssueCurrentTxs()
+
+	addTxsToTriggerBloomReset(t, m)
+
+	for _, issuedTx := range issuedTxs {
+		require.True(m.bloom.Has(issuedTx))
+	}
+}
+
+func addTxsToTriggerBloomReset(t *testing.T, m *Mempool) {
+	t.Helper()
+	require := require.New(t)
+
 	numHashes, numEntries := bloom.OptimalParameters(
 		config.TxGossipBloomMinTargetElements,
 		config.TxGossipBloomTargetFalsePositiveRate,
@@ -109,14 +154,6 @@ func TestMempoolAddBloomReset(t *testing.T) {
 		tx := atomictest.GenerateTestImportTxWithGas(1, uint64(fee))
 		require.NoError(m.Add(tx))
 	}
-
-	// Mark maxFeeTx as Pending
-	m.CancelCurrentTxs()
-
-	m.Iterate(func(tx *atomic.Tx) bool {
-		require.True(m.bloom.Has(tx))
-		return true // Iterate over the whole mempool
-	})
 }
 
 func TestAtomicMempoolIterate(t *testing.T) {

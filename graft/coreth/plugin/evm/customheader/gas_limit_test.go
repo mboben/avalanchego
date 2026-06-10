@@ -7,6 +7,8 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ava-labs/avalanchego/snow"
+	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/avalanchego/utils/math"
 	"github.com/ava-labs/avalanchego/vms/components/gas"
 	"github.com/ava-labs/avalanchego/vms/evm/acp176"
@@ -417,6 +419,68 @@ func TestGasCapacity(t *testing.T) {
 			got, err := GasCapacity(config, test.parent, test.timestamp)
 			require.ErrorIs(err, test.wantErr)
 			require.Equal(test.want, got)
+		})
+	}
+}
+
+func TestMinimumBuildableGasCapacity(t *testing.T) {
+	desiredTargetExcess := acp176.DesiredTargetExcessWith(acp176.DefaultParams, gas.Gas(4_000_000))
+	tests := []struct {
+		name    string
+		config  *extras.ChainConfig
+		parent  *types.Header
+		timeMS  uint64
+		want    uint64
+		wantErr error
+	}{
+		{
+			name:   "fortuna_initial_target",
+			config: extras.TestFortunaChainConfig,
+			parent: &types.Header{
+				Number: big.NewInt(0),
+			},
+			want: 4_000_000,
+		},
+		{
+			name:   "fortuna_caps_high_target",
+			config: extras.TestFortunaChainConfig,
+			parent: &types.Header{
+				Number: big.NewInt(1),
+				Extra: (&acp176.State{
+					TargetExcess: desiredTargetExcess,
+				}).Bytes(),
+			},
+			want: 12_000_000,
+		},
+		{
+			name: "granite_flare_family_uses_target_not_max_capacity",
+			config: &extras.ChainConfig{
+				NetworkUpgrades: extras.TestGraniteChainConfig.NetworkUpgrades,
+				AvalancheContext: extras.AvalancheContext{
+					SnowCtx: &snow.Context{NetworkID: constants.LocalFlareID},
+				},
+			},
+			parent: customtypes.WithHeaderExtra(&types.Header{
+				Number: big.NewInt(0),
+			}, &customtypes.HeaderExtra{
+				TimeMilliseconds: utils.NewUint64(0),
+			}),
+			want: 4_000_000,
+		},
+		{
+			name:   "fortuna_invalid_parent_header",
+			config: extras.TestFortunaChainConfig,
+			parent: &types.Header{
+				Number: big.NewInt(1),
+			},
+			wantErr: acp176.ErrStateInsufficientLength,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got, err := MinimumBuildableGasCapacity(test.config, test.parent, test.timeMS)
+			require.ErrorIs(t, err, test.wantErr)
+			require.Equal(t, test.want, got)
 		})
 	}
 }

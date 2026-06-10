@@ -50,6 +50,10 @@ type Backend interface {
 type Config struct {
 	Etherbase                    common.Address `toml:",omitempty"` // Public address for block mining rewards
 	TestOnlyAllowDuplicateBlocks bool           // Allow mining of duplicate blocks (used in tests only)
+	// WaitForGasCapacityRefill gates the Fortuna ACP-176 minimum-capacity
+	// wait in worker.createCurrentEnvironment. Plumbed from the plugin/evm
+	// config field of the same name. Flare default is true.
+	WaitForGasCapacityRefill bool
 }
 
 type Miner struct {

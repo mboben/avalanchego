@@ -13,6 +13,8 @@ type Rules struct {
 	// Rules for Avalanche releases
 	AvalancheRules
 
+	IsSongbirdCode bool
+
 	// Precompiles maps addresses to stateful precompiled contracts that are enabled
 	// for this rule set.
 	// Note: none of these addresses should conflict with the address space used by

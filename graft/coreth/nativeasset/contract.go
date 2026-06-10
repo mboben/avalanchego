@@ -25,6 +25,14 @@ var (
 	GenesisContractAddr    = common.HexToAddress("0x0100000000000000000000000000000000000000")
 	NativeAssetBalanceAddr = common.HexToAddress("0x0100000000000000000000000000000000000001")
 	NativeAssetCallAddr    = common.HexToAddress("0x0100000000000000000000000000000000000002")
+
+	// NativeAssetCallDeprecationTime is the timestamp after which NativeAssetCall
+	// returns an error (consuming all gas). This matches the behavior of the original
+	// Flare node (v0.6.6) which had this timestamp-based deprecation check before the
+	// fork-based deprecation was introduced in ApricotPhasePre6.
+	NativeAssetCallDeprecationTime = uint64(1663347600) // September 16, 2022 15:00 UTC
+
+	ErrNativeAssetCallDeprecated = fmt.Errorf("native asset call deprecated")
 )
 
 // NativeAssetBalance is a precompiled contract used to retrieve the native asset balance
@@ -108,6 +116,12 @@ func (c *NativeAssetCall) Run(accessibleState contract.AccessibleState, caller c
 	env := accessibleState.GetPrecompileEnv()
 	if !env.UseGas(c.GasCost) {
 		return nil, 0, vm.ErrOutOfGas
+	}
+	// NativeAssetCall was deprecated by timestamp in the original Flare node
+	// (v0.6.6). Returning a non-revert error causes evm.Call to consume all
+	// remaining gas, matching the original behavior.
+	if env.BlockTime() >= NativeAssetCallDeprecationTime {
+		return nil, suppliedGas, ErrNativeAssetCallDeprecated
 	}
 	ret, err = c.run(env, accessibleState.GetStateDB(), caller, input, readOnly)
 	// This precompile will be wrapped in a libevm `legacy.PrecompiledStatefulContract`, which

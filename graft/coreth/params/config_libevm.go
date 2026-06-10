@@ -9,6 +9,7 @@ import (
 	"github.com/ava-labs/libevm/common"
 	"github.com/ava-labs/libevm/libevm"
 
+	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/coreth/params/extras"
 	"github.com/ava-labs/coreth/precompile/modules"
 	"github.com/ava-labs/coreth/precompile/precompileconfig"
@@ -66,6 +67,10 @@ func constructRulesExtra(c *ethparams.ChainConfig, r *ethparams.Rules, cEx *extr
 		return rules
 	}
 	rules.AvalancheRules = cEx.GetAvalancheRules(timestamp)
+	if cEx.SnowCtx != nil {
+		// cEx.SnowCtx may be null in tests
+		rules.IsSongbirdCode = cEx.SnowCtx.NetworkID == constants.SongbirdID || cEx.SnowCtx.NetworkID == constants.CostonID || cEx.SnowCtx.NetworkID == constants.LocalID
+	}
 
 	// Initialize the stateful precompiles that should be enabled at [blockTimestamp].
 	rules.Precompiles = make(map[common.Address]precompileconfig.Config)

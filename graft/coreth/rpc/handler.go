@@ -33,6 +33,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"reflect"
 	"strconv"
 	"strings"
@@ -43,6 +44,31 @@ import (
 	"github.com/ava-labs/libevm/metrics"
 	"golang.org/x/time/rate"
 )
+
+var (
+	batchRequestLimit    = 0 // limit on total number of requests in a batch
+	batchResponseMaxSize = 0 // limit on the size of a batch response
+)
+
+func init() {
+	// Read batchRequestLimit and batchResponseMaxSize from environment variables
+	// RPC_BATCH_REQUEST_LIMIT and RPC_BATCH_RESPONSE_MAX_SIZE.
+	// If their values are invalid integers, panic.
+	if batchRequestLimitStr := os.Getenv("RPC_BATCH_REQUEST_LIMIT"); batchRequestLimitStr != "" {
+		var err error
+		batchRequestLimit, err = strconv.Atoi(batchRequestLimitStr)
+		if err != nil || batchRequestLimit < 0 {
+			panic("RPC_BATCH_REQUEST_LIMIT must be a non-negative integer")
+		}
+	}
+	if batchResponseMaxSizeStr := os.Getenv("RPC_BATCH_RESPONSE_MAX_SIZE"); batchResponseMaxSizeStr != "" {
+		var err error
+		batchResponseMaxSize, err = strconv.Atoi(batchResponseMaxSizeStr)
+		if err != nil || batchResponseMaxSize < 0 {
+			panic("RPC_BATCH_RESPONSE_MAX_SIZE must be a non-negative integer")
+		}
+	}
+}
 
 // handler handles JSON-RPC messages. There is one handler per connection. Note that
 // handler is not safe for concurrent use. Message handling never blocks indefinitely

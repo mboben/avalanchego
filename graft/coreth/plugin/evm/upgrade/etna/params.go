@@ -12,4 +12,4 @@ import "github.com/ava-labs/coreth/utils"
 // See: https://github.com/avalanche-foundation/ACPs/tree/main/ACPs/125-basefee-reduction
 //
 // This value modifies the previously used `ap4.MinBaseFee`.
-const MinBaseFee = utils.GWei
+const MinBaseFee = 25 * utils.GWei // No change after Etna for Flare/Sgb in contrast to Avalanche value of 1 GWei

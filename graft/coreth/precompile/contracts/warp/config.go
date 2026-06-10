@@ -113,7 +113,9 @@ func (c *Config) Equal(s precompileconfig.Config) bool {
 		return false
 	}
 	equals := c.Upgrade.Equal(&other.Upgrade)
-	return equals && c.QuorumNumerator == other.QuorumNumerator
+	return equals &&
+		c.QuorumNumerator == other.QuorumNumerator &&
+		c.RequirePrimaryNetworkSigners == other.RequirePrimaryNetworkSigners
 }
 
 func (*Config) Accept(acceptCtx *precompileconfig.AcceptContext, blockHash common.Hash, blockNumber uint64, txHash common.Hash, logIndex int, _ []common.Hash, logData []byte) error {

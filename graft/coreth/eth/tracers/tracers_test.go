@@ -113,9 +113,9 @@ func benchmarkTransactionTrace(b *testing.B, scheme string) {
 	// Create the tracer, the EVM environment and run it
 	tracer := logger.NewStructLogger(&logger.Config{
 		Debug: false,
-		//DisableStorage: true,
-		//EnableMemory: false,
-		//EnableReturnData: false,
+		// DisableStorage: true,
+		// EnableMemory: false,
+		// EnableReturnData: false,
 	})
 	evm := vm.NewEVM(context, txContext, state.StateDB, params.TestChainConfig, vm.Config{Tracer: tracer})
 	msg, err := core.TransactionToMessage(tx, signer, context.BaseFee)

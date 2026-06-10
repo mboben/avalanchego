@@ -15,7 +15,8 @@ const (
 	// target amount of gas per second equals [TargetGas] / `ap3.WindowLen`.
 	//
 	// This value modifies the previously used `ap3.TargetGas`.
-	TargetGas = 15_000_000
+	TargetGas    = 15_000_000
+	SgbTargetGas = 150_000_000
 
 	// BaseFeeChangeDenominator is the denominator used to smoothen base fee
 	// changes.
@@ -36,4 +37,7 @@ const (
 	// transaction. There are additional gas costs that can be charged per
 	// transaction.
 	AtomicTxIntrinsicGas = 10_000
+
+	// Gas limit for Songbird network
+	SgbGasLimit uint64 = 30_000_000
 )

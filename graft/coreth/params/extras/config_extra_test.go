@@ -5,7 +5,9 @@ package extras
 
 import (
 	"testing"
+	"time"
 
+	"github.com/ava-labs/avalanchego/upgrade"
 	"github.com/stretchr/testify/require"
 
 	"github.com/ava-labs/coreth/utils"
@@ -125,4 +127,72 @@ func TestIsForkTransition(t *testing.T) {
 			require.Equal(t, test.transitioned, res)
 		})
 	}
+}
+
+func TestCheckConfigForkOrderSongbirdTransition(t *testing.T) {
+	baseUpgrades := NetworkUpgrades{
+		ApricotPhase1BlockTimestamp: utils.NewUint64(0),
+		ApricotPhase2BlockTimestamp: utils.NewUint64(0),
+		ApricotPhase3BlockTimestamp: utils.NewUint64(0),
+		ApricotPhase4BlockTimestamp: utils.NewUint64(0),
+		ApricotPhase5BlockTimestamp: utils.NewUint64(0),
+	}
+
+	tests := map[string]struct {
+		songbirdTransitionTimestamp *uint64
+		apricotPhasePre6Timestamp   *uint64
+		wantErr                     bool
+	}{
+		"omitted songbird transition is allowed before pre6": {
+			apricotPhasePre6Timestamp: utils.NewUint64(10),
+		},
+		"songbird transition before pre6 is allowed": {
+			songbirdTransitionTimestamp: utils.NewUint64(5),
+			apricotPhasePre6Timestamp:   utils.NewUint64(10),
+		},
+		"songbird transition after pre6 is rejected": {
+			songbirdTransitionTimestamp: utils.NewUint64(15),
+			apricotPhasePre6Timestamp:   utils.NewUint64(10),
+			wantErr:                     true,
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			config := &ChainConfig{
+				NetworkUpgrades: baseUpgrades,
+			}
+			config.SongbirdTransitionTimestamp = test.songbirdTransitionTimestamp
+			config.ApricotPhasePre6BlockTimestamp = test.apricotPhasePre6Timestamp
+
+			err := config.CheckConfigForkOrder()
+			if test.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+		})
+	}
+}
+
+func TestGetNetworkUpgradesSongbirdTransition(t *testing.T) {
+	t.Run("omitted transition remains nil", func(t *testing.T) {
+		networkUpgrades := GetNetworkUpgrades(upgrade.Config{})
+		require.Nil(t, networkUpgrades.SongbirdTransitionTimestamp)
+	})
+
+	t.Run("zero transition is initially active", func(t *testing.T) {
+		networkUpgrades := GetNetworkUpgrades(upgrade.Config{
+			SongbirdTransitionTime: upgrade.ZeroTime,
+		})
+		require.Equal(t, utils.NewUint64(0), networkUpgrades.SongbirdTransitionTimestamp)
+	})
+
+	t.Run("configured transition is preserved", func(t *testing.T) {
+		transitionTime := time.Unix(100, 0)
+		networkUpgrades := GetNetworkUpgrades(upgrade.Config{
+			SongbirdTransitionTime: transitionTime,
+		})
+		require.Equal(t, utils.NewUint64(uint64(transitionTime.Unix())), networkUpgrades.SongbirdTransitionTimestamp)
+	})
 }

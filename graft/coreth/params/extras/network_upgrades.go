@@ -33,6 +33,8 @@ type NetworkUpgrades struct {
 	// Apricot Phase 5 introduces a batch of atomic transactions with a maximum
 	// atomic gas limit per block.
 	ApricotPhase5BlockTimestamp *uint64 `json:"apricotPhase5BlockTimestamp,omitempty"`
+	// SongbirdTransitionTimestamp is the timestamp of the Songbird network transition to the common Flare codebase. (nil = no fork, 0 = already activated)
+	SongbirdTransitionTimestamp *uint64 `json:"songbirdTransitionTimestamp,omitempty"`
 	// Apricot Phase Pre-6 deprecates the NativeAssetCall precompile (soft).
 	ApricotPhasePre6BlockTimestamp *uint64 `json:"apricotPhasePre6BlockTimestamp,omitempty"`
 	// Apricot Phase 6 deprecates the NativeAssetBalance and NativeAssetCall
@@ -83,6 +85,9 @@ func (n *NetworkUpgrades) checkNetworkUpgradesCompatible(newcfg *NetworkUpgrades
 	if isForkTimestampIncompatible(n.ApricotPhase5BlockTimestamp, newcfg.ApricotPhase5BlockTimestamp, time) {
 		return ethparams.NewTimestampCompatError("ApricotPhase5 fork block timestamp", n.ApricotPhase5BlockTimestamp, newcfg.ApricotPhase5BlockTimestamp)
 	}
+	if isForkTimestampIncompatible(n.SongbirdTransitionTimestamp, newcfg.SongbirdTransitionTimestamp, time) {
+		return ethparams.NewTimestampCompatError("SongbirdTransition fork block timestamp", n.SongbirdTransitionTimestamp, newcfg.SongbirdTransitionTimestamp)
+	}
 	if isForkTimestampIncompatible(n.ApricotPhasePre6BlockTimestamp, newcfg.ApricotPhasePre6BlockTimestamp, time) {
 		return ethparams.NewTimestampCompatError("ApricotPhasePre6 fork block timestamp", n.ApricotPhasePre6BlockTimestamp, newcfg.ApricotPhasePre6BlockTimestamp)
 	}
@@ -124,6 +129,7 @@ func (n *NetworkUpgrades) forkOrder() []fork {
 		{name: "apricotPhase3BlockTimestamp", timestamp: n.ApricotPhase3BlockTimestamp},
 		{name: "apricotPhase4BlockTimestamp", timestamp: n.ApricotPhase4BlockTimestamp},
 		{name: "apricotPhase5BlockTimestamp", timestamp: n.ApricotPhase5BlockTimestamp},
+		{name: "songbirdTransitionTimestamp", timestamp: n.SongbirdTransitionTimestamp, optional: true},
 		{name: "apricotPhasePre6BlockTimestamp", timestamp: n.ApricotPhasePre6BlockTimestamp},
 		{name: "apricotPhase6BlockTimestamp", timestamp: n.ApricotPhase6BlockTimestamp},
 		{name: "apricotPhasePost6BlockTimestamp", timestamp: n.ApricotPhasePost6BlockTimestamp},
@@ -165,6 +171,12 @@ func (n NetworkUpgrades) IsApricotPhase4(time uint64) bool {
 // with a timestamp after the Apricot Phase 5 upgrade time.
 func (n NetworkUpgrades) IsApricotPhase5(time uint64) bool {
 	return isTimestampForked(n.ApricotPhase5BlockTimestamp, time)
+}
+
+// IsSongbirdTransition returns whether [time] represents a block
+// with a timestamp after the Songbird transition (to common Flare codebase) time
+func (n *NetworkUpgrades) IsSongbirdTransition(time uint64) bool {
+	return isTimestampForked(n.SongbirdTransitionTimestamp, time)
 }
 
 // IsApricotPhasePre6 returns whether [time] represents a block
@@ -234,6 +246,7 @@ func (n NetworkUpgrades) Description() string {
 	banner += fmt.Sprintf(" - Apricot Phase 3 Timestamp:        @%-10v (https://github.com/ava-labs/avalanchego/releases/tag/v1.5.0)\n", ptrToString(n.ApricotPhase3BlockTimestamp))
 	banner += fmt.Sprintf(" - Apricot Phase 4 Timestamp:        @%-10v (https://github.com/ava-labs/avalanchego/releases/tag/v1.6.0)\n", ptrToString(n.ApricotPhase4BlockTimestamp))
 	banner += fmt.Sprintf(" - Apricot Phase 5 Timestamp:        @%-10v (https://github.com/ava-labs/avalanchego/releases/tag/v1.7.0)\n", ptrToString(n.ApricotPhase5BlockTimestamp))
+	banner += fmt.Sprintf(" - Songbird Transition Timestamp:    @%-10v \n", ptrToString(n.SongbirdTransitionTimestamp))
 	banner += fmt.Sprintf(" - Apricot Phase P6 Timestamp        @%-10v (https://github.com/ava-labs/avalanchego/releases/tag/v1.8.0)\n", ptrToString(n.ApricotPhasePre6BlockTimestamp))
 	banner += fmt.Sprintf(" - Apricot Phase 6 Timestamp:        @%-10v (https://github.com/ava-labs/avalanchego/releases/tag/v1.8.0)\n", ptrToString(n.ApricotPhase6BlockTimestamp))
 	banner += fmt.Sprintf(" - Apricot Phase Post-6 Timestamp:   @%-10v (https://github.com/ava-labs/avalanchego/releases/tag/v1.8.0)\n", ptrToString(n.ApricotPhasePost6BlockTimestamp))
@@ -248,12 +261,18 @@ func (n NetworkUpgrades) Description() string {
 }
 
 func GetNetworkUpgrades(agoUpgrade upgrade.Config) NetworkUpgrades {
+	var songbirdTransitionTimestamp *uint64
+	if !agoUpgrade.SongbirdTransitionTime.IsZero() {
+		songbirdTransitionTimestamp = utils.TimeToNewUint64(agoUpgrade.SongbirdTransitionTime)
+	}
+
 	return NetworkUpgrades{
 		ApricotPhase1BlockTimestamp:     utils.TimeToNewUint64(agoUpgrade.ApricotPhase1Time),
 		ApricotPhase2BlockTimestamp:     utils.TimeToNewUint64(agoUpgrade.ApricotPhase2Time),
 		ApricotPhase3BlockTimestamp:     utils.TimeToNewUint64(agoUpgrade.ApricotPhase3Time),
 		ApricotPhase4BlockTimestamp:     utils.TimeToNewUint64(agoUpgrade.ApricotPhase4Time),
 		ApricotPhase5BlockTimestamp:     utils.TimeToNewUint64(agoUpgrade.ApricotPhase5Time),
+		SongbirdTransitionTimestamp:     songbirdTransitionTimestamp,
 		ApricotPhasePre6BlockTimestamp:  utils.TimeToNewUint64(agoUpgrade.ApricotPhasePre6Time),
 		ApricotPhase6BlockTimestamp:     utils.TimeToNewUint64(agoUpgrade.ApricotPhase6Time),
 		ApricotPhasePost6BlockTimestamp: utils.TimeToNewUint64(agoUpgrade.ApricotPhasePost6Time),
@@ -269,6 +288,7 @@ func GetNetworkUpgrades(agoUpgrade upgrade.Config) NetworkUpgrades {
 
 type AvalancheRules struct {
 	IsApricotPhase1, IsApricotPhase2, IsApricotPhase3, IsApricotPhase4, IsApricotPhase5 bool
+	IsSongbirdTransition                                                                bool
 	IsApricotPhasePre6, IsApricotPhase6, IsApricotPhasePost6                            bool
 	IsBanff                                                                             bool
 	IsCortina                                                                           bool
@@ -286,21 +306,22 @@ func (a AvalancheRules) IsGraniteActivated() bool {
 
 func (n *NetworkUpgrades) GetAvalancheRules(timestamp uint64) AvalancheRules {
 	return AvalancheRules{
-		IsApricotPhase1:     n.IsApricotPhase1(timestamp),
-		IsApricotPhase2:     n.IsApricotPhase2(timestamp),
-		IsApricotPhase3:     n.IsApricotPhase3(timestamp),
-		IsApricotPhase4:     n.IsApricotPhase4(timestamp),
-		IsApricotPhase5:     n.IsApricotPhase5(timestamp),
-		IsApricotPhasePre6:  n.IsApricotPhasePre6(timestamp),
-		IsApricotPhase6:     n.IsApricotPhase6(timestamp),
-		IsApricotPhasePost6: n.IsApricotPhasePost6(timestamp),
-		IsBanff:             n.IsBanff(timestamp),
-		IsCortina:           n.IsCortina(timestamp),
-		IsDurango:           n.IsDurango(timestamp),
-		IsEtna:              n.IsEtna(timestamp),
-		IsFortuna:           n.IsFortuna(timestamp),
-		IsGranite:           n.IsGranite(timestamp),
-		IsHelicon:           n.IsHelicon(timestamp),
+		IsApricotPhase1:      n.IsApricotPhase1(timestamp),
+		IsApricotPhase2:      n.IsApricotPhase2(timestamp),
+		IsApricotPhase3:      n.IsApricotPhase3(timestamp),
+		IsApricotPhase4:      n.IsApricotPhase4(timestamp),
+		IsApricotPhase5:      n.IsApricotPhase5(timestamp),
+		IsSongbirdTransition: n.IsSongbirdTransition(timestamp),
+		IsApricotPhasePre6:   n.IsApricotPhasePre6(timestamp),
+		IsApricotPhase6:      n.IsApricotPhase6(timestamp),
+		IsApricotPhasePost6:  n.IsApricotPhasePost6(timestamp),
+		IsBanff:              n.IsBanff(timestamp),
+		IsCortina:            n.IsCortina(timestamp),
+		IsDurango:            n.IsDurango(timestamp),
+		IsEtna:               n.IsEtna(timestamp),
+		IsFortuna:            n.IsFortuna(timestamp),
+		IsGranite:            n.IsGranite(timestamp),
+		IsHelicon:            n.IsHelicon(timestamp),
 	}
 }
 

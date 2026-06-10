@@ -66,6 +66,7 @@ var (
 	DefaultMaxPrice           = big.NewInt(150 * params.GWei)
 	DefaultMinPrice           = big.NewInt(acp176.MinGasPrice)
 	DefaultMinGasUsed         = big.NewInt(acp176.MinTargetPerSecond)
+	SgbDefaultMinGasUsed      = big.NewInt(12_000_000)
 	DefaultMaxLookbackSeconds = uint64(80)
 )
 
@@ -159,7 +160,11 @@ func NewOracle(backend OracleBackend, config Config) (*Oracle, error) {
 	}
 	minGasUsed := config.MinGasUsed
 	if minGasUsed == nil || minGasUsed.Int64() < 0 {
-		minGasUsed = DefaultMinGasUsed
+		if params.GetExtra(backend.ChainConfig()).IsSongbirdCode() {
+			minGasUsed = SgbDefaultMinGasUsed
+		} else {
+			minGasUsed = DefaultMinGasUsed
+		}
 		log.Warn("Sanitizing invalid gasprice oracle min gas used", "provided", config.MinGasUsed, "updated", minGasUsed)
 	}
 	maxCallBlockHistory := config.MaxCallBlockHistory

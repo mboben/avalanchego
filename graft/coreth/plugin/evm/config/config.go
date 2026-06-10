@@ -80,6 +80,13 @@ type Config struct {
 
 	// API Settings
 	LocalTxsEnabled bool `json:"local-txs-enabled"`
+
+	// WaitForGasCapacityRefill, when true, makes the block builder defer block
+	// production until the ACP-176 gas-capacity bucket has refilled to the
+	// minimum buildable capacity (4 * target gas per second, capped at 12M gas).
+	// When false the builder produces blocks regardless of bucket state.
+	// Only applies after the Fortuna upgrade.
+	WaitForGasCapacityRefill bool `json:"wait-for-gas-capacity-refill"`
 	// Price Option Settings
 	PriceOptionSlowFeePercentage uint64 `json:"price-options-slow-fee-percentage"`
 	PriceOptionFastFeePercentage uint64 `json:"price-options-fast-fee-percentage"`

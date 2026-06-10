@@ -4,6 +4,7 @@
 package vm
 
 import (
+	"encoding/hex"
 	"math/big"
 	"testing"
 
@@ -12,9 +13,11 @@ import (
 	"github.com/ava-labs/avalanchego/upgrade/upgradetest"
 	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/avalanchego/utils/crypto/secp256k1"
+	"github.com/ava-labs/avalanchego/utils/hashing"
 	"github.com/ava-labs/avalanchego/utils/units"
 	"github.com/ava-labs/avalanchego/vms/components/avax"
 	"github.com/ava-labs/avalanchego/vms/secp256k1fx"
+	"github.com/ava-labs/libevm/accounts"
 	"github.com/ava-labs/libevm/common"
 	"github.com/holiman/uint256"
 	"github.com/stretchr/testify/require"
@@ -1811,6 +1814,125 @@ func TestNewExportTxMulticoin(t *testing.T) {
 			balanceMC := wrappedStateDB.GetBalanceMultiCoin(ethAddress, common.BytesToHash(tid[:]))
 			expectedBalanceMC := new(big.Int).SetUint64(test.balmc)
 			require.Equalf(t, expectedBalanceMC, balanceMC, "address multicoin balance %s equal %s not %s", ethAddress.String(), balanceMC, expectedBalanceMC)
+		})
+	}
+}
+
+// Flare-specific: locks in the eth-prefixed (EIP-191) signature acceptance in
+// semanticVerifier.ExportTx — the rules.IsBanff branch at
+// tx_semantic_verifier.go:284-292. The default Tx.Sign signs the plain
+// ComputeHash256(unsignedBytes); here we mirror that flow but instead sign
+// accounts.TextHash(hex(hash)) so the plain-hash recovery path miss-matches
+// and the eth-prefixed fallback must take over.
+func TestExportTxSemanticVerifyEthSignature(t *testing.T) {
+	fork := upgradetest.NoUpgrades
+	vm := newAtomicTestVM()
+	vmtest.SetupTestVM(t, vm, vmtest.TestVMConfig{
+		Fork: &fork,
+	})
+	defer func() {
+		require.NoError(t, vm.Shutdown(t.Context()))
+	}()
+
+	parent := vm.LastAcceptedExtendedBlock()
+
+	owner := vmtest.TestKeys[0]
+	ownerAddr := owner.Address()
+	ownerEthAddr := vmtest.TestEthAddrs[0]
+	otherSigner := vmtest.TestKeys[1]
+
+	avaxBalance := 10 * units.Avax
+
+	// Single-AVAX-asset export — under Banff, non-AVAX inputs/outputs are
+	// rejected by UnsignedExportTx.Verify (export_tx.go:115-130) so we cannot
+	// reuse the multi-asset fixture.
+	makeUTX := func() *atomic.UnsignedExportTx {
+		return &atomic.UnsignedExportTx{
+			NetworkID:        vm.Ctx.NetworkID,
+			BlockchainID:     vm.Ctx.ChainID,
+			DestinationChain: vm.Ctx.XChainID,
+			Ins: []atomic.EVMInput{{
+				Address: ownerEthAddr,
+				Amount:  avaxBalance,
+				AssetID: vm.Ctx.AVAXAssetID,
+				Nonce:   0,
+			}},
+			ExportedOutputs: []*avax.TransferableOutput{{
+				Asset: avax.Asset{ID: vm.Ctx.AVAXAssetID},
+				Out: &secp256k1fx.TransferOutput{
+					Amt: avaxBalance / 2,
+					OutputOwners: secp256k1fx.OutputOwners{
+						Threshold: 1,
+						Addrs:     []ids.ShortID{ownerAddr},
+					},
+				},
+			}},
+		}
+	}
+
+	// Sign tx with eth-prefixed digest. Mirrors atomic.Tx.Sign (atomic/tx.go:197)
+	// except the signed message is accounts.TextHash(hex(hash)) instead of hash.
+	signEth := func(t *testing.T, tx *atomic.Tx, signers [][]*secp256k1.PrivateKey) {
+		t.Helper()
+		unsignedBytes, err := atomic.Codec.Marshal(atomic.CodecVersion, &tx.UnsignedAtomicTx)
+		require.NoError(t, err)
+		hash := hashing.ComputeHash256(unsignedBytes)
+		ethHash := accounts.TextHash([]byte(hex.EncodeToString(hash)))
+		for _, keys := range signers {
+			cred := &secp256k1fx.Credential{
+				Sigs: make([][secp256k1.SignatureLen]byte, len(keys)),
+			}
+			for i, key := range keys {
+				sig, err := key.SignHash(ethHash)
+				require.NoError(t, err)
+				copy(cred.Sigs[i][:], sig)
+			}
+			tx.Creds = append(tx.Creds, cred)
+		}
+		signedBytes, err := atomic.Codec.Marshal(atomic.CodecVersion, tx)
+		require.NoError(t, err)
+		tx.Initialize(unsignedBytes, signedBytes)
+	}
+
+	tests := []struct {
+		name    string
+		signer  *secp256k1.PrivateKey
+		fork    upgradetest.Fork
+		wantErr error
+	}{
+		{
+			name:   "eth-style sig under Banff",
+			signer: owner,
+			fork:   upgradetest.Banff,
+		},
+		{
+			name:    "eth-style sig pre-Banff is rejected",
+			signer:  owner,
+			fork:    upgradetest.ApricotPhase3,
+			wantErr: errPublicKeySignatureMismatch,
+		},
+		{
+			name:    "eth-style sig from wrong signer under Banff",
+			signer:  otherSigner,
+			fork:    upgradetest.Banff,
+			wantErr: errPublicKeySignatureMismatch,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			utx := makeUTX()
+			tx := &atomic.Tx{UnsignedAtomicTx: utx}
+			signEth(t, tx, [][]*secp256k1.PrivateKey{{test.signer}})
+
+			rules := extrastest.ForkToRules(test.fork)
+			backend := NewVerifierBackend(vm, *rules)
+
+			err := backend.SemanticVerify(tx, parent, vmtest.InitialBaseFee)
+			if test.wantErr == nil {
+				require.NoError(t, err)
+			} else {
+				require.ErrorIs(t, err, test.wantErr)
+			}
 		})
 	}
 }

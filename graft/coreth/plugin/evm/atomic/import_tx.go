@@ -42,6 +42,7 @@ var (
 	ErrOutputsNotSorted                                = errors.New("tx outputs not sorted")
 	errNilBaseFeeApricotPhase3                         = errors.New("nil base fee is invalid after apricotPhase3")
 	errInsufficientFundsForFee                         = errors.New("insufficient AVAX funds to pay transaction fee")
+	errImportTxsDisabled                               = errors.New("import transactions are disabled")
 )
 
 // UnsignedImportTx is an unsigned ImportTx
@@ -84,6 +85,10 @@ func (utx *UnsignedImportTx) Verify(
 		return ErrWrongChainID
 	case rules.IsApricotPhase3 && len(utx.Outs) == 0:
 		return ErrNoEVMOutputs
+	}
+
+	if rules.IsSongbirdCode && !rules.IsSongbirdTransition {
+		return errImportTxsDisabled
 	}
 
 	// Make sure that the tx has a valid peer chain ID

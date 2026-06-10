@@ -136,6 +136,32 @@ func TestCheckCompatible(t *testing.T) {
 				RewindToTime: 0,
 			},
 		},
+		{
+			stored: WithExtra(
+				&ChainConfig{},
+				&extras.ChainConfig{
+					NetworkUpgrades: extras.NetworkUpgrades{
+						SongbirdTransitionTimestamp: utils.NewUint64(10),
+					},
+				},
+			),
+			new: WithExtra(
+				&ChainConfig{},
+				&extras.ChainConfig{
+					NetworkUpgrades: extras.NetworkUpgrades{
+						SongbirdTransitionTimestamp: utils.NewUint64(20),
+					},
+				},
+			),
+			headBlock:     0,
+			headTimestamp: 30,
+			wantErr: &ethparams.ConfigCompatError{
+				What:         "SongbirdTransition fork block timestamp",
+				StoredTime:   utils.NewUint64(10),
+				NewTime:      utils.NewUint64(20),
+				RewindToTime: 9,
+			},
+		},
 	}
 
 	for _, test := range tests {

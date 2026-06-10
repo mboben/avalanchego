@@ -287,6 +287,12 @@ func (m *Mempool) addTx(tx *atomic.Tx, local bool, force bool) error {
 		for _, currentTx := range m.currentTxs {
 			m.bloom.Add(currentTx)
 		}
+		// Issued transactions must also be re-added: they count toward
+		// m.length() (and thus the reset threshold) and peers rely on the
+		// advertised bloom to avoid re-gossiping them back to us.
+		for _, issuedTx := range m.issuedTxs {
+			m.bloom.Add(issuedTx)
+		}
 	}
 
 	// When adding a transaction to the mempool, we make sure that there is an

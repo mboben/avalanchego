@@ -7,6 +7,8 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ava-labs/avalanchego/snow"
+	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/avalanchego/vms/components/gas"
 	"github.com/ava-labs/avalanchego/vms/evm/acp176"
 	"github.com/ava-labs/libevm/common"
@@ -19,6 +21,7 @@ import (
 	"github.com/ava-labs/coreth/plugin/evm/upgrade/ap4"
 	"github.com/ava-labs/coreth/plugin/evm/upgrade/ap5"
 	"github.com/ava-labs/coreth/plugin/evm/upgrade/etna"
+	"github.com/ava-labs/coreth/plugin/evm/upgrade/granite"
 	"github.com/ava-labs/coreth/utils"
 )
 
@@ -606,4 +609,55 @@ func TestEstimateNextBaseFee(t *testing.T) {
 			require.Equal(test.want, got)
 		})
 	}
+}
+
+// TestBaseFee_GraniteFlareFamilyFloor verifies that on Flare-family networks
+// the post-Granite base fee uses the 500 GWei floor
+func TestBaseFee_GraniteFlareFamilyFloor(t *testing.T) {
+	tests := []struct {
+		name      string
+		networkID uint32
+		want      *big.Int
+	}{
+		{name: "flare", networkID: constants.FlareID, want: big.NewInt(granite.MinGasPrice)},
+		{name: "songbird", networkID: constants.SongbirdID, want: big.NewInt(granite.MinGasPrice)},
+		{name: "costwo", networkID: constants.CostwoID, want: big.NewInt(granite.MinGasPrice)},
+		{name: "coston", networkID: constants.CostonID, want: big.NewInt(granite.MinGasPrice)},
+		{name: "localflare", networkID: constants.LocalFlareID, want: big.NewInt(granite.MinGasPrice)},
+		{name: "local", networkID: constants.LocalID, want: big.NewInt(granite.MinGasPrice)},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			require := require.New(t)
+			config := &extras.ChainConfig{
+				NetworkUpgrades: extras.TestGraniteChainConfig.NetworkUpgrades,
+				AvalancheContext: extras.AvalancheContext{
+					SnowCtx: &snow.Context{NetworkID: test.networkID},
+				},
+			}
+			parent := &types.Header{
+				Number: big.NewInt(0),
+			}
+			got, err := BaseFee(config, parent, 0)
+			require.NoError(err)
+			require.Equal(test.want, got)
+		})
+	}
+}
+
+// TestBaseFee_FortunaUnaffectedOnFlare verifies that pre-Granite (Fortuna)
+func TestBaseFee_FortunaUnaffectedOnFlare(t *testing.T) {
+	require := require.New(t)
+	config := &extras.ChainConfig{
+		NetworkUpgrades: extras.TestFortunaChainConfig.NetworkUpgrades,
+		AvalancheContext: extras.AvalancheContext{
+			SnowCtx: &snow.Context{NetworkID: constants.FlareID},
+		},
+	}
+	parent := &types.Header{
+		Number: big.NewInt(0),
+	}
+	got, err := BaseFee(config, parent, 0)
+	require.NoError(err)
+	require.Equal(big.NewInt(acp176.MinGasPrice), got)
 }

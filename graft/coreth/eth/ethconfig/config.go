@@ -28,6 +28,8 @@
 package ethconfig
 
 import (
+	"os"
+	"strconv"
 	"time"
 
 	"github.com/ava-labs/coreth/core"
@@ -52,8 +54,31 @@ var DefaultFullGPOConfig = gasprice.Config{
 	MinGasUsed:          gasprice.DefaultMinGasUsed,
 }
 
+var DefaultFullGPOSgbConfig = gasprice.Config{
+	Blocks:              40,
+	Percentile:          60,
+	MaxLookbackSeconds:  gasprice.DefaultMaxLookbackSeconds,
+	MaxCallBlockHistory: gasprice.DefaultMaxCallBlockHistory,
+	MaxBlockHistory:     gasprice.DefaultMaxBlockHistory,
+	MinPrice:            gasprice.DefaultMinPrice,
+	MaxPrice:            gasprice.DefaultMaxPrice,
+	MinGasUsed:          gasprice.SgbDefaultMinGasUsed,
+}
+
 // DefaultConfig contains default settings for use on the Avalanche main net.
 var DefaultConfig = NewDefaultConfig()
+
+func init() {
+	// Set the gas price percentile from the environment variable "GAS_PRICE_PERCENTILE"
+	if gasPricePercentileStr := os.Getenv("GAS_PRICE_PERCENTILE"); gasPricePercentileStr != "" {
+		gasPricePercentile, err := strconv.Atoi(gasPricePercentileStr)
+		if err != nil || gasPricePercentile < 0 || gasPricePercentile > 100 {
+			panic("GAS_PRICE_PERCENTILE must be a value between 0 and 100")
+		}
+		DefaultFullGPOConfig.Percentile = gasPricePercentile
+		DefaultFullGPOSgbConfig.Percentile = gasPricePercentile
+	}
+}
 
 func NewDefaultConfig() Config {
 	return Config{
@@ -72,6 +97,24 @@ func NewDefaultConfig() Config {
 		RPCEVMTimeout:             5 * time.Second,
 		GPO:                       DefaultFullGPOConfig,
 		RPCTxFeeCap:               1, // 1 AVAX
+	}
+}
+
+func NewDefaultSgbConfig() Config {
+	return Config{
+		NetworkId:             1,
+		TrieCleanCache:        512,
+		TrieDirtyCache:        256,
+		TrieDirtyCommitTarget: 20,
+		SnapshotCache:         256,
+		AcceptedCacheSize:     32,
+		Miner:                 miner.Config{},
+		TxPool:                legacypool.DefaultConfig,
+		BlobPool:              blobpool.DefaultConfig,
+		RPCGasCap:             25000000,
+		RPCEVMTimeout:         5 * time.Second,
+		GPO:                   DefaultFullGPOSgbConfig,
+		RPCTxFeeCap:           1, // 1 AVAX
 	}
 }
 

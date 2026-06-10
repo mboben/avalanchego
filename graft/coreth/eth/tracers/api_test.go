@@ -267,7 +267,8 @@ func testTraceCall(t *testing.T, scheme string) {
 			Value:    big.NewInt(1000),
 			Gas:      ethparams.TxGas,
 			GasPrice: b.BaseFee(),
-			Data:     nil}),
+			Data:     nil,
+		}),
 			signer, accounts[0].key)
 		b.AddTx(tx)
 		nonce++
@@ -280,7 +281,8 @@ func testTraceCall(t *testing.T, scheme string) {
 				Value:    big.NewInt(1000),
 				Gas:      ethparams.TxGas,
 				GasPrice: b.BaseFee(),
-				Data:     nil}),
+				Data:     nil,
+			}),
 				signer, accounts[0].key)
 			b.AddTx(tx)
 			nonce++
@@ -292,7 +294,8 @@ func testTraceCall(t *testing.T, scheme string) {
 				Value:    big.NewInt(1000),
 				Gas:      ethparams.TxGas,
 				GasPrice: b.BaseFee(),
-				Data:     nil}),
+				Data:     nil,
+			}),
 				signer, accounts[0].key)
 			b.AddTx(tx)
 			nonce++
@@ -303,7 +306,7 @@ func testTraceCall(t *testing.T, scheme string) {
 
 	defer backend.teardown()
 	api := NewAPI(backend)
-	var testSuite = []struct {
+	testSuite := []struct {
 		blockNumber rpc.BlockNumber
 		call        ethapi.TransactionArgs
 		config      *TraceCallConfig
@@ -389,7 +392,7 @@ func testTraceCall(t *testing.T, scheme string) {
 			},
 			config:    nil,
 			expectErr: fmt.Errorf("block #%d not found", genBlocks+1),
-			//expect:    nil,
+			// expect:    nil,
 		},
 		// Standard JSON trace upon the latest block
 		{
@@ -490,7 +493,8 @@ func testTraceTransaction(t *testing.T, scheme string) {
 			Value:    big.NewInt(1000),
 			Gas:      ethparams.TxGas,
 			GasPrice: new(big.Int).Add(b.BaseFee(), big.NewInt(int64(500*params.GWei))),
-			Data:     nil}),
+			Data:     nil,
+		}),
 			signer, accounts[0].key)
 		b.AddTx(tx)
 		target = tx.Hash()
@@ -555,7 +559,8 @@ func testTraceBlock(t *testing.T, scheme string) {
 			Value:    big.NewInt(1000),
 			Gas:      ethparams.TxGas,
 			GasPrice: b.BaseFee(),
-			Data:     nil}),
+			Data:     nil,
+		}),
 			signer, accounts[0].key)
 		b.AddTx(tx)
 		txHash = tx.Hash()
@@ -563,7 +568,7 @@ func testTraceBlock(t *testing.T, scheme string) {
 	defer backend.chain.Stop()
 	api := NewAPI(backend)
 
-	var testSuite = []struct {
+	testSuite := []struct {
 		blockNumber rpc.BlockNumber
 		config      *TraceConfig
 		want        string
@@ -660,7 +665,8 @@ func testTracingWithOverrides(t *testing.T, scheme string) {
 			Value:    big.NewInt(1000),
 			Gas:      ethparams.TxGas,
 			GasPrice: b.BaseFee(),
-			Data:     nil}),
+			Data:     nil,
+		}),
 			signer, accounts[0].key)
 		b.AddTx(tx)
 	})
@@ -672,7 +678,7 @@ func testTracingWithOverrides(t *testing.T, scheme string) {
 		Failed      bool
 		ReturnValue string
 	}
-	var testSuite = []struct {
+	testSuite := []struct {
 		blockNumber rpc.BlockNumber
 		call        ethapi.TransactionArgs
 		config      *TraceCallConfig
@@ -729,7 +735,7 @@ func testTracingWithOverrides(t *testing.T, scheme string) {
 				Data: newRPCBytes(common.Hex2Bytes("8381f58a")), // call number()
 			},
 			config: &TraceCallConfig{
-				//Tracer: &tracer,
+				// Tracer: &tracer,
 				StateOverrides: &ethapi.StateOverride{
 					randomAccounts[2].addr: ethapi.OverrideAccount{
 						Code:      newRPCBytes(common.Hex2Bytes("6080604052348015600f57600080fd5b506004361060285760003560e01c80638381f58a14602d575b600080fd5b60336049565b6040518082815260200191505060405180910390f35b6000548156fea2646970667358221220eab35ffa6ab2adfe380772a48b8ba78e82a1b820a18fcb6f59aa4efb20a5f60064736f6c63430007040033")),
@@ -821,7 +827,7 @@ func testTracingWithOverrides(t *testing.T, scheme string) {
 					},
 				},
 			},
-			//want: `{"gas":46900,"failed":false,"returnValue":"0000000000000000000000000000000000000000000000000000000000000539"}`,
+			// want: `{"gas":46900,"failed":false,"returnValue":"0000000000000000000000000000000000000000000000000000000000000539"}`,
 			want: `{"gas":44100,"failed":false,"returnValue":"0000000000000000000000000000000000000000000000000000000000000001"}`,
 		},
 		{ // No state override
@@ -1061,7 +1067,7 @@ func testTraceChain(t *testing.T, scheme string) {
 	api := NewAPI(backend)
 
 	single := `{"txHash":"0x0000000000000000000000000000000000000000000000000000000000000000","result":{"gas":21000,"failed":false,"returnValue":"","structLogs":[]}}`
-	var cases = []struct {
+	cases := []struct {
 		start  uint64
 		end    uint64
 		config *TraceConfig

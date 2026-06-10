@@ -45,11 +45,12 @@ func feeStateBeforeBlock(
 		}
 	}
 
+	params := config.ACP176Params(timestamp)
 	switch {
 	case config.IsGranite(timestamp):
-		state.AdvanceMilliseconds(timeMS - parentMS)
+		state.AdvanceMillisecondsWith(params, timeMS-parentMS)
 	case config.IsFortuna(timestamp):
-		state.AdvanceSeconds(timestamp - parent.Time)
+		state.AdvanceSecondsWith(params, timestamp-parent.Time)
 	}
 	return state, nil
 }
@@ -78,7 +79,8 @@ func feeStateAfterBlock(
 	// If the desired target excess is specified, move the target excess as much
 	// as possible toward that desired value.
 	if desiredTargetExcess != nil {
-		state.UpdateTargetExcess(*desiredTargetExcess)
+		params := config.ACP176Params(timeMS / 1000)
+		state.UpdateTargetExcessWith(params, *desiredTargetExcess)
 	}
 	return state, nil
 }

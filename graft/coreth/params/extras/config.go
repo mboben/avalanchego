@@ -9,8 +9,11 @@ import (
 	"math/big"
 
 	"github.com/ava-labs/avalanchego/snow"
+	"github.com/ava-labs/avalanchego/utils/constants"
+	"github.com/ava-labs/avalanchego/vms/evm/acp176"
 	"github.com/ava-labs/libevm/common"
 
+	"github.com/ava-labs/coreth/plugin/evm/upgrade/granite"
 	"github.com/ava-labs/coreth/utils"
 
 	ethparams "github.com/ava-labs/libevm/params"
@@ -286,6 +289,36 @@ func (c *ChainConfig) Verify() error {
 func (c *ChainConfig) IsPrecompileEnabled(address common.Address, timestamp uint64) bool {
 	config := c.GetActivePrecompileConfig(address, timestamp)
 	return config != nil && !config.IsDisabled()
+}
+
+// IsSongbirdCode returns true if this is a Songbird-related network (Songbird, Coston, or Local).
+// This is determined by the network ID from the Avalanche context.
+func (c *ChainConfig) IsSongbirdCode() bool {
+	if c == nil || c.SnowCtx == nil {
+		return false
+	}
+	networkID := c.SnowCtx.NetworkID
+	return networkID == constants.SongbirdID || networkID == constants.CostonID || networkID == constants.LocalID
+}
+
+// IsFlareFamilyCode returns true if this is any Flare- or Songbird-family
+// network (Flare, Costwo, LocalFlare, Songbird, Coston, Local).
+func (c *ChainConfig) IsFlareFamilyCode() bool {
+	if c == nil || c.SnowCtx == nil {
+		return false
+	}
+	id := c.SnowCtx.NetworkID
+	return constants.IsFlareNetworkID(id) || constants.IsSgbNetworkID(id)
+}
+
+// ACP176Params returns the ACP-176 parameter set that applies at the given
+// block timestamp. On Flare-family networks past Granite, this is the
+// Granite parameter set; otherwise the default acp176 parameters apply.
+func (c *ChainConfig) ACP176Params(timestamp uint64) *acp176.Params {
+	if c.IsGranite(timestamp) && c.IsFlareFamilyCode() {
+		return granite.DefaultParams
+	}
+	return acp176.DefaultParams
 }
 
 // IsForkTransition returns true if `fork` activates during the transition from

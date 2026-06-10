@@ -117,6 +117,7 @@ Configuration is provided as a JSON object. All fields are optional unless other
 | `allow-unprotected-txs` | bool | Allow unprotected transactions (without EIP-155) | `false` |
 | `allow-unprotected-tx-hashes` | \[\]TxHash | Specifies an array of transaction hashes that should be allowed to bypass replay protection. This flag is intended for node operators that want to explicitly allow specific transactions to be issued through their API. | an empty list |
 | `local-txs-enabled` | bool | Enable treatment of transactions from local accounts as local | `false` |
+| `wait-for-gas-capacity-refill` | bool | Wait before post-Fortuna block production until the ACP-176 gas-capacity bucket reaches the minimum buildable capacity (`min(4 * target gas per second, 12M gas)`). Set to `false` to build regardless of bucket state. | `true` |
 
 ### Snapshots
 

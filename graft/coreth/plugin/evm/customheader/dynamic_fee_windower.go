@@ -59,7 +59,11 @@ func baseFeeFromWindow(config *extras.ChainConfig, parent *types.Header, timesta
 	)
 	if isApricotPhase5 {
 		baseFeeChangeDenominator = ap5BaseFeeChangeDenominator
-		parentGasTarget = ap5.TargetGas
+		if config.IsSongbirdCode() && !config.IsCortina(timestamp) {
+			parentGasTarget = ap5.SgbTargetGas
+		} else {
+			parentGasTarget = ap5.TargetGas
+		}
 	}
 
 	// Calculate the amount of gas consumed within the rollup window.
@@ -193,6 +197,7 @@ func feeWindow(
 		// behavior is kept to preserve the original behavior of this function.
 		parentExtra := customtypes.GetHeaderExtra(parent)
 		blockGasCost = BlockGasCostWithStep(
+			config.IsSongbirdCode(),
 			parentExtra.BlockGasCost,
 			ap4.BlockGasCostStep,
 			timeElapsed,

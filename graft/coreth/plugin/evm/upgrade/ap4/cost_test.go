@@ -67,6 +67,7 @@ func TestBlockGasCost(t *testing.T) {
 				t,
 				test.want,
 				BlockGasCost(
+					false,
 					test.parentCost,
 					test.step,
 					test.timeElapsed,

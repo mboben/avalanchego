@@ -39,7 +39,7 @@ func NewDefaultConfig() Config {
 		StateSyncCommitInterval:   defaultCommitInterval * 4,
 		SnapshotWait:              false,
 		RPCGasCap:                 50_000_000, // 50M Gas Limit
-		RPCTxFeeCap:               100,        // 100 AVAX
+		RPCTxFeeCap:               1_000,      // 1000 AVAX
 		MetricsExpensiveEnabled:   true,
 		// Default to no maximum API call duration
 		APIMaxDuration: timeToDuration(0),
@@ -95,6 +95,10 @@ func NewDefaultConfig() Config {
 		// RPC settings
 		BatchRequestLimit:    1000,
 		BatchResponseMaxSize: 25 * 1000 * 1000, // 25MB
+		// Enable this if you want all miners to wait for the min gas capacity to refill before building a block.
+		// True is in sync with Avalanche's default behavior; false means the miner will build a block regardless of
+		// the bucket state (default behavior of v1.13.0)
+		WaitForGasCapacityRefill: true,
 	}
 }
 

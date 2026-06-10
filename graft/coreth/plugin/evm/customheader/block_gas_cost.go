@@ -52,6 +52,7 @@ func BlockGasCost(
 		timeElapsed = timestamp - parent.Time
 	}
 	return new(big.Int).SetUint64(BlockGasCostWithStep(
+		config.IsSongbirdCode(),
 		customtypes.GetHeaderExtra(parent).BlockGasCost,
 		step,
 		timeElapsed,
@@ -64,6 +65,7 @@ func BlockGasCost(
 // This is a helper function that allows the caller to manually specify the step
 // value to use.
 func BlockGasCostWithStep(
+	isSongbirdCode bool,
 	parentCost *big.Int,
 	step uint64,
 	timeElapsed uint64,
@@ -76,6 +78,7 @@ func BlockGasCostWithStep(
 	// [ap4.MaxBlockGasCost] is <= MaxUint64, so we know that parentCost is
 	// always going to be a valid uint64.
 	return ap4.BlockGasCost(
+		isSongbirdCode,
 		parentCost.Uint64(),
 		step,
 		timeElapsed,

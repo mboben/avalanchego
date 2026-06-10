@@ -16,12 +16,25 @@ import (
 	"github.com/ava-labs/coreth/plugin/evm/upgrade/ap1"
 	"github.com/ava-labs/coreth/plugin/evm/upgrade/ap5"
 	"github.com/ava-labs/coreth/plugin/evm/upgrade/cortina"
+	"github.com/ava-labs/coreth/plugin/evm/upgrade/sgbt"
 )
 
 var (
 	errInvalidExtraDataGasUsed = errors.New("invalid extra data gas used")
 	errInvalidGasUsed          = errors.New("invalid gas used")
 	errInvalidGasLimit         = errors.New("invalid gas limit")
+)
+
+const (
+	// minimumBuildableCapacityTargetMultiplier scales the per-second gas target
+	// into the minimum accrued capacity the builder waits for before producing
+	// a post-Fortuna block. It MUST stay <= TargetToMax * TimeToFillCapacity
+	// (currently 2 * 4 = 8); otherwise this threshold could exceed the maximum
+	// accrued capacity and stall the builder indefinitely.
+	minimumBuildableCapacityTargetMultiplier uint64 = 4
+	// maxMinimumBuildableCapacity caps the wait threshold so it does not scale
+	// up without bound as the target grows.
+	maxMinimumBuildableCapacity uint64 = 12_000_000
 )
 
 // GasLimit takes the previous header and the timestamp of its child block and
@@ -42,9 +55,18 @@ func GasLimit(
 		// capacity, to minimize the differences with upstream geth. During
 		// block building and gas usage calculations, the gas limit is checked
 		// against the current capacity.
-		return uint64(state.MaxCapacity()), nil
+		return uint64(state.MaxCapacityWith(config.ACP176Params(timestamp))), nil
 	case config.IsCortina(timestamp):
 		return cortina.GasLimit, nil
+	case config.IsSongbirdCode():
+		// Songbird had multiple gas limit changes between AP1 and Cortina
+		switch {
+		case config.IsSongbirdTransition(timestamp):
+			return sgbt.GasLimit, nil
+		case config.IsApricotPhase5(timestamp):
+			return ap5.SgbGasLimit, nil
+		}
+		fallthrough
 	case config.IsApricotPhase1(timestamp):
 		return ap1.GasLimit, nil
 	default:
@@ -110,7 +132,7 @@ func VerifyGasLimit(
 		if err != nil {
 			return fmt.Errorf("calculating initial fee state: %w", err)
 		}
-		maxCapacity := state.MaxCapacity()
+		maxCapacity := state.MaxCapacityWith(config.ACP176Params(header.Time))
 		if header.GasLimit != uint64(maxCapacity) {
 			return fmt.Errorf("%w: have %d, want %d",
 				errInvalidGasLimit,
@@ -126,6 +148,29 @@ func VerifyGasLimit(
 				header.GasLimit,
 			)
 		}
+	case config.IsSongbirdCode():
+		// Songbird had multiple gas limit changes between AP1 and Cortina
+		switch {
+		case config.IsSongbirdTransition(header.Time):
+			if header.GasLimit != sgbt.GasLimit {
+				return fmt.Errorf("%w: expected to be %d in SgbTransition, but found %d",
+					errInvalidGasLimit,
+					sgbt.GasLimit,
+					header.GasLimit,
+				)
+			}
+			return nil
+		case config.IsApricotPhase5(header.Time):
+			if header.GasLimit != ap5.SgbGasLimit {
+				return fmt.Errorf("%w: expected to be %d in ApricotPhase5 on Songbird, but found %d",
+					errInvalidGasLimit,
+					ap5.SgbGasLimit,
+					header.GasLimit,
+				)
+			}
+			return nil
+		}
+		fallthrough
 	case config.IsApricotPhase1(header.Time):
 		if header.GasLimit != ap1.GasLimit {
 			return fmt.Errorf("%w: expected to be %d in ApricotPhase1, but found %d",
@@ -177,6 +222,27 @@ func GasCapacity(
 		return 0, fmt.Errorf("calculating initial fee state: %w", err)
 	}
 	return uint64(state.Gas.Capacity), nil
+}
+
+// MinimumBuildableGasCapacity returns the gas capacity the local block builder
+// waits for before producing a post-Fortuna block when capacity refill waiting
+// is enabled.
+func MinimumBuildableGasCapacity(
+	config *extras.ChainConfig,
+	parent *types.Header,
+	timeMS uint64,
+) (uint64, error) {
+	timestamp := timeMS / 1000
+	state, err := feeStateBeforeBlock(config, parent, timeMS)
+	if err != nil {
+		return 0, fmt.Errorf("calculating initial fee state: %w", err)
+	}
+
+	target := uint64(state.TargetWith(config.ACP176Params(timestamp)))
+	if target >= maxMinimumBuildableCapacity/minimumBuildableCapacityTargetMultiplier {
+		return maxMinimumBuildableCapacity, nil
+	}
+	return target * minimumBuildableCapacityTargetMultiplier, nil
 }
 
 // RemainingAtomicGasCapacity returns the maximum amount ExtDataGasUsed could be

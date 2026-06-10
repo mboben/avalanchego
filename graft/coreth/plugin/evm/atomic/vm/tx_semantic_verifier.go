@@ -5,6 +5,7 @@ package vm
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
@@ -12,9 +13,11 @@ import (
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/snow"
 	"github.com/ava-labs/avalanchego/utils/crypto/secp256k1"
+	"github.com/ava-labs/avalanchego/utils/hashing"
 	"github.com/ava-labs/avalanchego/utils/set"
 	"github.com/ava-labs/avalanchego/vms/components/avax"
 	"github.com/ava-labs/avalanchego/vms/secp256k1fx"
+	"github.com/ava-labs/libevm/accounts"
 
 	"github.com/ava-labs/coreth/params/extras"
 	"github.com/ava-labs/coreth/plugin/evm/atomic"
@@ -248,6 +251,9 @@ func (s *semanticVerifier) ExportTx(utx *atomic.UnsignedExportTx) error {
 		return fmt.Errorf("export tx contained %w want %d got %d", errIncorrectNumCredentials, len(utx.Ins), len(stx.Creds))
 	}
 
+	txHash := hashing.ComputeHash256(utx.Bytes())
+	txHashStr := hex.EncodeToString(txHash)
+	txHashEth := accounts.TextHash([]byte(txHashStr))
 	for i, input := range utx.Ins {
 		cred, ok := stx.Creds[i].(*secp256k1fx.Credential)
 		if !ok {
@@ -260,13 +266,32 @@ func (s *semanticVerifier) ExportTx(utx *atomic.UnsignedExportTx) error {
 		if len(cred.Sigs) != 1 {
 			return fmt.Errorf("%w want 1 signature for EVM Input Credential, but got %d", errIncorrectNumSignatures, len(cred.Sigs))
 		}
-		pubKey, err := s.backend.SecpCache.RecoverPublicKey(utx.Bytes(), cred.Sigs[0][:])
+
+		sig := cred.Sigs[0][:]
+		pubKey, err := backend.SecpCache.RecoverPublicKeyFromHash(txHash, sig)
 		if err != nil {
 			return err
 		}
-		if input.Address != pubKey.EthAddress() {
-			return errPublicKeySignatureMismatch
+
+		// Verify the address recovered from the signature of the transaction hash without a prefix
+		// (Standard Avalanche approach, but unsupported/deprecated by most signing tools)
+		if input.Address == pubKey.EthAddress() {
+			continue
 		}
+
+		// Verify the address recovered from the signature of the transaction hash with the
+		// standard Ethereum prefix (see accounts.TextHash)
+		if rules.IsBanff {
+			pubKey, err := backend.SecpCache.RecoverPublicKeyFromHash(txHashEth, sig)
+			if err != nil {
+				return err
+			}
+			if input.Address == pubKey.EthAddress() {
+				continue
+			}
+		}
+
+		return errPublicKeySignatureMismatch
 	}
 
 	return nil

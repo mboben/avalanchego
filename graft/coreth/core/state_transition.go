@@ -28,6 +28,8 @@
 package core
 
 import (
+	"bytes"
+	"encoding/binary"
 	"fmt"
 	"math"
 	"math/big"
@@ -78,6 +80,30 @@ func (result *ExecutionResult) Revert() []byte {
 		return nil
 	}
 	return common.CopyBytes(result.ReturnData)
+}
+
+func (st *StateTransition) DaemonCall(caller vm.ContractRef, addr common.Address, input []byte, gas uint64) (snapshot int, ret []byte, leftOverGas uint64, err error) {
+	return DaemonCall(st.evm, caller, addr, input, gas)
+}
+
+func (st *StateTransition) DaemonRevertToSnapshot(snapshot int) {
+	st.evm.StateDB.RevertToSnapshot(snapshot)
+}
+
+func (st *StateTransition) GetChainID() *big.Int {
+	return st.evm.ChainConfig().ChainID
+}
+
+func (st *StateTransition) GetBlockTime() uint64 {
+	return st.evm.Context.Time
+}
+
+func (st *StateTransition) GetGasLimit() uint64 {
+	return st.evm.Context.GasLimit
+}
+
+func (st *StateTransition) AddBalance(addr common.Address, amount *uint256.Int) {
+	st.state.AddBalance(addr, amount)
 }
 
 // IntrinsicGas computes the 'intrinsic gas' for a message with the given data.
@@ -487,24 +513,63 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 	snap := st.state.Snapshot() // store in case execution invalidated
 
 	var (
-		ret   []byte
-		vmerr error // vm errors do not effect consensus and are therefore not assigned to err
+		ret       []byte
+		vmerr     error // vm errors do not affect consensus and are therefore not assigned to err
+		chainID   *big.Int
+		timestamp uint64
 	)
+
+	chainID = st.evm.ChainConfig().ChainID
+	timestamp = st.evm.Context.Time
+
+	burnAddress, nominalGasPrice, isFlare, isSongbird, err := stateTransitionVariants.GetValue(chainID)(st)
+	if err != nil {
+		return nil, err
+	}
+
 	if contractCreation {
 		ret, _, st.gasRemaining, vmerr = st.evm.Create(sender, msg.Data, st.gasRemaining, value)
 	} else {
 		// Increment the nonce for the next transaction
 		st.state.SetNonce(msg.From, st.state.GetNonce(sender.Address())+1)
 		ret, st.gasRemaining, vmerr = st.evm.Call(sender, st.to(), msg.Data, st.gasRemaining, value)
+		if vmerr == nil && chainID != nil {
+			if isSongbird { // Songbird, Coston, Local (Songbird)
+				handleSongbirdTransitionDbContracts(st, rulesExtra.IsDurango, chainID, timestamp, msg, ret)
+			} else if isFlare { // Flare, Coston2, Local (Flare)
+				handleFlareTransitionDbContracts(st, rulesExtra.IsDurango, chainID, timestamp, msg, ret)
+			}
+		}
 	}
 	price, overflow := uint256.FromBig(msg.GasPrice)
 	if overflow {
 		return nil, ErrGasUintOverflow
 	}
 	gasRefund := st.refundGas(rulesExtra.IsApricotPhase1)
-	fee := new(uint256.Int).SetUint64(st.gasUsed())
-	fee.Mul(fee, price)
-	st.state.AddBalance(st.evm.Context.Coinbase, fee)
+
+	if vmerr == nil && IsPrioritisedContractCall(chainID, timestamp, msg.To, msg.Data, ret, st.initialGas) {
+		nominalGasUsed := ethparams.TxGas // 21000
+		nominalFee := new(uint256.Int).Mul(uint256.NewInt(nominalGasUsed), uint256.NewInt(nominalGasPrice))
+		actualGasUsed := st.gasUsed()
+		actualFee := new(uint256.Int).Mul(uint256.NewInt(actualGasUsed), price)
+		if actualFee.Cmp(nominalFee) > 0 {
+			feeRefund := new(uint256.Int).Sub(actualFee, nominalFee)
+			st.state.AddBalance(st.msg.From, feeRefund)
+			st.state.AddBalance(burnAddress, nominalFee)
+		} else {
+			st.state.AddBalance(burnAddress, actualFee)
+		}
+	} else {
+		fee := new(uint256.Int).SetUint64(st.gasUsed())
+		fee.Mul(fee, price)
+		st.state.AddBalance(burnAddress, fee)
+	}
+
+	// Call the daemon if there is no vm error
+	if vmerr == nil && (isSongbird || isFlare) {
+		log := log.Root()
+		atomicDaemonAndMint(st, log)
+	}
 
 	if err := st.evm.ExecutionInvalidated(); err != nil {
 		log.Warn(
@@ -523,6 +588,54 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 		Err:         vmerr,
 		ReturnData:  ret,
 	}, nil
+}
+
+func handleSongbirdTransitionDbContracts(st *StateTransition, isDurango bool, chainID *big.Int, timestamp uint64, msg *Message, ret []byte) {
+	if GetStateConnectorIsActivatedAndCalled(isDurango, chainID, timestamp, *msg.To) &&
+		len(msg.Data) >= 36 && len(ret) == 32 &&
+		bytes.Equal(msg.Data[0:4], SubmitAttestationSelector(chainID, timestamp)) &&
+		binary.BigEndian.Uint64(ret[24:32]) > 0 {
+		if err := st.FinalisePreviousRound(chainID, timestamp, msg.Data[4:36]); err != nil {
+			log.Warn("Error finalising state connector round", "error", err)
+		}
+	}
+}
+
+func handleFlareTransitionDbContracts(st *StateTransition, isDurango bool, chainID *big.Int, timestamp uint64, msg *Message, ret []byte) {
+	if st.evm.Context.Coinbase != common.HexToAddress("0x0100000000000000000000000000000000000000") {
+		return
+	}
+
+	if GetStateConnectorIsActivatedAndCalled(isDurango, chainID, timestamp, *msg.To) &&
+		len(msg.Data) >= 36 && len(ret) == 32 &&
+		bytes.Equal(msg.Data[0:4], SubmitAttestationSelector(chainID, timestamp)) &&
+		binary.BigEndian.Uint64(ret[24:32]) > 0 {
+		if err := st.FinalisePreviousRound(chainID, timestamp, msg.Data[4:36]); err != nil {
+			log.Warn("Error finalising state connector round", "error", err)
+		}
+	} else if GetGovernanceSettingIsActivatedAndCalled(chainID, timestamp, *msg.To) && len(msg.Data) == 36 {
+		if bytes.Equal(msg.Data[0:4], SetGovernanceAddressSelector(chainID, timestamp)) {
+			if err := st.SetGovernanceAddress(chainID, timestamp, msg.Data[4:36]); err != nil {
+				log.Warn("Error setting governance address", "error", err)
+			}
+		} else if bytes.Equal(msg.Data[0:4], SetTimelockSelector(chainID, timestamp)) {
+			if err := st.SetTimelock(chainID, timestamp, msg.Data[4:36]); err != nil {
+				log.Warn("Error setting governance timelock", "error", err)
+			}
+		}
+	} else if GetInitialAirdropChangeIsActivatedAndCalled(chainID, timestamp, *msg.To) && len(msg.Data) == 4 {
+		if bytes.Equal(msg.Data[0:4], UpdateInitialAirdropAddressSelector(chainID, timestamp)) {
+			if err := st.UpdateInitialAirdropAddress(chainID, timestamp); err != nil {
+				log.Warn("Error updating initialAirdrop contract", "error", err)
+			}
+		}
+	} else if GetDistributionChangeIsActivatedAndCalled(chainID, timestamp, *msg.To) && len(msg.Data) == 4 {
+		if bytes.Equal(msg.Data[0:4], UpdateDistributionAddressSelector(chainID, timestamp)) {
+			if err := st.UpdateDistributionAddress(chainID, timestamp); err != nil {
+				log.Warn("Error updating distribution contract", "error", err)
+			}
+		}
+	}
 }
 
 func (st *StateTransition) refundGas(apricotPhase1 bool) uint64 {
@@ -551,6 +664,9 @@ func (st *StateTransition) refundGas(apricotPhase1 bool) uint64 {
 
 // gasUsed returns the amount of gas used up by the state transition.
 func (st *StateTransition) gasUsed() uint64 {
+	if st.initialGas < st.gasRemaining {
+		return uint64(0)
+	}
 	return st.initialGas - st.gasRemaining
 }
 

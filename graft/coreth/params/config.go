@@ -28,6 +28,7 @@
 package params
 
 import (
+	"errors"
 	"math/big"
 
 	"github.com/ava-labs/coreth/params/extras"
@@ -44,6 +45,16 @@ var (
 	AvalancheFujiChainID = big.NewInt(43113)
 	// AvalancheLocalChainID ...
 	AvalancheLocalChainID = big.NewInt(43112)
+
+	// Flare Chain IDs.
+	FlareChainID      = big.NewInt(14)  // https://github.com/ethereum-lists/chains/blob/master/_data/chains/eip155-14.json
+	CostonChainID     = big.NewInt(16)  // https://github.com/ethereum-lists/chains/blob/master/_data/chains/eip155-16.json
+	SongbirdChainID   = big.NewInt(19)  // https://github.com/ethereum-lists/chains/blob/master/_data/chains/eip155-19.json
+	CostwoChainID     = big.NewInt(114) // TO-DO: Register with https://github.com/ethereum-lists
+	LocalFlareChainID = big.NewInt(162)
+	LocalChainID      = big.NewInt(4294967295)
+
+	errNonGenesisForkByHeight = errors.New("coreth only supports forking by height at the genesis block")
 )
 
 func init() {
@@ -57,6 +68,7 @@ func init() {
 
 var (
 	TestChainConfig,
+	TestFlareChainConfig,
 	TestLaunchConfig,
 	TestApricotPhase1Config,
 	TestApricotPhase2Config,
@@ -83,6 +95,28 @@ func initialiseChainConfigs() {
 	TestChainConfig = WithExtra(
 		&ChainConfig{
 			ChainID:             big.NewInt(1),
+			HomesteadBlock:      big.NewInt(0),
+			DAOForkBlock:        big.NewInt(0),
+			DAOForkSupport:      true,
+			EIP150Block:         big.NewInt(0),
+			EIP155Block:         big.NewInt(0),
+			EIP158Block:         big.NewInt(0),
+			ByzantiumBlock:      big.NewInt(0),
+			ConstantinopleBlock: big.NewInt(0),
+			PetersburgBlock:     big.NewInt(0),
+			IstanbulBlock:       big.NewInt(0),
+			MuirGlacierBlock:    big.NewInt(0),
+			BerlinBlock:         big.NewInt(0),
+			LondonBlock:         big.NewInt(0),
+			ShanghaiTime:        utils.NewUint64(0),
+			CancunTime:          utils.NewUint64(0),
+		},
+		extras.TestChainConfig,
+	)
+
+	TestFlareChainConfig = WithExtra(
+		&ChainConfig{
+			ChainID:             FlareChainID,
 			HomesteadBlock:      big.NewInt(0),
 			DAOForkBlock:        big.NewInt(0),
 			DAOForkSupport:      true,

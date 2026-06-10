@@ -40,6 +40,7 @@ var (
 	ErrInvalidNonce                                    = errors.New("invalid nonce")
 	ErrNoExportOutputs                                 = errors.New("tx has no export outputs")
 	errOverflowExport                                  = errors.New("overflow when computing export amount + txFee")
+	errExportTxsDisabled                               = errors.New("export transactions are disabled")
 )
 
 // UnsignedExportTx is an unsigned ExportTx
@@ -86,6 +87,10 @@ func (utx *UnsignedExportTx) Verify(
 		return ErrWrongNetworkID
 	case ctx.ChainID != utx.BlockchainID:
 		return ErrWrongChainID
+	}
+
+	if rules.IsSongbirdCode && !rules.IsSongbirdTransition {
+		return errExportTxsDisabled
 	}
 
 	// Make sure that the tx has a valid peer chain ID

@@ -1404,7 +1404,8 @@ func TestBuildBlockWithInsufficientCapacity(t *testing.T) {
 	fork := upgradetest.Fortuna
 	vm := newDefaultTestVM()
 	vmtest.SetupTestVM(t, vm, vmtest.TestVMConfig{
-		Fork: &fork,
+		Fork:       &fork,
+		ConfigJSON: `{"wait-for-gas-capacity-refill":true}`,
 	})
 	defer func() {
 		require.NoError(vm.Shutdown(ctx))
@@ -1473,6 +1474,7 @@ func TestBuildBlockLargeTxStarvation(t *testing.T) {
 	vmtest.SetupTestVM(t, vm, vmtest.TestVMConfig{
 		Fork:        &fork,
 		GenesisJSON: string(genesisBytes),
+		ConfigJSON:  `{"wait-for-gas-capacity-refill":true}`,
 	})
 	defer func() {
 		require.NoError(vm.Shutdown(ctx))

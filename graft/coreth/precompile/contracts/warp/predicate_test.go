@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"math/big"
 	"testing"
 
 	"github.com/ava-labs/avalanchego/ids"
@@ -32,7 +33,6 @@ import (
 	"github.com/ava-labs/coreth/utils"
 
 	agoUtils "github.com/ava-labs/avalanchego/utils"
-	safemath "github.com/ava-labs/avalanchego/utils/math"
 	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
 )
 
@@ -277,7 +277,7 @@ func testWarpMessageFromPrimaryNetwork(t *testing.T, requirePrimaryNetworkSigner
 	var (
 		warpValidators = validators.WarpSet{
 			Validators:  make([]*validators.Warp, 0, numKeys),
-			TotalWeight: 20 * uint64(numKeys),
+			TotalWeight: new(big.Int).SetUint64(20 * uint64(numKeys)),
 		}
 		blsSignatures = make([]*bls.Signature, 0, numKeys)
 	)
@@ -703,7 +703,7 @@ func TestWarpNoValidatorsAndOverflowUseSameGas(t *testing.T) {
 		Rules:       graniteRules,
 		Gas:         expectedGas,
 		GasErr:      nil,
-		ExpectedErr: safemath.ErrOverflow,
+		ExpectedErr: avalancheWarp.ErrInsufficientWeight,
 	}
 	precompiletest.RunPredicateTests(t, []precompiletest.PredicateTest{
 		noValidators,

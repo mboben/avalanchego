@@ -179,7 +179,7 @@ func UnpackSyncPerformedKey(key []byte) uint64 {
 }
 
 // GetLatestSyncPerformed returns the latest block number state synced performed to.
-func GetLatestSyncPerformed(db ethdb.Iteratee) uint64 {
+func GetLatestSyncPerformed(db ethdb.Iteratee) (uint64, error) {
 	it := NewSyncPerformedIterator(db)
 	defer it.Release()
 
@@ -190,7 +190,7 @@ func GetLatestSyncPerformed(db ethdb.Iteratee) uint64 {
 			latestSyncPerformed = syncPerformed
 		}
 	}
-	return latestSyncPerformed
+	return latestSyncPerformed, it.Error()
 }
 
 // clearPrefix removes all keys in db that begin with prefix and match an

@@ -29,7 +29,7 @@ func BaseFee(
 		if err != nil {
 			return nil, fmt.Errorf("calculating initial fee state: %w", err)
 		}
-		price := state.GasPrice()
+		price := state.GasPriceWith(config.ACP176Params(timestamp))
 		return new(big.Int).SetUint64(uint64(price)), nil
 	case config.IsApricotPhase3(timestamp):
 		return baseFeeFromWindow(config, parent, timestamp)

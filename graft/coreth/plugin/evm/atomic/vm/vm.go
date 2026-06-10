@@ -127,8 +127,6 @@ func (vm *VM) Initialize(
 	switch chainCtx.NetworkID {
 	case constants.MainnetID:
 		extDataHashes = mainnetExtDataHashes
-	case constants.FujiID:
-		extDataHashes = fujiExtDataHashes
 	}
 	// Free the memory of the extDataHash map
 	fujiExtDataHashes = nil

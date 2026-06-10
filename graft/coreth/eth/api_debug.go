@@ -1,4 +1,4 @@
-// Copyright (C) 2019-2025, Ava Labs, Inc. All rights reserved.
+// Copyright (C) 2019, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 //
 // This file is a derived work, based on the go-ethereum library whose original
@@ -33,9 +33,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ava-labs/coreth/internal/ethapi"
-	"github.com/ava-labs/coreth/plugin/evm/customrawdb"
-	"github.com/ava-labs/coreth/rpc"
+	"github.com/ava-labs/avalanchego/graft/coreth/internal/ethapi"
+	"github.com/ava-labs/avalanchego/graft/evm/rpc"
+	"github.com/ava-labs/avalanchego/vms/evm/sync/customrawdb"
 	"github.com/ava-labs/libevm/common"
 	"github.com/ava-labs/libevm/common/hexutil"
 	"github.com/ava-labs/libevm/core/rawdb"
@@ -62,6 +62,9 @@ func NewDebugAPI(eth *Ethereum) *DebugAPI {
 
 // DumpBlock retrieves the entire state of the database at a given block.
 func (api *DebugAPI) DumpBlock(blockNr rpc.BlockNumber) (state.Dump, error) {
+	if api.isFirewood() {
+		return state.Dump{}, errFirewoodNotSupported
+	}
 	opts := &state.DumpConfig{
 		OnlyWithAddresses: true,
 		Max:               AccountRangeMaxResults, // Sanity limit over RPC
@@ -110,6 +113,9 @@ const AccountRangeMaxResults = 256
 
 // AccountRange enumerates all accounts in the given block and start point in paging request
 func (api *DebugAPI) AccountRange(blockNrOrHash rpc.BlockNumberOrHash, start hexutil.Bytes, maxResults int, nocode, nostorage, incompletes bool) (state.Dump, error) {
+	if api.isFirewood() {
+		return state.Dump{}, errFirewoodNotSupported
+	}
 	var stateDb *state.StateDB
 	var err error
 

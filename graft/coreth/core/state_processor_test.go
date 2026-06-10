@@ -1,4 +1,4 @@
-// Copyright (C) 2019-2025, Ava Labs, Inc. All rights reserved.
+// Copyright (C) 2019, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 //
 // This file is a derived work, based on the go-ethereum library whose original
@@ -32,18 +32,18 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ava-labs/avalanchego/graft/coreth/consensus"
+	"github.com/ava-labs/avalanchego/graft/coreth/consensus/dummy"
+	"github.com/ava-labs/avalanchego/graft/coreth/params"
+	"github.com/ava-labs/avalanchego/graft/coreth/params/extras"
+	"github.com/ava-labs/avalanchego/graft/coreth/plugin/evm/customheader"
+	"github.com/ava-labs/avalanchego/graft/coreth/plugin/evm/customtypes"
+	"github.com/ava-labs/avalanchego/graft/coreth/plugin/evm/upgrade/ap1"
+	"github.com/ava-labs/avalanchego/graft/coreth/plugin/evm/upgrade/ap3"
+	"github.com/ava-labs/avalanchego/graft/coreth/plugin/evm/upgrade/cortina"
 	"github.com/ava-labs/avalanchego/upgrade"
+	"github.com/ava-labs/avalanchego/utils"
 	"github.com/ava-labs/avalanchego/vms/evm/acp176"
-	"github.com/ava-labs/coreth/consensus"
-	"github.com/ava-labs/coreth/consensus/dummy"
-	"github.com/ava-labs/coreth/params"
-	"github.com/ava-labs/coreth/params/extras"
-	"github.com/ava-labs/coreth/plugin/evm/customheader"
-	"github.com/ava-labs/coreth/plugin/evm/customtypes"
-	"github.com/ava-labs/coreth/plugin/evm/upgrade/ap1"
-	"github.com/ava-labs/coreth/plugin/evm/upgrade/ap3"
-	"github.com/ava-labs/coreth/plugin/evm/upgrade/cortina"
-	"github.com/ava-labs/coreth/utils"
 	"github.com/ava-labs/libevm/common"
 	"github.com/ava-labs/libevm/consensus/misc/eip4844"
 	"github.com/ava-labs/libevm/core/rawdb"
@@ -283,8 +283,8 @@ func TestStateProcessorErrors(t *testing.T) {
 					},
 					&extras.ChainConfig{
 						NetworkUpgrades: extras.NetworkUpgrades{
-							ApricotPhase1BlockTimestamp: utils.NewUint64(0),
-							ApricotPhase2BlockTimestamp: utils.NewUint64(0),
+							ApricotPhase1BlockTimestamp: utils.PointerTo[uint64](0),
+							ApricotPhase2BlockTimestamp: utils.PointerTo[uint64](0),
 						},
 					},
 				),
@@ -391,7 +391,7 @@ func GenerateBadBlock(parent *types.Block, engine consensus.Engine, txs types.Tr
 	}
 	if configExtra.IsGranite(header.Time) {
 		headerExtra := customtypes.GetHeaderExtra(header)
-		headerExtra.TimeMilliseconds = utils.NewUint64(timeMS)
+		headerExtra.TimeMilliseconds = utils.PointerTo(timeMS)
 	}
 	if configExtra.IsApricotPhase4(header.Time) {
 		headerExtra := customtypes.GetHeaderExtra(header)

@@ -8,7 +8,7 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/ava-labs/coreth/params"
+	"github.com/ava-labs/avalanchego/graft/coreth/params"
 	"github.com/ava-labs/libevm/common"
 	"github.com/ava-labs/libevm/core/vm"
 )

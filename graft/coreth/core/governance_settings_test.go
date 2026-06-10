@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ava-labs/coreth/params"
+	"github.com/ava-labs/avalanchego/graft/coreth/params"
 )
 
 // TestNewTimelockIsPermittedCostwo checks each new timelock update

@@ -1,4 +1,4 @@
-// Copyright (C) 2019-2025, Ava Labs, Inc. All rights reserved.
+// Copyright (C) 2019, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
 package bind_test
@@ -9,20 +9,20 @@ import (
 	"os"
 	"testing"
 
+	"github.com/ava-labs/libevm/accounts/abi"
 	"github.com/ava-labs/libevm/common"
 	"github.com/ava-labs/libevm/core/types"
 	"github.com/ava-labs/libevm/crypto"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ava-labs/coreth/accounts/abi"
-	"github.com/ava-labs/coreth/accounts/abi/bind"
-	"github.com/ava-labs/coreth/accounts/abi/bind/backends"
-	"github.com/ava-labs/coreth/core"
-	"github.com/ava-labs/coreth/eth/ethconfig"
-	"github.com/ava-labs/coreth/ethclient/simulated"
-	"github.com/ava-labs/coreth/node"
-	"github.com/ava-labs/coreth/params"
-	"github.com/ava-labs/coreth/plugin/evm/customtypes"
+	"github.com/ava-labs/avalanchego/graft/coreth/accounts/abi/bind"
+	"github.com/ava-labs/avalanchego/graft/coreth/accounts/abi/bind/backends"
+	"github.com/ava-labs/avalanchego/graft/coreth/core"
+	"github.com/ava-labs/avalanchego/graft/coreth/eth/ethconfig"
+	"github.com/ava-labs/avalanchego/graft/coreth/ethclient/simulated"
+	"github.com/ava-labs/avalanchego/graft/coreth/node"
+	"github.com/ava-labs/avalanchego/graft/coreth/params"
+	"github.com/ava-labs/avalanchego/graft/coreth/plugin/evm/customtypes"
 )
 
 func TestMain(m *testing.M) {

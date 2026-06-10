@@ -1,4 +1,4 @@
-// Copyright (C) 2019-2025, Ava Labs, Inc. All rights reserved.
+// Copyright (C) 2019, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
 package state
@@ -8,16 +8,6 @@ import (
 	"encoding/hex"
 	"testing"
 
-	"github.com/ava-labs/avalanchego/codec"
-	"github.com/ava-labs/avalanchego/database"
-	"github.com/ava-labs/avalanchego/database/leveldb"
-	"github.com/ava-labs/avalanchego/database/memdb"
-	"github.com/ava-labs/avalanchego/database/prefixdb"
-	"github.com/ava-labs/avalanchego/database/versiondb"
-	"github.com/ava-labs/avalanchego/ids"
-	"github.com/ava-labs/avalanchego/snow/snowtest"
-	"github.com/ava-labs/avalanchego/utils/logging"
-	"github.com/ava-labs/avalanchego/utils/wrappers"
 	"github.com/ava-labs/libevm/common"
 	"github.com/ava-labs/libevm/core/types"
 	"github.com/ava-labs/libevm/rlp"
@@ -25,8 +15,18 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ava-labs/coreth/plugin/evm/atomic"
-	"github.com/ava-labs/coreth/plugin/evm/atomic/atomictest"
+	"github.com/ava-labs/avalanchego/codec"
+	"github.com/ava-labs/avalanchego/database"
+	"github.com/ava-labs/avalanchego/database/leveldb"
+	"github.com/ava-labs/avalanchego/database/memdb"
+	"github.com/ava-labs/avalanchego/database/prefixdb"
+	"github.com/ava-labs/avalanchego/database/versiondb"
+	"github.com/ava-labs/avalanchego/graft/coreth/plugin/evm/atomic"
+	"github.com/ava-labs/avalanchego/graft/coreth/plugin/evm/atomic/atomictest"
+	"github.com/ava-labs/avalanchego/ids"
+	"github.com/ava-labs/avalanchego/snow/snowtest"
+	"github.com/ava-labs/avalanchego/utils/logging"
+	"github.com/ava-labs/avalanchego/utils/wrappers"
 
 	avalancheatomic "github.com/ava-labs/avalanchego/chains/atomic"
 )
@@ -580,10 +580,10 @@ func TestAtomicTrie_AcceptTrie(t *testing.T) {
 			t.Parallel()
 
 			versionDB := versiondb.New(memdb.New())
-			atomicTrieDB := prefixdb.New(atomicTrieDBPrefix, versionDB)
+			atomicTrieStorage := prefixdb.New(atomicTrieStoragePrefix, versionDB)
 			metadataDB := prefixdb.New(atomicTrieMetaDBPrefix, versionDB)
 			const lastAcceptedHeight = 0 // no effect
-			atomicTrie, err := newAtomicTrie(atomicTrieDB, metadataDB, atomictest.TestTxCodec,
+			atomicTrie, err := newAtomicTrie(atomicTrieStorage, metadataDB, atomictest.TestTxCodec,
 				lastAcceptedHeight, testCase.commitInterval)
 			require.NoError(t, err)
 			atomicTrie.lastAcceptedRoot = testCase.lastAcceptedRoot

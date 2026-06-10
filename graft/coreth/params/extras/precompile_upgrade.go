@@ -1,4 +1,4 @@
-// Copyright (C) 2019-2025, Ava Labs, Inc. All rights reserved.
+// Copyright (C) 2019, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
 package extras
@@ -10,9 +10,9 @@ import (
 
 	"github.com/ava-labs/libevm/common"
 
-	"github.com/ava-labs/coreth/precompile/modules"
-	"github.com/ava-labs/coreth/precompile/precompileconfig"
-	"github.com/ava-labs/coreth/utils"
+	"github.com/ava-labs/avalanchego/graft/coreth/precompile/modules"
+	"github.com/ava-labs/avalanchego/graft/coreth/precompile/precompileconfig"
+	"github.com/ava-labs/avalanchego/utils"
 
 	ethparams "github.com/ava-labs/libevm/params"
 )
@@ -97,7 +97,7 @@ func (c *ChainConfig) verifyPrecompileUpgrades() error {
 			lastTimestamp = nil
 		} else {
 			disabled = lastUpgradeByKey.disabled
-			lastTimestamp = utils.NewUint64(lastUpgradeByKey.blockTimestamp)
+			lastTimestamp = utils.PointerTo(lastUpgradeByKey.blockTimestamp)
 		}
 		upgradeTimestamp := upgrade.Timestamp()
 

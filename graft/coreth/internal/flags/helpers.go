@@ -1,4 +1,4 @@
-// Copyright (C) 2019-2025, Ava Labs, Inc. All rights reserved.
+// Copyright (C) 2019, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 //
 // This file is a derived work, based on the go-ethereum library whose original
@@ -33,8 +33,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/ava-labs/coreth/internal/version"
-	"github.com/ava-labs/coreth/params"
+	"github.com/ava-labs/avalanchego/graft/coreth/internal/version"
+	"github.com/ava-labs/libevm/params"
 	"github.com/mattn/go-isatty"
 	"github.com/urfave/cli/v2"
 )

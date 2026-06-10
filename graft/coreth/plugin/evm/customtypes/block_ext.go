@@ -1,4 +1,4 @@
-// Copyright (C) 2019-2025, Ava Labs, Inc. All rights reserved.
+// Copyright (C) 2019, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
 package customtypes
@@ -8,9 +8,10 @@ import (
 	"slices"
 	"time"
 
-	"github.com/ava-labs/avalanchego/vms/evm/acp226"
 	"github.com/ava-labs/libevm/common"
 	"github.com/ava-labs/libevm/rlp"
+
+	"github.com/ava-labs/avalanchego/vms/evm/acp226"
 
 	ethtypes "github.com/ava-labs/libevm/core/types"
 )

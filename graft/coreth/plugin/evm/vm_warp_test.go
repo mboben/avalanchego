@@ -1,4 +1,4 @@
-// Copyright (C) 2019-2025, Ava Labs, Inc. All rights reserved.
+// Copyright (C) 2019, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
 package evm
@@ -11,6 +11,24 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ava-labs/libevm/common"
+	"github.com/ava-labs/libevm/core/rawdb"
+	"github.com/ava-labs/libevm/core/types"
+	"github.com/ava-labs/libevm/crypto"
+	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
+
+	_ "embed"
+
+	"github.com/ava-labs/avalanchego/graft/coreth/eth/tracers"
+	"github.com/ava-labs/avalanchego/graft/coreth/params"
+	"github.com/ava-labs/avalanchego/graft/coreth/params/extras"
+	"github.com/ava-labs/avalanchego/graft/coreth/plugin/evm/customheader"
+	"github.com/ava-labs/avalanchego/graft/coreth/plugin/evm/upgrade/ap0"
+	"github.com/ava-labs/avalanchego/graft/coreth/plugin/evm/vmtest"
+	"github.com/ava-labs/avalanchego/graft/coreth/precompile/contract"
+	"github.com/ava-labs/avalanchego/graft/coreth/warp"
+	"github.com/ava-labs/avalanchego/graft/evm/utils"
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/network/p2p"
 	"github.com/ava-labs/avalanchego/network/p2p/acp118"
@@ -28,29 +46,11 @@ import (
 	"github.com/ava-labs/avalanchego/vms/components/chain"
 	"github.com/ava-labs/avalanchego/vms/evm/predicate"
 	"github.com/ava-labs/avalanchego/vms/platformvm/warp/payload"
-	"github.com/ava-labs/libevm/common"
-	"github.com/ava-labs/libevm/core/rawdb"
-	"github.com/ava-labs/libevm/core/types"
-	"github.com/ava-labs/libevm/crypto"
-	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/proto"
 
-	_ "embed"
-
-	"github.com/ava-labs/coreth/eth/tracers"
-	"github.com/ava-labs/coreth/params"
-	"github.com/ava-labs/coreth/params/extras"
-	"github.com/ava-labs/coreth/plugin/evm/customheader"
-	"github.com/ava-labs/coreth/plugin/evm/upgrade/ap0"
-	"github.com/ava-labs/coreth/plugin/evm/vmtest"
-	"github.com/ava-labs/coreth/precompile/contract"
-	"github.com/ava-labs/coreth/utils"
-	"github.com/ava-labs/coreth/warp"
-
+	warpcontract "github.com/ava-labs/avalanchego/graft/coreth/precompile/contracts/warp"
 	commonEng "github.com/ava-labs/avalanchego/snow/engine/common"
 	avagoUtils "github.com/ava-labs/avalanchego/utils"
 	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
-	warpcontract "github.com/ava-labs/coreth/precompile/contracts/warp"
 )
 
 var (
@@ -343,9 +343,9 @@ func testWarpVMTransaction(t *testing.T, scheme string, unsignedMessage *avalanc
 		GetSubnetIDF: func(context.Context, ids.ID) (ids.ID, error) {
 			return ids.Empty, nil
 		},
-		GetWarpValidatorSetF: func(_ context.Context, height uint64, _ ids.ID) (validators.WarpSet, error) {
+		GetWarpValidatorSetsF: func(_ context.Context, height uint64) (map[ids.ID]validators.WarpSet, error) {
 			if height < minimumValidPChainHeight {
-				return validators.WarpSet{}, getValidatorSetTestErr
+				return nil, getValidatorSetTestErr
 			}
 			vdrs := validators.WarpSet{
 				Validators: []*validators.Warp{
@@ -365,7 +365,9 @@ func testWarpVMTransaction(t *testing.T, scheme string, unsignedMessage *avalanc
 				TotalWeight: big.NewInt(100),
 			}
 			avagoUtils.Sort(vdrs.Validators)
-			return vdrs, nil
+			return map[ids.ID]validators.WarpSet{
+				ids.Empty: vdrs,
+			}, nil
 		},
 	}
 
@@ -652,28 +654,31 @@ func testReceiveWarpMessage(
 			}
 			return vm.ctx.SubnetID, nil
 		},
-		GetWarpValidatorSetF: func(_ context.Context, height uint64, subnetID ids.ID) (validators.WarpSet, error) {
+		GetWarpValidatorSetsF: func(_ context.Context, height uint64) (map[ids.ID]validators.WarpSet, error) {
 			if height < minimumValidPChainHeight {
-				return validators.WarpSet{}, getValidatorSetTestErr
-			}
-			signers := subnetSigners
-			if subnetID == constants.PrimaryNetworkID {
-				signers = primarySigners
+				return nil, getValidatorSetTestErr
 			}
 
-			vdrs := validators.WarpSet{TotalWeight: new(big.Int)}
-			for _, s := range signers {
-				pk := s.secret.PublicKey()
-				vdrs.Validators = append(vdrs.Validators, &validators.Warp{
-					PublicKey:      pk,
-					PublicKeyBytes: bls.PublicKeyToUncompressedBytes(pk),
-					Weight:         s.weight,
-					NodeIDs:        []ids.NodeID{s.nodeID},
-				})
-				vdrs.TotalWeight.Add(vdrs.TotalWeight, new(big.Int).SetUint64(s.weight))
+			makeVdrSet := func(signers []signer) validators.WarpSet {
+				vdrs := validators.WarpSet{}
+				for _, s := range signers {
+					pk := s.secret.PublicKey()
+					vdrs.Validators = append(vdrs.Validators, &validators.Warp{
+						PublicKey:      pk,
+						PublicKeyBytes: bls.PublicKeyToUncompressedBytes(pk),
+						Weight:         s.weight,
+						NodeIDs:        []ids.NodeID{s.nodeID},
+					})
+					vdrs.TotalWeight += s.weight
+				}
+				avagoUtils.Sort(vdrs.Validators)
+				return vdrs
 			}
-			avagoUtils.Sort(vdrs.Validators)
-			return vdrs, nil
+
+			return map[ids.ID]validators.WarpSet{
+				constants.PrimaryNetworkID: makeVdrSet(primarySigners),
+				vm.ctx.SubnetID:            makeVdrSet(subnetSigners),
+			}, nil
 		},
 	}
 

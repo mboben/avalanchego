@@ -1,4 +1,4 @@
-// Copyright (C) 2019-2025, Ava Labs, Inc. All rights reserved.
+// Copyright (C) 2019, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 //
 // This file is a derived work, based on the go-ethereum library whose original
@@ -32,14 +32,14 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/ava-labs/coreth/core"
-	"github.com/ava-labs/coreth/core/txpool/blobpool"
-	"github.com/ava-labs/coreth/core/txpool/legacypool"
-	"github.com/ava-labs/coreth/eth/gasprice"
-	"github.com/ava-labs/coreth/internal/ethapi"
-	"github.com/ava-labs/coreth/miner"
-	"github.com/ava-labs/coreth/params"
+	"github.com/ava-labs/avalanchego/graft/coreth/core"
+	"github.com/ava-labs/avalanchego/graft/coreth/core/txpool/blobpool"
+	"github.com/ava-labs/avalanchego/graft/coreth/core/txpool/legacypool"
+	"github.com/ava-labs/avalanchego/graft/coreth/eth/gasprice"
+	"github.com/ava-labs/avalanchego/graft/coreth/internal/ethapi"
+	"github.com/ava-labs/avalanchego/graft/coreth/miner"
 	"github.com/ava-labs/libevm/common"
+	"github.com/ava-labs/libevm/params"
 )
 
 // DefaultFullGPOConfig contains default gasprice oracle settings for full node.
@@ -118,7 +118,7 @@ func NewDefaultSgbConfig() Config {
 	}
 }
 
-//go:generate go tool -modfile=../../tools/go.mod gencodec -type Config -formats toml -out gen_config.go
+//go:generate go tool gencodec -type Config -formats toml -out gen_config.go
 
 // Config contains configuration options for ETH and LES protocols.
 type Config struct {

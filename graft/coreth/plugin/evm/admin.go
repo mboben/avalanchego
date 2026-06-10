@@ -1,4 +1,4 @@
-// Copyright (C) 2019-2025, Ava Labs, Inc. All rights reserved.
+// Copyright (C) 2019, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
 package evm
@@ -7,11 +7,11 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/ava-labs/avalanchego/api"
-	"github.com/ava-labs/avalanchego/utils/profiler"
 	"github.com/ava-labs/libevm/log"
 
-	"github.com/ava-labs/coreth/plugin/evm/client"
+	"github.com/ava-labs/avalanchego/api"
+	"github.com/ava-labs/avalanchego/graft/coreth/plugin/evm/client"
+	"github.com/ava-labs/avalanchego/utils/profiler"
 )
 
 // Admin is the API service for admin API calls

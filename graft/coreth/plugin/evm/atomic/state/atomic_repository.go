@@ -1,4 +1,4 @@
-// Copyright (C) 2019-2025, Ava Labs, Inc. All rights reserved.
+// Copyright (C) 2019, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
 package state
@@ -8,18 +8,18 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ava-labs/libevm/common"
+	"github.com/ava-labs/libevm/log"
+
 	"github.com/ava-labs/avalanchego/codec"
 	"github.com/ava-labs/avalanchego/database"
 	"github.com/ava-labs/avalanchego/database/prefixdb"
 	"github.com/ava-labs/avalanchego/database/versiondb"
+	"github.com/ava-labs/avalanchego/graft/coreth/plugin/evm/atomic"
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils"
 	"github.com/ava-labs/avalanchego/utils/units"
 	"github.com/ava-labs/avalanchego/utils/wrappers"
-	"github.com/ava-labs/libevm/common"
-	"github.com/ava-labs/libevm/log"
-
-	"github.com/ava-labs/coreth/plugin/evm/atomic"
 )
 
 const (
@@ -30,7 +30,7 @@ var (
 	atomicTxIDDBPrefix         = []byte("atomicTxDB")
 	atomicHeightTxDBPrefix     = []byte("atomicHeightTxDB")
 	atomicRepoMetadataDBPrefix = []byte("atomicRepoMetadataDB")
-	atomicTrieDBPrefix         = []byte("atomicTrieDB")
+	atomicTrieStoragePrefix    = []byte("atomicTrieDB")
 	atomicTrieMetaDBPrefix     = []byte("atomicTrieMetaDB")
 
 	appliedSharedMemoryCursorKey = []byte("atomicTrieLastAppliedToSharedMemory")
@@ -53,7 +53,7 @@ type AtomicRepository struct {
 
 	metadataDB database.Database // Underlying database containing the atomic trie metadata
 
-	atomicTrieDB database.Database // Underlying database containing the atomic trie
+	atomicTrieStorage database.Database // Raw database storage for atomic trie (unwrapped)
 
 	// [db] is used to commit to the underlying versiondb.
 	db *versiondb.Database
@@ -66,7 +66,7 @@ func NewAtomicTxRepository(
 	db *versiondb.Database, codec codec.Manager, lastAcceptedHeight uint64,
 ) (*AtomicRepository, error) {
 	repo := &AtomicRepository{
-		atomicTrieDB:               prefixdb.New(atomicTrieDBPrefix, db),
+		atomicTrieStorage:          prefixdb.New(atomicTrieStoragePrefix, db),
 		metadataDB:                 prefixdb.New(atomicTrieMetaDBPrefix, db),
 		acceptedAtomicTxDB:         prefixdb.New(atomicTxIDDBPrefix, db),
 		acceptedAtomicTxByHeightDB: prefixdb.New(atomicHeightTxDBPrefix, db),

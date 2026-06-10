@@ -1,4 +1,4 @@
-// Copyright (C) 2019-2025, Ava Labs, Inc. All rights reserved.
+// Copyright (C) 2019, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
 // AP3 defines the dynamic fee window used after the Apricot Phase 3 upgrade.
@@ -10,9 +10,8 @@ import (
 	"fmt"
 	"math"
 
+	"github.com/ava-labs/avalanchego/graft/evm/utils"
 	"github.com/ava-labs/avalanchego/utils/wrappers"
-
-	"github.com/ava-labs/coreth/utils"
 
 	safemath "github.com/ava-labs/libevm/common/math"
 )

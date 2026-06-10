@@ -14,9 +14,9 @@ import (
 	"github.com/ava-labs/avalanchego/snow/snowtest"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ava-labs/coreth/plugin/evm/atomic"
-	atomicstate "github.com/ava-labs/coreth/plugin/evm/atomic/state"
-	"github.com/ava-labs/coreth/plugin/evm/client"
+	"github.com/ava-labs/avalanchego/graft/coreth/plugin/evm/atomic"
+	atomicstate "github.com/ava-labs/avalanchego/graft/coreth/plugin/evm/atomic/state"
+	"github.com/ava-labs/avalanchego/graft/coreth/plugin/evm/client"
 )
 
 func TestGetAtomicTxStatusPropagatesRepositoryError(t *testing.T) {

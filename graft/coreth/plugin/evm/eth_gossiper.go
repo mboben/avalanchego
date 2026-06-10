@@ -1,4 +1,4 @@
-// Copyright (C) 2019-2025, Ava Labs, Inc. All rights reserved.
+// Copyright (C) 2019, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
 // TODO: move to network
@@ -11,16 +11,17 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/ava-labs/avalanchego/ids"
-	"github.com/ava-labs/avalanchego/network/p2p/gossip"
 	"github.com/ava-labs/libevm/core/types"
 	"github.com/ava-labs/libevm/log"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/ava-labs/coreth/core"
-	"github.com/ava-labs/coreth/core/txpool"
-	"github.com/ava-labs/coreth/eth"
-	"github.com/ava-labs/coreth/plugin/evm/config"
+	"github.com/ava-labs/avalanchego/graft/coreth/core"
+	"github.com/ava-labs/avalanchego/graft/coreth/core/txpool"
+	"github.com/ava-labs/avalanchego/graft/coreth/eth"
+	"github.com/ava-labs/avalanchego/graft/coreth/plugin/evm/config"
+	"github.com/ava-labs/avalanchego/ids"
+	"github.com/ava-labs/avalanchego/network/p2p/gossip"
+	"github.com/ava-labs/avalanchego/utils/bloom"
 
 	ethcommon "github.com/ava-labs/libevm/common"
 )
@@ -30,7 +31,7 @@ const pendingTxsBuffer = 10
 var (
 	_ gossip.Gossipable               = (*GossipEthTx)(nil)
 	_ gossip.Marshaller[*GossipEthTx] = (*GossipEthTxMarshaller)(nil)
-	_ gossip.Set[*GossipEthTx]        = (*GossipEthTxPool)(nil)
+	_ gossip.SystemSet[*GossipEthTx]  = (*GossipEthTxPool)(nil)
 
 	_ eth.PushGossiper = (*EthPushGossiper)(nil)
 )
@@ -132,11 +133,11 @@ func (g *GossipEthTxPool) Iterate(f func(tx *GossipEthTx) bool) {
 	})
 }
 
-func (g *GossipEthTxPool) GetFilter() ([]byte, []byte) {
+func (g *GossipEthTxPool) BloomFilter() (*bloom.Filter, ids.ID) {
 	g.lock.RLock()
 	defer g.lock.RUnlock()
 
-	return g.bloom.Marshal()
+	return g.bloom.BloomFilter()
 }
 
 type GossipEthTxMarshaller struct{}

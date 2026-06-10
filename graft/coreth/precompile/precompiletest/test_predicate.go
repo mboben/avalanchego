@@ -1,4 +1,4 @@
-// Copyright (C) 2019-2025, Ava Labs, Inc. All rights reserved.
+// Copyright (C) 2019, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
 package precompiletest
@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ava-labs/avalanchego/vms/evm/predicate"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ava-labs/coreth/precompile/precompileconfig"
+	"github.com/ava-labs/avalanchego/graft/coreth/precompile/precompileconfig"
+	"github.com/ava-labs/avalanchego/vms/evm/predicate"
 )
 
 // PredicateTest defines a unit test/benchmark for verifying a precompile predicate.

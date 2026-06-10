@@ -1,4 +1,4 @@
-// Copyright (C) 2019-2025, Ava Labs, Inc. All rights reserved.
+// Copyright (C) 2019, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 //
 // This file is a derived work, based on the go-ethereum library whose original
@@ -28,8 +28,8 @@
 package simulated
 
 import (
-	"github.com/ava-labs/coreth/eth/ethconfig"
-	"github.com/ava-labs/coreth/node"
+	"github.com/ava-labs/avalanchego/graft/coreth/eth/ethconfig"
+	"github.com/ava-labs/avalanchego/graft/coreth/node"
 )
 
 // WithBlockGasLimit configures the simulated backend to target a specific gas limit

@@ -1,4 +1,4 @@
-// Copyright (C) 2019-2025, Ava Labs, Inc. All rights reserved.
+// Copyright (C) 2019, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
 package tmpnet
@@ -38,13 +38,15 @@ const (
 // Flags suggested for temporary networks. Applied by default.
 func DefaultTmpnetFlags() FlagsMap {
 	return FlagsMap{
-		config.SystemTrackerRequiredAvailableDiskSpaceKey:         "1GB",
-		config.SystemTrackerWarningThresholdAvailableDiskSpaceKey: "3GB",
-		config.NetworkPeerListPullGossipFreqKey:                   "250ms",
-		config.NetworkMaxReconnectDelayKey:                        "1s",
-		config.HealthCheckFreqKey:                                 "2s",
-		config.AdminAPIEnabledKey:                                 "true",
-		config.IndexEnabledKey:                                    "true",
+		config.NetworkPeerListPullGossipFreqKey: "250ms",
+		config.NetworkMaxReconnectDelayKey:      "1s",
+		config.HealthCheckFreqKey:               "2s",
+		config.AdminAPIEnabledKey:               "true",
+		config.IndexEnabledKey:                  "true",
+		// Disable disk checks by default since temporary networks often run in
+		// resource-constrained environments that commonly have low disk space.
+		config.SystemTrackerRequiredAvailableDiskSpacePercentageKey: "0",
+		config.SystemTrackerWarningAvailableDiskSpacePercentageKey:  "0",
 	}
 }
 
@@ -63,7 +65,7 @@ func DefaultChainConfigs() map[string]ConfigMap {
 	return map[string]ConfigMap{
 		// Supply only non-default configuration to ensure that default
 		// values will be used. Available C-Chain configuration options are
-		// defined in the `github.com/ava-labs/coreth/evm` package.
+		// defined in the `github.com/ava-labs/avalanchego/graft/coreth/evm` package.
 		"C": {
 			"warp-api-enabled": true,
 			"log-level":        logging.Trace.String(),

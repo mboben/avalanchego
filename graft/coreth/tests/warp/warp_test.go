@@ -1,4 +1,4 @@
-// Copyright (C) 2019-2025, Ava Labs, Inc. All rights reserved.
+// Copyright (C) 2019, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
 // Implements solidity tests.
@@ -14,7 +14,23 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ava-labs/libevm/common"
+	"github.com/ava-labs/libevm/core/types"
+	"github.com/ava-labs/libevm/crypto"
+	"github.com/stretchr/testify/require"
+
+	_ "embed"
+
 	"github.com/ava-labs/avalanchego/api/info"
+	"github.com/ava-labs/avalanchego/graft/coreth/accounts/abi/bind"
+	"github.com/ava-labs/avalanchego/graft/coreth/cmd/simulator/key"
+	"github.com/ava-labs/avalanchego/graft/coreth/cmd/simulator/load"
+	"github.com/ava-labs/avalanchego/graft/coreth/cmd/simulator/metrics"
+	"github.com/ava-labs/avalanchego/graft/coreth/cmd/simulator/txs"
+	"github.com/ava-labs/avalanchego/graft/coreth/ethclient"
+	"github.com/ava-labs/avalanchego/graft/coreth/params"
+	"github.com/ava-labs/avalanchego/graft/coreth/precompile/contracts/warp"
+	"github.com/ava-labs/avalanchego/graft/coreth/tests/utils"
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/snow/validators"
 	"github.com/ava-labs/avalanchego/tests/fixture/e2e"
@@ -23,31 +39,22 @@ import (
 	"github.com/ava-labs/avalanchego/vms/evm/predicate"
 	"github.com/ava-labs/avalanchego/vms/platformvm"
 	"github.com/ava-labs/avalanchego/vms/platformvm/api"
-	"github.com/ava-labs/libevm/common"
-	"github.com/ava-labs/libevm/core/types"
-	"github.com/ava-labs/libevm/crypto"
-	"github.com/stretchr/testify/require"
 
-	"github.com/ava-labs/coreth/accounts/abi/bind"
-	"github.com/ava-labs/coreth/cmd/simulator/key"
-	"github.com/ava-labs/coreth/cmd/simulator/load"
-	"github.com/ava-labs/coreth/cmd/simulator/metrics"
-	"github.com/ava-labs/coreth/cmd/simulator/txs"
-	"github.com/ava-labs/coreth/ethclient"
-	"github.com/ava-labs/coreth/params"
-	"github.com/ava-labs/coreth/precompile/contracts/warp"
-	"github.com/ava-labs/coreth/tests/utils"
-
+	warpBackend "github.com/ava-labs/avalanchego/graft/coreth/warp"
 	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
-	warpBackend "github.com/ava-labs/coreth/warp"
 	ethereum "github.com/ava-labs/libevm"
 	ginkgo "github.com/onsi/ginkgo/v2"
 )
 
+const subnetAName = "warp-subnet-a"
+
 var (
+	//go:embed genesis.json
+	genesis []byte
+
 	flagVars *e2e.FlagVars
 
-	cChainSubnetDetails *Subnet
+	subnetA, cChainSubnetDetails *Subnet
 
 	testPayload = []byte{1, 2, 3}
 )
@@ -78,7 +85,6 @@ func TestE2E(t *testing.T) {
 
 var _ = ginkgo.SynchronizedBeforeSuite(func() []byte {
 	// Run only once in the first ginkgo process
-
 	tc := e2e.NewTestContext()
 	nodes := tmpnet.NewNodesOrPanic(tmpnet.DefaultNodeCount)
 
@@ -89,6 +95,7 @@ var _ = ginkgo.SynchronizedBeforeSuite(func() []byte {
 			"coreth-warp-e2e",
 			nodes,
 			tmpnet.FlagsMap{},
+			utils.NewTmpnetSubnet(subnetAName, genesis, utils.DefaultChainConfig, nodes...),
 		),
 	)
 
@@ -112,6 +119,15 @@ var _ = ginkgo.SynchronizedBeforeSuite(func() []byte {
 		validatorURIs[i] = node.URI
 	}
 
+	tmpnetSubnetA := network.GetSubnet(subnetAName)
+	require.NotNil(tmpnetSubnetA)
+	subnetA = &Subnet{
+		SubnetID:      tmpnetSubnetA.SubnetID,
+		BlockchainID:  tmpnetSubnetA.Chains[0].ChainID,
+		PreFundedKey:  tmpnetSubnetA.Chains[0].PreFundedKey.ToECDSA(),
+		ValidatorURIs: validatorURIs,
+	}
+
 	infoClient := info.NewClient(network.Nodes[0].URI)
 	cChainBlockchainID, err := infoClient.GetBlockchainID(tc.DefaultContext(), "C")
 	require.NoError(err)
@@ -125,32 +141,47 @@ var _ = ginkgo.SynchronizedBeforeSuite(func() []byte {
 })
 
 var _ = ginkgo.Describe("[Warp]", func() {
-	testFunc := func(sendingSubnet *Subnet, receivingSubnet *Subnet) {
-		tc := e2e.NewTestContext()
-		w := newWarpTest(tc.DefaultContext(), sendingSubnet, receivingSubnet)
-
-		ginkgo.GinkgoLogr.Info("Sending message from A to B")
-		w.sendMessageFromSendingSubnet()
-
-		ginkgo.GinkgoLogr.Info("Aggregating signatures via API")
-		w.aggregateSignaturesViaAPI()
-
-		ginkgo.GinkgoLogr.Info("Delivering addressed call payload to receiving subnet")
-		w.deliverAddressedCallToReceivingSubnet()
-
-		ginkgo.GinkgoLogr.Info("Delivering block hash payload to receiving subnet")
-		w.deliverBlockHashPayload()
-
-		ginkgo.GinkgoLogr.Info("Executing warp load test")
-		w.warpLoad()
+	type testCombination struct {
+		name            string
+		sendingSubnet   func() *Subnet
+		receivingSubnet func() *Subnet
 	}
-	// TODO: Uncomment these tests when we have a way to run them in CI, currently we should not depend on Subnet-EVM
-	// as Coreth and Subnet-EVM have different release cycles. The problem is that once we update AvalancheGo (protocol version),
-	// we need to update Subnet-EVM to the same protocol version. Until then all Subnet-EVM tests are broken, so it's blocking Coreth development.
-	// It's best to not run these tests until we have a way to run them in CI.
-	// ginkgo.It("SubnetA -> C-Chain", func() { testFunc(subnetA, cChainSubnetDetails) })
-	// ginkgo.It("C-Chain -> SubnetA", func() { testFunc(cChainSubnetDetails, subnetA) })
-	ginkgo.It("C-Chain -> C-Chain", func() { testFunc(cChainSubnetDetails, cChainSubnetDetails) })
+
+	testCombinations := []testCombination{
+		{"SubnetA -> C-Chain", func() *Subnet { return subnetA }, func() *Subnet { return cChainSubnetDetails }},
+		{"C-Chain -> SubnetA", func() *Subnet { return cChainSubnetDetails }, func() *Subnet { return subnetA }},
+		{"C-Chain -> C-Chain", func() *Subnet { return cChainSubnetDetails }, func() *Subnet { return cChainSubnetDetails }},
+	}
+
+	for _, combination := range testCombinations {
+		ginkgo.Describe(combination.name, ginkgo.Ordered, func() {
+			var w *warpTest
+
+			ginkgo.BeforeAll(func() {
+				w = newWarpTest(combination.sendingSubnet(), combination.receivingSubnet())
+			})
+
+			ginkgo.It("should send warp message from sending subnet", func() {
+				w.sendMessageFromSendingSubnet()
+			})
+
+			ginkgo.It("should aggregate signatures via API", func() {
+				w.aggregateSignaturesViaAPI()
+			})
+
+			ginkgo.It("should deliver addressed call payload to receiving subnet", func() {
+				w.deliverAddressedCallToReceivingSubnet()
+			})
+
+			ginkgo.It("should deliver block hash payload", func() {
+				w.deliverBlockHashPayload()
+			})
+
+			ginkgo.It("should handle warp load testing", func() {
+				w.warpLoad()
+			})
+		})
+	}
 })
 
 type warpTest struct {
@@ -182,8 +213,10 @@ type warpTest struct {
 	addressedCallSignedMessage   *avalancheWarp.Message
 }
 
-func newWarpTest(ctx context.Context, sendingSubnet *Subnet, receivingSubnet *Subnet) *warpTest {
+func newWarpTest(sendingSubnet *Subnet, receivingSubnet *Subnet) *warpTest {
 	require := require.New(ginkgo.GinkgoT())
+	tc := e2e.NewTestContext()
+	ctx := tc.DefaultContext()
 
 	sendingSubnetFundedKey := sendingSubnet.PreFundedKey
 	receivingSubnetFundedKey := receivingSubnet.PreFundedKey
@@ -244,9 +277,9 @@ func (w *warpTest) initClients() {
 }
 
 func (w *warpTest) sendMessageFromSendingSubnet() {
+	require := require.New(ginkgo.GinkgoT())
 	tc := e2e.NewTestContext()
 	ctx := tc.DefaultContext()
-	require := require.New(ginkgo.GinkgoT())
 
 	client := w.sendingSubnetClients[0]
 

@@ -1,4 +1,4 @@
-// Copyright (C) 2019-2025, Ava Labs, Inc. All rights reserved.
+// Copyright (C) 2019, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
 package modules
@@ -8,7 +8,7 @@ import (
 
 	"github.com/ava-labs/libevm/common"
 
-	"github.com/ava-labs/coreth/precompile/contract"
+	"github.com/ava-labs/avalanchego/graft/coreth/precompile/contract"
 )
 
 type Module struct {

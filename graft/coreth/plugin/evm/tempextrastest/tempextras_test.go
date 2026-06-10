@@ -1,4 +1,4 @@
-// Copyright (C) 2019-2025, Ava Labs, Inc. All rights reserved.
+// Copyright (C) 2019, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
 // Package tempextrastest exists solely to test [evm.WithTempRegisteredLibEVMExtras]
@@ -16,10 +16,10 @@ import (
 	"github.com/ava-labs/libevm/params"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ava-labs/coreth/plugin/evm"
-	"github.com/ava-labs/coreth/plugin/evm/customtypes"
+	"github.com/ava-labs/avalanchego/graft/coreth/plugin/evm"
+	"github.com/ava-labs/avalanchego/graft/coreth/plugin/evm/customtypes"
 
-	cparams "github.com/ava-labs/coreth/params"
+	cparams "github.com/ava-labs/avalanchego/graft/coreth/params"
 )
 
 func TestWithTempRegisteredLibEVMExtras(t *testing.T) {

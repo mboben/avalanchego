@@ -1,4 +1,4 @@
-// Copyright (C) 2019-2025, Ava Labs, Inc. All rights reserved.
+// Copyright (C) 2019, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
 package gvalidators
@@ -66,30 +66,6 @@ func (s *Server) GetWarpValidatorSets(ctx context.Context, req *pb.GetWarpValida
 	return &pb.GetWarpValidatorSetsResponse{
 		ValidatorSets: proto,
 	}, nil
-}
-
-func (s *Server) GetWarpValidatorSet(ctx context.Context, req *pb.GetWarpValidatorSetRequest) (*pb.GetWarpValidatorSetResponse, error) {
-	subnetID, err := ids.ToID(req.SubnetId)
-	if err != nil {
-		return nil, err
-	}
-	validatorSet, err := s.state.GetWarpValidatorSet(ctx, req.Height, subnetID)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.GetWarpValidatorSetResponse{
-		TotalWeight: totalWeightBytes(validatorSet.TotalWeight),
-		Validators:  warpValidatorsToProto(validatorSet.Validators),
-	}, nil
-}
-
-// totalWeightBytes encodes a *big.Int total weight for the proto wire,
-// treating nil as zero (empty bytes).
-func totalWeightBytes(w *big.Int) []byte {
-	if w == nil {
-		return nil
-	}
-	return w.Bytes()
 }
 
 func (s *Server) GetValidatorSet(ctx context.Context, req *pb.GetValidatorSetRequest) (*pb.GetValidatorSetResponse, error) {

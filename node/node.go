@@ -1,4 +1,4 @@
-// Copyright (C) 2019-2025, Ava Labs, Inc. All rights reserved.
+// Copyright (C) 2019, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
 package node
@@ -84,9 +84,9 @@ import (
 	"github.com/ava-labs/avalanchego/vms/rpcchainvm/runtime"
 
 	databasefactory "github.com/ava-labs/avalanchego/database/factory"
+	coreth "github.com/ava-labs/avalanchego/graft/coreth/plugin/factory"
 	avmconfig "github.com/ava-labs/avalanchego/vms/avm/config"
 	platformconfig "github.com/ava-labs/avalanchego/vms/platformvm/config"
-	coreth "github.com/ava-labs/coreth/plugin/factory"
 )
 
 const (
@@ -561,19 +561,11 @@ func (n *Node) initNetworking(reg prometheus.Registerer) error {
 	}
 
 	// Configure benchlist
-	n.Config.BenchlistConfig.Validators = n.vdrs
-	n.Config.BenchlistConfig.Benchable = n.chainRouter
-	n.Config.BenchlistConfig.BenchlistRegisterer = metrics.NewLabelGatherer(chains.ChainLabel)
-
-	err = n.MetricsGatherer.Register(
-		benchlistNamespace,
-		n.Config.BenchlistConfig.BenchlistRegisterer,
-	)
-	if err != nil {
+	benchlistReg := metrics.NewLabelGatherer(chains.ChainLabel)
+	if err := n.MetricsGatherer.Register(benchlistNamespace, benchlistReg); err != nil {
 		return err
 	}
-
-	n.benchlistManager = benchlist.NewManager(&n.Config.BenchlistConfig)
+	n.benchlistManager = benchlist.NewManager(n.chainRouter, n.vdrs, benchlistReg, n.Config.BenchlistConfig)
 
 	n.uptimeCalculator = uptime.NewLockedCalculator()
 
@@ -1162,6 +1154,7 @@ func (n *Node) initChainManager(avaxAssetID ids.ID) error {
 			MeterVMEnabled:                          n.Config.MeterVMEnabled,
 			Metrics:                                 n.MetricsGatherer,
 			MeterDBMetrics:                          n.MeterDBMetricsGatherer,
+			ProposerMinBlockDelay:                   n.Config.ProposerMinBlockDelay,
 			SubnetConfigs:                           n.Config.SubnetConfigs,
 			ChainConfigs:                            n.Config.ChainConfigs,
 			FrontierPollFrequency:                   n.Config.FrontierPollFrequency,
@@ -1457,20 +1450,25 @@ func (n *Node) initHealthAPI() error {
 		// if there is too little disk space remaining, first report unhealthy and then shutdown the node
 
 		availableDiskBytes := n.resourceTracker.DiskTracker().AvailableDiskBytes()
+		availableDiskPercentage := n.resourceTracker.DiskTracker().AvailableDiskPercentage()
 
 		var err error
-		if availableDiskBytes < n.Config.RequiredAvailableDiskSpace {
+
+		if availableDiskPercentage < n.Config.RequiredAvailableDiskSpacePercentage {
 			n.Log.Fatal("low on disk space. Shutting down...",
-				zap.Uint64("remainingDiskBytes", availableDiskBytes),
+				zap.Uint64("availableDiskBytes", availableDiskBytes),
+				zap.Uint64("remainingDiskPercentage", availableDiskPercentage),
+				zap.Uint64("requiredDiskPercentage", n.Config.RequiredAvailableDiskSpacePercentage),
 			)
 			go n.Shutdown(1)
-			err = fmt.Errorf("remaining available disk space (%d) is below minimum required available space (%d)", availableDiskBytes, n.Config.RequiredAvailableDiskSpace)
-		} else if availableDiskBytes < n.Config.WarningThresholdAvailableDiskSpace {
-			err = fmt.Errorf("remaining available disk space (%d) is below the warning threshold of disk space (%d)", availableDiskBytes, n.Config.WarningThresholdAvailableDiskSpace)
+			err = fmt.Errorf("remaining available disk space percentage (%d%%) is below minimum required available space percentage (%d%%)", availableDiskPercentage, n.Config.RequiredAvailableDiskSpacePercentage)
+		} else if availableDiskPercentage < n.Config.WarningAvailableDiskSpacePercentage {
+			err = fmt.Errorf("remaining available disk space percentage (%d%%) is below warning threshold available space percentage (%d%%)", availableDiskPercentage, n.Config.WarningAvailableDiskSpacePercentage)
 		}
 
 		return map[string]interface{}{
-			"availableDiskBytes": availableDiskBytes,
+			"availableDiskBytes":      availableDiskBytes,
+			"availableDiskPercentage": availableDiskPercentage,
 		}, err
 	})
 
@@ -1860,6 +1858,9 @@ func (n *Node) shutdown() {
 	n.timeoutManager.Stop()
 	if n.chainManager != nil {
 		n.chainManager.Shutdown()
+	}
+	if n.benchlistManager != nil {
+		n.benchlistManager.Shutdown()
 	}
 	if n.profiler != nil {
 		n.profiler.Shutdown()

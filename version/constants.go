@@ -1,4 +1,4 @@
-// Copyright (C) 2019-2025, Ava Labs, Inc. All rights reserved.
+// Copyright (C) 2019, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
 package version
@@ -17,7 +17,7 @@ const (
 	// RPCChainVMProtocol should be bumped anytime changes are made which
 	// require the plugin vm to upgrade to latest avalanchego release to be
 	// compatible.
-	RPCChainVMProtocol uint = 44
+	RPCChainVMProtocol uint = 45
 
 	CurrentDatabase = "v1.4.5"
 	PrevDatabase    = "v1.0.0"
@@ -29,7 +29,7 @@ var (
 		Name:  Client,
 		Major: 1,
 		Minor: 14,
-		Patch: 0,
+		Patch: 2,
 	}
 	MinimumCompatibleVersion = &Application{
 		Name:  Client,

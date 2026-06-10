@@ -1,4 +1,4 @@
-// Copyright (C) 2019-2025, Ava Labs, Inc. All rights reserved.
+// Copyright (C) 2019, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
 package rpcchainvm
@@ -272,8 +272,8 @@ func TestConvertNetworkUpgrades_AllFieldsHandled(t *testing.T) {
 			networkID: constants.MainnetID,
 		},
 		{
-			name:      "Fuji",
-			networkID: constants.FujiID,
+			name:      "Costwo",
+			networkID: constants.CostwoID,
 		},
 		{
 			name:      "Local",

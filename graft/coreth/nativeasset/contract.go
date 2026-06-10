@@ -1,4 +1,4 @@
-// Copyright (C) 2019-2025, Ava Labs, Inc. All rights reserved.
+// Copyright (C) 2019, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
 package nativeasset
@@ -12,7 +12,7 @@ import (
 	"github.com/ava-labs/libevm/log"
 	"github.com/holiman/uint256"
 
-	"github.com/ava-labs/coreth/precompile/contract"
+	"github.com/ava-labs/avalanchego/graft/coreth/precompile/contract"
 )
 
 // PrecompiledContractsApricot contains the default set of pre-compiled Ethereum

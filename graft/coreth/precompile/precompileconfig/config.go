@@ -1,15 +1,16 @@
-// Copyright (C) 2019-2025, Ava Labs, Inc. All rights reserved.
+// Copyright (C) 2019, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
 // Defines the stateless interface for unmarshalling an arbitrary config of a precompile
 package precompileconfig
 
 import (
+	"github.com/ava-labs/libevm/common"
+
 	"github.com/ava-labs/avalanchego/snow"
 	"github.com/ava-labs/avalanchego/snow/engine/snowman/block"
 	"github.com/ava-labs/avalanchego/vms/evm/predicate"
 	"github.com/ava-labs/avalanchego/vms/platformvm/warp"
-	"github.com/ava-labs/libevm/common"
 )
 
 // StatefulPrecompileConfig defines the interface for a stateful precompile to

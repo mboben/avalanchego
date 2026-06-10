@@ -1,4 +1,4 @@
-// Copyright (C) 2019-2025, Ava Labs, Inc. All rights reserved.
+// Copyright (C) 2019, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
 package txpool
@@ -7,18 +7,19 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/ava-labs/avalanchego/ids"
-	"github.com/ava-labs/avalanchego/network/p2p/gossip"
 	"github.com/ava-labs/libevm/log"
 	"github.com/holiman/uint256"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/ava-labs/coreth/plugin/evm/atomic"
-	"github.com/ava-labs/coreth/plugin/evm/config"
+	"github.com/ava-labs/avalanchego/graft/coreth/plugin/evm/atomic"
+	"github.com/ava-labs/avalanchego/graft/coreth/plugin/evm/config"
+	"github.com/ava-labs/avalanchego/ids"
+	"github.com/ava-labs/avalanchego/network/p2p/gossip"
+	"github.com/ava-labs/avalanchego/utils/bloom"
 )
 
 var (
-	_ gossip.Set[*atomic.Tx] = (*Mempool)(nil)
+	_ gossip.SystemSet[*atomic.Tx] = (*Mempool)(nil)
 
 	ErrAlreadyKnown    = errors.New("already known")
 	ErrConflict        = errors.New("conflict present")
@@ -131,7 +132,7 @@ func (m *Mempool) ForceAddTx(tx *atomic.Tx) error {
 func (m *Mempool) checkConflictTx(tx *atomic.Tx) (uint256.Int, ids.ID, []*atomic.Tx, error) {
 	utxoSet := tx.InputUTXOs()
 
-	var ( //nolint:prealloc
+	var (
 		highestGasPrice             uint256.Int
 		highestGasPriceConflictTxID ids.ID
 		// We don't know the length ahead of time (# of conflicts), so we don't want to preallocate
@@ -304,9 +305,9 @@ func (m *Mempool) addTx(tx *atomic.Tx, local bool, force bool) error {
 	return nil
 }
 
-func (m *Mempool) GetFilter() ([]byte, []byte) {
+func (m *Mempool) BloomFilter() (*bloom.Filter, ids.ID) {
 	m.lock.RLock()
 	defer m.lock.RUnlock()
 
-	return m.bloom.Marshal()
+	return m.bloom.BloomFilter()
 }

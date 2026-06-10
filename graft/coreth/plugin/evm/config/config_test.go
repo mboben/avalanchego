@@ -1,4 +1,4 @@
-// Copyright (C) 2019-2025, Ava Labs, Inc. All rights reserved.
+// Copyright (C) 2019, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
 package config
@@ -9,16 +9,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/libevm/common"
 	"github.com/stretchr/testify/require"
-)
 
-// newTrue returns a pointer to a bool that is true
-func newTrue() *bool {
-	b := true
-	return &b
-}
+	"github.com/ava-labs/avalanchego/utils"
+	"github.com/ava-labs/avalanchego/utils/constants"
+)
 
 func TestUnmarshalConfig(t *testing.T) {
 	tests := []struct {
@@ -69,7 +65,7 @@ func TestUnmarshalConfig(t *testing.T) {
 		{
 			"state sync enabled",
 			[]byte(`{"state-sync-enabled":true}`),
-			Config{StateSyncEnabled: newTrue()},
+			Config{StateSyncEnabled: utils.PointerTo(true)},
 			false,
 		},
 		{

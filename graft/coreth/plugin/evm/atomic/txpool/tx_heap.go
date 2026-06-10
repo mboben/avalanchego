@@ -1,4 +1,4 @@
-// Copyright (C) 2019-2025, Ava Labs, Inc. All rights reserved.
+// Copyright (C) 2019, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
 package txpool
@@ -6,10 +6,10 @@ package txpool
 import (
 	"container/heap"
 
-	"github.com/ava-labs/avalanchego/ids"
 	"github.com/holiman/uint256"
 
-	"github.com/ava-labs/coreth/plugin/evm/atomic"
+	"github.com/ava-labs/avalanchego/graft/coreth/plugin/evm/atomic"
+	"github.com/ava-labs/avalanchego/ids"
 )
 
 type txEntry struct {

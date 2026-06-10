@@ -8,10 +8,9 @@
 package granite
 
 import (
+	"github.com/ava-labs/avalanchego/graft/evm/utils"
 	"github.com/ava-labs/avalanchego/vms/components/gas"
 	"github.com/ava-labs/avalanchego/vms/evm/acp176"
-
-	"github.com/ava-labs/coreth/utils"
 )
 
 const (

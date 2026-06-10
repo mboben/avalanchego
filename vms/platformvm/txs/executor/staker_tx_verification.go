@@ -152,7 +152,6 @@ func verifyAddValidatorTx(
 		return nil, err
 	}
 
-	_, err = GetValidator(chainState, constants.PrimaryNetworkID, tx.Validator.NodeID)
 	if !minStakeStartTime.Before(startTime) {
 		return nil, fmt.Errorf(
 			"validator's start time (%s) at or before minStakeStartTime (%s)",
@@ -161,7 +160,7 @@ func verifyAddValidatorTx(
 		)
 	}
 
-	_, err := GetValidator(chainState, constants.PrimaryNetworkID, tx.Validator.NodeID)
+	_, err = GetValidator(chainState, constants.PrimaryNetworkID, tx.Validator.NodeID)
 	if err == nil {
 		return nil, fmt.Errorf(
 			"%s is %w of the primary network",

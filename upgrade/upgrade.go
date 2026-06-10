@@ -80,6 +80,7 @@ var (
 		FortunaTime:           time.Date(2026, time.April, 14, 12, 0, 0, 0, time.UTC),
 		GraniteTime:           UnscheduledActivationTime,
 		GraniteEpochDuration:  5 * time.Minute,
+		HeliconTime:           UnscheduledActivationTime,
 	}
 	Songbird = Config{
 		ApricotPhase1Time:      ZeroTime,
@@ -115,6 +116,7 @@ var (
 		FortunaTime:           time.Date(2026, time.March, 24, 12, 0, 0, 0, time.UTC),
 		GraniteTime:           time.Date(2026, time.June, 16, 12, 0, 0, 0, time.UTC),
 		GraniteEpochDuration:  5 * time.Minute,
+		HeliconTime:           UnscheduledActivationTime,
 	}
 	Coston = Config{
 		ApricotPhase1Time:      ZeroTime,
@@ -133,6 +135,7 @@ var (
 		FortunaTime:            time.Date(2026, time.March, 17, 12, 0, 0, 0, time.UTC),
 		GraniteTime:            time.Date(2026, time.June, 11, 12, 0, 0, 0, time.UTC),
 		GraniteEpochDuration:   5 * time.Minute,
+		HeliconTime:            UnscheduledActivationTime,
 	}
 	LocalFlare = Config{
 		ApricotPhase1Time:            ZeroTime,
@@ -152,6 +155,7 @@ var (
 		FortunaTime:                  ZeroTime,
 		GraniteTime:                  ZeroTime,
 		GraniteEpochDuration:         5 * time.Minute,
+		HeliconTime:                  UnscheduledActivationTime,
 	}
 	Local = Config{
 		ApricotPhase1Time:            ZeroTime,
@@ -172,6 +176,7 @@ var (
 		FortunaTime:                  ZeroTime,
 		GraniteTime:                  ZeroTime,
 		GraniteEpochDuration:         5 * time.Minute,
+		HeliconTime:                  UnscheduledActivationTime,
 	}
 	Default = Config{
 		ApricotPhase1Time:            InitiallyActiveTime,
@@ -241,7 +246,7 @@ func (c *Config) Validate() error {
 		c.FortunaTime,
 		c.GraniteTime,
 		c.HeliconTime,
-	}
+	)
 	for i := 0; i < len(upgrades)-1; i++ {
 		if upgrades[i].After(upgrades[i+1]) {
 			return fmt.Errorf("%w: upgrade %d (%s) is after upgrade %d (%s)",

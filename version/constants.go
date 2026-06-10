@@ -44,7 +44,7 @@ var (
 		Patch: 0,
 	}
 
-	CurrentSgb = &Semantic{
+	CurrentSgb = &Application{
 		Major: 0,
 		Minor: 12,
 		Patch: 0,
@@ -68,20 +68,6 @@ var (
 		Patch: 0,
 	}
 
-	CurrentDatabase = DatabaseVersion1_4_5
-	PrevDatabase    = DatabaseVersion1_0_0
-
-	DatabaseVersion1_4_5 = &Semantic{
-		Major: 1,
-		Minor: 4,
-		Patch: 5,
-	}
-	DatabaseVersion1_0_0 = &Semantic{
-		Major: 1,
-		Minor: 0,
-		Patch: 0,
-	}
-
 	//go:embed compatibility.json
 	rpcChainVMProtocolCompatibilityBytes []byte
 	// RPCChainVMProtocolCompatibility maps RPCChainVMProtocol versions to the
@@ -97,28 +83,19 @@ func init() {
 	}
 }
 
-func GetCompatibility(upgradeTime time.Time) *Compatibility {
+func GetCompatibility(networkID uint32, upgradeTime time.Time) *Compatibility {
+	if networkID == constants.SongbirdID || networkID == constants.CostonID || networkID == constants.LocalID {
+		return &Compatibility{
+			Current:                   CurrentSgbApp,
+			MinCompatibleAfterUpgrade: MinimumCompatibleSgbVersion,
+			MinCompatible:             PrevMinimumCompatibleSgbVersion,
+			UpgradeTime:               upgradeTime,
+		}
+	}
 	return &Compatibility{
 		Current:                   Current,
 		MinCompatibleAfterUpgrade: MinimumCompatibleVersion,
 		MinCompatible:             PrevMinimumCompatibleVersion,
 		UpgradeTime:               upgradeTime,
 	}
-}
-
-func GetCompatibility(networkID uint32, minCompatibleTime time.Time) Compatibility {
-	if networkID == constants.SongbirdID || networkID == constants.CostonID || networkID == constants.LocalID {
-		return NewCompatibility(
-			CurrentSgbApp,
-			MinimumCompatibleSgbVersion,
-			minCompatibleTime,
-			PrevMinimumCompatibleSgbVersion,
-		)
-	}
-	return NewCompatibility(
-		CurrentApp,
-		MinimumCompatibleVersion,
-		minCompatibleTime,
-		PrevMinimumCompatibleVersion,
-	)
 }

@@ -17,7 +17,9 @@ import (
 	"github.com/ava-labs/avalanchego/graft/coreth/plugin/evm/upgrade/ap1"
 	"github.com/ava-labs/avalanchego/graft/coreth/plugin/evm/upgrade/ap5"
 	"github.com/ava-labs/avalanchego/graft/coreth/plugin/evm/upgrade/cortina"
+	"github.com/ava-labs/avalanchego/snow"
 	"github.com/ava-labs/avalanchego/utils"
+	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/avalanchego/utils/math"
 	"github.com/ava-labs/avalanchego/vms/components/gas"
 	"github.com/ava-labs/avalanchego/vms/evm/acp176"
@@ -461,7 +463,7 @@ func TestMinimumBuildableGasCapacity(t *testing.T) {
 			parent: customtypes.WithHeaderExtra(&types.Header{
 				Number: big.NewInt(0),
 			}, &customtypes.HeaderExtra{
-				TimeMilliseconds: utils.NewUint64(0),
+				TimeMilliseconds: utils.PointerTo[uint64](0),
 			}),
 			want: 4_000_000,
 		},

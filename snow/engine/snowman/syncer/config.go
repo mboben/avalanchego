@@ -63,13 +63,11 @@ func NewConfig(
 			}
 		}
 		stateSyncingWeight := stateSyncBeacons.TotalWeight(ctx.SubnetID)
-		var sampleK int
-		if !stateSyncingWeight.IsUint64() {
-			sampleK = sampleK
-		} else {
+		// Clamp sampleK to the total weight. If the weight exceeds uint64,
+		// sampleK (a small int) is necessarily smaller, so leave it as is.
+		if stateSyncingWeight.IsUint64() {
 			sampleK = int(min(uint64(sampleK), stateSyncingWeight.Uint64()))
 		}
-		sampleK = int(min(uint64(sampleK), stateSyncingWeight.Uint64()))
 		alpha = new(big.Int).Add(new(big.Int).Div(stateSyncingWeight, big.NewInt(2)), big.NewInt(1)) // must be > 50%
 	}
 	return Config{

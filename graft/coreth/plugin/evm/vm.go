@@ -55,6 +55,7 @@ import (
 	"github.com/ava-labs/avalanchego/graft/coreth/params/extras"
 	"github.com/ava-labs/avalanchego/graft/coreth/plugin/evm/config"
 	"github.com/ava-labs/avalanchego/graft/coreth/plugin/evm/extension"
+	"github.com/ava-labs/avalanchego/graft/coreth/plugin/evm/upgrade/granite"
 	"github.com/ava-labs/avalanchego/graft/coreth/plugin/evm/vmerrors"
 	"github.com/ava-labs/avalanchego/graft/coreth/precompile/precompileconfig"
 	"github.com/ava-labs/avalanchego/graft/coreth/warp"

@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"math/rand"
 	"slices"
 	"sync"
 	"time"
@@ -354,39 +353,25 @@ func (b *benchlist) tryMakeRoom(nodeID ids.NodeID, incomingFailureProbability fl
 		return false
 	}
 
-	benchedStake, err := b.benchedStake()
-	if err != nil {
-		return false
-	}
+	benchedStake := b.benchedStake()
 
-	totalStake, err := b.vdrs.TotalWeight(b.ctx.SubnetID)
-	if err != nil {
-		b.ctx.Log.Error("error calculating total stake",
-			zap.Stringer("subnetID", b.ctx.SubnetID),
-			zap.Error(err),
-		)
-		return false
-	}
-
-	maxBenchedStake := float64(totalStake) * b.maxPortion
+	// Note: Stake weights are *big.Int on Flare networks (total supply can
+	// overflow uint64), so the portion math below is performed on float64
+	// approximations of the big.Int weights.
+	totalStake := b.vdrs.TotalWeight(b.ctx.SubnetID)
+	totalStakeFloat, _ := totalStake.Float64()
+	maxBenchedStake := totalStakeFloat * b.maxPortion
 
 	// Fast path: benching fits directly without eviction.
-	newBenchedStake, err := math.Add(benchedStake, incomingStake)
-	if err != nil {
-		b.ctx.Log.Error("overflow calculating new benched stake",
-			zap.Stringer("nodeID", nodeID),
-			zap.Uint64("benchedStake", benchedStake),
-			zap.Uint64("incomingStake", incomingStake),
-		)
-		return false
-	}
-	if float64(newBenchedStake) <= maxBenchedStake {
+	newBenchedStake := new(big.Int).Add(benchedStake, new(big.Int).SetUint64(incomingStake))
+	newBenchedStakeFloat, _ := newBenchedStake.Float64()
+	if newBenchedStakeFloat <= maxBenchedStake {
 		return true
 	}
 
 	// If benching exceeds the max portion, we must evict >= targetEvictStake
 	// so that benching the incoming node does not exceed the max portion.
-	targetEvictStake := newBenchedStake - uint64(maxBenchedStake)
+	targetEvictStake := newBenchedStakeFloat - maxBenchedStake
 
 	// TODO: If this path shows up hot, avoid the O(n) scan/sort here by keeping
 	// benched nodes in a structure ordered by failure probability. We currently
@@ -411,37 +396,31 @@ func (b *benchlist) tryMakeRoom(nodeID ids.NodeID, incomingFailureProbability fl
 
 	// Select a sufficient set of candidates to evict to make room for the incoming node.
 	var (
-		evictedStake uint64
-		evictNodes   []*node
+		evictedStake      = new(big.Int)
+		evictedStakeFloat float64
+		evictNodes        []*node
 	)
 	for i, candidate := range candidates {
 		candidateStake := b.vdrs.GetWeight(b.ctx.SubnetID, candidate.nodeID)
-		newEvictedStake, err := math.Add(evictedStake, candidateStake)
-		if err != nil {
-			b.ctx.Log.Error("benchlist evicted stake overflow",
-				zap.Uint64("evictedStake", evictedStake),
-				zap.Uint64("candidateStake", candidateStake),
-			)
-			return false
-		}
-		evictedStake = newEvictedStake
+		evictedStake.Add(evictedStake, new(big.Int).SetUint64(candidateStake))
+		evictedStakeFloat, _ = evictedStake.Float64()
 		evictNodes = candidates[:i+1]
-		if evictedStake >= targetEvictStake {
+		if evictedStakeFloat >= targetEvictStake {
 			break
 		}
 	}
 
 	// If we couldn't evict enough stake to make room for the incoming node, skip
 	// benching it and return early.
-	if evictedStake < targetEvictStake {
+	if evictedStakeFloat < targetEvictStake {
 		b.ctx.Log.Debug("not benching node",
 			zap.String("reason", "benched stake would exceed max"),
 			zap.Stringer("nodeID", nodeID),
 			zap.Float64("incomingFailureProbability", incomingFailureProbability),
-			zap.Float64("benchedStake", float64(newBenchedStake)),
+			zap.Float64("benchedStake", newBenchedStakeFloat),
 			zap.Float64("maxBenchedStake", maxBenchedStake),
-			zap.Float64("evictableStake", float64(evictedStake)),
-			zap.Float64("targetEvictStake", float64(targetEvictStake)),
+			zap.Float64("evictableStake", evictedStakeFloat),
+			zap.Float64("targetEvictStake", targetEvictStake),
 		)
 		return false
 	}
@@ -460,20 +439,13 @@ func (b *benchlist) tryMakeRoom(nodeID ids.NodeID, incomingFailureProbability fl
 }
 
 // benchedStake returns the total stake weight of currently benched validators.
-func (b *benchlist) benchedStake() (uint64, error) {
+func (b *benchlist) benchedStake() *big.Int {
 	var benchedNodeIDs set.Set[ids.NodeID]
 	b.lock.RLock()
 	benchedNodeIDs.Union(b.benched)
 	b.lock.RUnlock()
 
-	weight, err := b.vdrs.SubsetWeight(b.ctx.SubnetID, benchedNodeIDs)
-	if err != nil {
-		b.ctx.Log.Error("error calculating benched stake",
-			zap.Stringer("subnetID", b.ctx.SubnetID),
-			zap.Error(err),
-		)
-	}
-	return weight, err
+	return b.vdrs.SubsetWeight(b.ctx.SubnetID, benchedNodeIDs)
 }
 
 // resetTimer stops the timer and resets it to fire at the earliest deadline in
@@ -503,9 +475,6 @@ func (b *benchlist) updateMetrics() {
 	b.lock.RUnlock()
 	b.numBenched.Set(numBenched)
 
-	weight, err := b.benchedStake()
-	if err != nil {
-		return
-	}
-	b.weightBenched.Set(float64(weight))
+	weight, _ := b.benchedStake().Float64()
+	b.weightBenched.Set(weight)
 }

@@ -70,11 +70,6 @@ message GetWarpValidatorSetsResponse {
   repeated WarpValidatorSet validator_sets = 1;
 }
 
-message GetWarpValidatorSetResponse {
-  bytes total_weight = 1;
-  repeated WarpValidator validators = 2;
-}
-
 message WarpValidatorSet {
   bytes subnet_id = 1;
   bytes total_weight = 2;

@@ -639,7 +639,7 @@ func TestGetValidatorRules(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			require := require.New(t)
 
-			rules, err := getValidatorRules(tt.backend, tt.chain, tt.subnetID)
+			rules, err := getValidatorRules(time.Time{}, tt.backend, tt.chain, tt.subnetID)
 			if tt.expectedErr != nil {
 				require.ErrorIs(err, tt.expectedErr)
 				return
@@ -736,7 +736,7 @@ func TestGetDelegatorRules(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			require := require.New(t)
 
-			rules, err := getDelegatorRules(tt.backend, tt.chain, tt.subnetID)
+			rules, err := getDelegatorRules(time.Time{}, tt.backend, tt.chain, tt.subnetID)
 			if tt.expectedErr != nil {
 				require.ErrorIs(err, tt.expectedErr)
 				return

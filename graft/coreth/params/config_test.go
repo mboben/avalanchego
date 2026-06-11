@@ -141,7 +141,7 @@ func TestCheckCompatible(t *testing.T) {
 				&ChainConfig{},
 				&extras.ChainConfig{
 					NetworkUpgrades: extras.NetworkUpgrades{
-						SongbirdTransitionTimestamp: utils.NewUint64(10),
+						SongbirdTransitionTimestamp: utils.PointerTo[uint64](10),
 					},
 				},
 			),
@@ -149,7 +149,7 @@ func TestCheckCompatible(t *testing.T) {
 				&ChainConfig{},
 				&extras.ChainConfig{
 					NetworkUpgrades: extras.NetworkUpgrades{
-						SongbirdTransitionTimestamp: utils.NewUint64(20),
+						SongbirdTransitionTimestamp: utils.PointerTo[uint64](20),
 					},
 				},
 			),
@@ -157,8 +157,8 @@ func TestCheckCompatible(t *testing.T) {
 			headTimestamp: 30,
 			wantErr: &ethparams.ConfigCompatError{
 				What:         "SongbirdTransition fork block timestamp",
-				StoredTime:   utils.NewUint64(10),
-				NewTime:      utils.NewUint64(20),
+				StoredTime:   utils.PointerTo[uint64](10),
+				NewTime:      utils.PointerTo[uint64](20),
 				RewindToTime: 9,
 			},
 		},

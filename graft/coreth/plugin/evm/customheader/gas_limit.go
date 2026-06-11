@@ -15,6 +15,7 @@ import (
 	"github.com/ava-labs/avalanchego/graft/coreth/plugin/evm/upgrade/ap1"
 	"github.com/ava-labs/avalanchego/graft/coreth/plugin/evm/upgrade/ap5"
 	"github.com/ava-labs/avalanchego/graft/coreth/plugin/evm/upgrade/cortina"
+	"github.com/ava-labs/avalanchego/graft/coreth/plugin/evm/upgrade/sgbt"
 	"github.com/ava-labs/avalanchego/utils/math"
 )
 

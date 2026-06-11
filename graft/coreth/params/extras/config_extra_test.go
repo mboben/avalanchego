@@ -131,11 +131,11 @@ func TestIsForkTransition(t *testing.T) {
 
 func TestCheckConfigForkOrderSongbirdTransition(t *testing.T) {
 	baseUpgrades := NetworkUpgrades{
-		ApricotPhase1BlockTimestamp: utils.NewUint64(0),
-		ApricotPhase2BlockTimestamp: utils.NewUint64(0),
-		ApricotPhase3BlockTimestamp: utils.NewUint64(0),
-		ApricotPhase4BlockTimestamp: utils.NewUint64(0),
-		ApricotPhase5BlockTimestamp: utils.NewUint64(0),
+		ApricotPhase1BlockTimestamp: utils.PointerTo[uint64](0),
+		ApricotPhase2BlockTimestamp: utils.PointerTo[uint64](0),
+		ApricotPhase3BlockTimestamp: utils.PointerTo[uint64](0),
+		ApricotPhase4BlockTimestamp: utils.PointerTo[uint64](0),
+		ApricotPhase5BlockTimestamp: utils.PointerTo[uint64](0),
 	}
 
 	tests := map[string]struct {
@@ -144,15 +144,15 @@ func TestCheckConfigForkOrderSongbirdTransition(t *testing.T) {
 		wantErr                     bool
 	}{
 		"omitted songbird transition is allowed before pre6": {
-			apricotPhasePre6Timestamp: utils.NewUint64(10),
+			apricotPhasePre6Timestamp: utils.PointerTo[uint64](10),
 		},
 		"songbird transition before pre6 is allowed": {
-			songbirdTransitionTimestamp: utils.NewUint64(5),
-			apricotPhasePre6Timestamp:   utils.NewUint64(10),
+			songbirdTransitionTimestamp: utils.PointerTo[uint64](5),
+			apricotPhasePre6Timestamp:   utils.PointerTo[uint64](10),
 		},
 		"songbird transition after pre6 is rejected": {
-			songbirdTransitionTimestamp: utils.NewUint64(15),
-			apricotPhasePre6Timestamp:   utils.NewUint64(10),
+			songbirdTransitionTimestamp: utils.PointerTo[uint64](15),
+			apricotPhasePre6Timestamp:   utils.PointerTo[uint64](10),
 			wantErr:                     true,
 		},
 	}
@@ -185,7 +185,7 @@ func TestGetNetworkUpgradesSongbirdTransition(t *testing.T) {
 		networkUpgrades := GetNetworkUpgrades(upgrade.Config{
 			SongbirdTransitionTime: upgrade.ZeroTime,
 		})
-		require.Equal(t, utils.NewUint64(0), networkUpgrades.SongbirdTransitionTimestamp)
+		require.Equal(t, utils.PointerTo[uint64](0), networkUpgrades.SongbirdTransitionTimestamp)
 	})
 
 	t.Run("configured transition is preserved", func(t *testing.T) {
@@ -193,6 +193,6 @@ func TestGetNetworkUpgradesSongbirdTransition(t *testing.T) {
 		networkUpgrades := GetNetworkUpgrades(upgrade.Config{
 			SongbirdTransitionTime: transitionTime,
 		})
-		require.Equal(t, utils.NewUint64(uint64(transitionTime.Unix())), networkUpgrades.SongbirdTransitionTimestamp)
+		require.Equal(t, utils.PointerTo[uint64](uint64(transitionTime.Unix())), networkUpgrades.SongbirdTransitionTimestamp)
 	})
 }

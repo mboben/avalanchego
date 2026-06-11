@@ -68,6 +68,15 @@ func (s *Server) GetWarpValidatorSets(ctx context.Context, req *pb.GetWarpValida
 	}, nil
 }
 
+// totalWeightBytes encodes a *big.Int total weight for the proto wire,
+// treating nil as zero (empty bytes).
+func totalWeightBytes(w *big.Int) []byte {
+	if w == nil {
+		return nil
+	}
+	return w.Bytes()
+}
+
 func (s *Server) GetValidatorSet(ctx context.Context, req *pb.GetValidatorSetRequest) (*pb.GetValidatorSetResponse, error) {
 	subnetID, err := ids.ToID(req.SubnetId)
 	if err != nil {

@@ -15,7 +15,10 @@ import (
 var (
 	InitiallyActiveTime       = time.Date(2020, time.December, 5, 5, 0, 0, 0, time.UTC)
 	UnscheduledActivationTime = time.Date(9999, time.December, 1, 0, 0, 0, 0, time.UTC)
-	ZeroTime                  = time.Unix(0, 0)
+	// ZeroTime is pinned to UTC so that configs containing it survive a
+	// proto round-trip (timestamppb decodes to UTC) under deep equality,
+	// regardless of the host timezone.
+	ZeroTime = time.Unix(0, 0).UTC()
 
 	Mainnet = Config{
 		ApricotPhase1Time:            time.Date(2021, time.March, 31, 14, 0, 0, 0, time.UTC),
@@ -98,6 +101,7 @@ var (
 		EtnaTime:               time.Date(2025, time.November, 25, 12, 0, 0, 0, time.UTC),
 		FortunaTime:            time.Date(2026, time.March, 31, 12, 0, 0, 0, time.UTC),
 		GraniteTime:            UnscheduledActivationTime,
+		HeliconTime:            UnscheduledActivationTime,
 		GraniteEpochDuration:   5 * time.Minute,
 	}
 	Costwo = Config{

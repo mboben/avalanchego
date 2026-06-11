@@ -660,7 +660,7 @@ func testReceiveWarpMessage(
 			}
 
 			makeVdrSet := func(signers []signer) validators.WarpSet {
-				vdrs := validators.WarpSet{}
+				vdrs := validators.WarpSet{TotalWeight: new(big.Int)}
 				for _, s := range signers {
 					pk := s.secret.PublicKey()
 					vdrs.Validators = append(vdrs.Validators, &validators.Warp{
@@ -669,7 +669,7 @@ func testReceiveWarpMessage(
 						Weight:         s.weight,
 						NodeIDs:        []ids.NodeID{s.nodeID},
 					})
-					vdrs.TotalWeight += s.weight
+					vdrs.TotalWeight.Add(vdrs.TotalWeight, new(big.Int).SetUint64(s.weight))
 				}
 				avagoUtils.Sort(vdrs.Validators)
 				return vdrs

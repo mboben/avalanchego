@@ -94,36 +94,6 @@ func (c *Client) GetWarpValidatorSets(
 	return validatorSets, nil
 }
 
-func (c *Client) GetWarpValidatorSet(
-	ctx context.Context,
-	height uint64,
-	subnetID ids.ID,
-) (validators.WarpSet, error) {
-	resp, err := c.client.GetWarpValidatorSet(
-		ctx,
-		&pb.GetWarpValidatorSetRequest{
-			Height:   height,
-			SubnetId: subnetID[:],
-		},
-	)
-	if err != nil {
-		return validators.WarpSet{}, fmt.Errorf("failed to get warp validator set at %d for %s: %w",
-			height,
-			subnetID,
-			err,
-		)
-	}
-
-	vdrs, err := warpValidatorsFromProto(resp.GetValidators())
-	if err != nil {
-		return validators.WarpSet{}, fmt.Errorf("failed to parse warp validators: %w", err)
-	}
-	return validators.WarpSet{
-		Validators:  vdrs,
-		TotalWeight: new(big.Int).SetBytes(resp.GetTotalWeight()),
-	}, nil
-}
-
 func (c *Client) GetValidatorSet(
 	ctx context.Context,
 	height uint64,

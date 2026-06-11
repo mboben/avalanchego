@@ -306,12 +306,10 @@ func TestEveryWithNonPositiveFrequency(t *testing.T) {
 	} {
 		t.Run(frequency.String(), func(t *testing.T) {
 			calls := 0
-			gossiper := &TestGossiper{
-				GossipF: func(context.Context) error {
-					calls++
-					return nil
-				},
-			}
+			gossiper := gossiperFunc(func(context.Context) error {
+				calls++
+				return nil
+			})
 
 			Every(t.Context(), logging.NoLog{}, gossiper, frequency)
 			require.Zero(t, calls)

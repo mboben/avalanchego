@@ -28,10 +28,8 @@ func TestGetAtomicTxStatusPropagatesRepositoryError(t *testing.T) {
 	require.NoError(db.Close())
 
 	service := &AvaxAPI{
-		vm: &VM{
-			Ctx:                snowtest.Context(t, snowtest.CChainID),
-			AtomicTxRepository: repository,
-		},
+		Context:     snowtest.Context(t, snowtest.CChainID),
+		AcceptedTxs: repository,
 	}
 	reply := &client.GetAtomicTxStatusReply{}
 	err = service.GetAtomicTxStatus(nil, &api.JSONTxID{

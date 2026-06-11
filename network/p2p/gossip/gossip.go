@@ -612,9 +612,12 @@ func (p *PushGossiper[_]) updateMetrics(nowUnixNano float64) {
 }
 
 // Every calls [Gossip] every [period] amount of time.
+//
+// Flare: a non-positive period disables this gossip loop entirely (audit
+// fix), rather than falling back to a default period.
 func Every(ctx context.Context, log logging.Logger, gossiper Gossiper, period time.Duration) {
 	if period <= 0 {
-		period = defaultRequestPeriod
+		return
 	}
 
 	ticker := time.NewTicker(period)

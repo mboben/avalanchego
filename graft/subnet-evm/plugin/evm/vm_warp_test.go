@@ -682,7 +682,7 @@ func testReceiveWarpMessage(
 			}
 
 			makeVdrSet := func(signers []signer) validators.WarpSet {
-				vdrs := validators.WarpSet{}
+				vdrs := validators.WarpSet{TotalWeight: new(big.Int)}
 				for _, s := range signers {
 					pk := s.secret.PublicKey()
 					vdrs.Validators = append(vdrs.Validators, &validators.Warp{

@@ -163,31 +163,33 @@ func TestCheckNetworkUpgradesCompatible(t *testing.T) {
 			valid: false,
 		},
 		{
+			// Note: Fuji was removed in the Flare fork (network ID conflict),
+			// so these cases use Mainnet where upstream uses Fuji.
 			name: "Incompatible_fastforward_nil_NetworkUpgrades",
 			upgrades1: func() *NetworkUpgrades {
-				upgrades := GetNetworkUpgrades(upgrade.Fuji)
+				upgrades := GetNetworkUpgrades(upgrade.Mainnet)
 				return &upgrades
 			}(),
 			upgrades2: func() *NetworkUpgrades {
-				upgrades := GetNetworkUpgrades(upgrade.Fuji)
+				upgrades := GetNetworkUpgrades(upgrade.Mainnet)
 				upgrades.EtnaTimestamp = nil
 				return &upgrades
 			}(),
-			time:  uint64(upgrade.Fuji.EtnaTime.Unix()),
+			time:  uint64(upgrade.Mainnet.EtnaTime.Unix()),
 			valid: false,
 		},
 		{
 			name: "Compatible_Fortuna_fastforward_nil_NetworkUpgrades",
 			upgrades1: func() *NetworkUpgrades {
-				upgrades := GetNetworkUpgrades(upgrade.Fuji)
+				upgrades := GetNetworkUpgrades(upgrade.Mainnet)
 				return &upgrades
 			}(),
 			upgrades2: func() *NetworkUpgrades {
-				upgrades := GetNetworkUpgrades(upgrade.Fuji)
+				upgrades := GetNetworkUpgrades(upgrade.Mainnet)
 				upgrades.FortunaTimestamp = nil
 				return &upgrades
 			}(),
-			time:  uint64(upgrade.Fuji.FortunaTime.Unix()),
+			time:  uint64(upgrade.Mainnet.FortunaTime.Unix()),
 			valid: true,
 		},
 	}
@@ -238,21 +240,24 @@ func TestVerifyNetworkUpgrades(t *testing.T) {
 			wantError:     errTimestampTooEarly,
 		},
 		{
-			name: "Invalid_Mainnet_Durango_reconfigured_to_Fuji",
-			upgrades: &NetworkUpgrades{
-				SubnetEVMTimestamp: avalancheutils.PointerTo[uint64](0),
-				DurangoTimestamp:   utils.TimeToNewUint64(upgrade.GetConfig(constants.FujiID).DurangoTime),
-			},
-			avagoUpgrades: upgrade.Mainnet,
-			wantError:     errTimestampTooEarly,
-		},
-		{
-			name: "Valid_Fuji_Durango_reconfigured_to_Mainnet",
+			// Note: Fuji was removed in the Flare fork; Flare's Durango is
+			// later than Mainnet's, so the too-early/valid reconfiguration
+			// pair below uses Flare<->Mainnet instead of Mainnet<->Fuji.
+			name: "Invalid_Flare_Durango_reconfigured_to_Mainnet",
 			upgrades: &NetworkUpgrades{
 				SubnetEVMTimestamp: avalancheutils.PointerTo[uint64](0),
 				DurangoTimestamp:   utils.TimeToNewUint64(upgrade.GetConfig(constants.MainnetID).DurangoTime),
 			},
-			avagoUpgrades: upgrade.Fuji,
+			avagoUpgrades: upgrade.Flare,
+			wantError:     errTimestampTooEarly,
+		},
+		{
+			name: "Valid_Mainnet_Durango_reconfigured_to_Flare",
+			upgrades: &NetworkUpgrades{
+				SubnetEVMTimestamp: avalancheutils.PointerTo[uint64](0),
+				DurangoTimestamp:   utils.TimeToNewUint64(upgrade.GetConfig(constants.FlareID).DurangoTime),
+			},
+			avagoUpgrades: upgrade.Mainnet,
 			wantError:     errCannotBeNil, // Etna is required but not specified
 		},
 		{
@@ -279,10 +284,10 @@ func TestVerifyNetworkUpgrades(t *testing.T) {
 			name: "Valid_Granite_After_nil_Fortuna",
 			upgrades: &NetworkUpgrades{
 				SubnetEVMTimestamp: avalancheutils.PointerTo[uint64](0),
-				DurangoTimestamp:   utils.TimeToNewUint64(upgrade.Fuji.DurangoTime),
-				EtnaTimestamp:      utils.TimeToNewUint64(upgrade.Fuji.EtnaTime),
+				DurangoTimestamp:   utils.TimeToNewUint64(upgrade.Mainnet.DurangoTime),
+				EtnaTimestamp:      utils.TimeToNewUint64(upgrade.Mainnet.EtnaTime),
 				FortunaTimestamp:   nil,
-				GraniteTimestamp:   utils.TimeToNewUint64(upgrade.Fuji.GraniteTime),
+				GraniteTimestamp:   utils.TimeToNewUint64(upgrade.Mainnet.GraniteTime),
 			},
 			avagoUpgrades: upgradetest.GetConfig(upgradetest.Granite),
 			wantError:     nil,

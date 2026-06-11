@@ -274,6 +274,7 @@ func getNetworkUpgrades(u upgrade.Config) *vmpb.NetworkUpgrades {
 		GraniteTime:                   grpcutils.TimestampFromTime(u.GraniteTime),
 		GraniteEpochDuration:          durationpb.New(u.GraniteEpochDuration),
 		HeliconTime:                   grpcutils.TimestampFromTime(u.HeliconTime),
+		SongbirdTransitionTime:        grpcutils.TimestampFromTime(u.SongbirdTransitionTime),
 	}
 }
 

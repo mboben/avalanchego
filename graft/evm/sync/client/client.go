@@ -369,8 +369,7 @@ func (c *client) get(ctx context.Context, request message.Request, parseFn parse
 			if c.isSongbirdCode {
 				minVersion = StateSyncVersionSgb
 			}
-			response, nodeID, err = c.networkClient.SendSyncedAppRequestAny(ctx, minVersion, requestBytes)
-			response, nodeID, err = c.network.SendSyncedAppRequestAny(ctx, StateSyncVersion, requestBytes)
+			response, nodeID, err = c.network.SendSyncedAppRequestAny(ctx, minVersion, requestBytes)
 		} else {
 			// get the next nodeID using the nodeIdx offset. If we're out of nodes, loop back to 0
 			// we do this every attempt to ensure we get a different node each time if possible.

@@ -1244,7 +1244,16 @@ func (m *manager) createSnowmanChain(
 	}
 
 	bootstrapWeight := beacons.TotalWeight(ctx.SubnetID)
-	consensusParams := sb.Config().ConsensusParameters
+
+	// sanity check
+	if sb.Config().SnowParameters == nil {
+		msg := "snowball parameters not specified for subnet %s"
+		if sb.Config().SimplexParameters != nil {
+			msg += ", this chain is configured with simplex"
+		}
+		return nil, fmt.Errorf(msg, ctx.SubnetID)
+	}
+	consensusParams := *sb.Config().SnowParameters
 	sampleK := consensusParams.K
 
 	if big.NewInt(int64(sampleK)).Cmp(bootstrapWeight) > 0 {

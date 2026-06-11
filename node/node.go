@@ -14,6 +14,7 @@ import (
 	"io"
 	"io/fs"
 	"math"
+	"math/big"
 	"net"
 	"net/netip"
 	"os"
@@ -1530,36 +1531,44 @@ func (n *Node) initHealthAPI() error {
 		lastLogTime          time.Time
 	)
 	futureUpgradeCheck := health.CheckerFunc(func(context.Context) (interface{}, error) {
+		// Note: Stake weight sums are *big.Int on Flare networks (total stake
+		// can overflow uint64); the portion below is computed on float64
+		// approximations of the big.Int weights.
 		var (
 			currentValidators = n.vdrs.GetMap(constants.PrimaryNetworkID)
-			totalWeight       uint64
+			totalWeight       = new(big.Int)
 		)
 		for _, vdr := range currentValidators {
-			totalWeight += vdr.Weight
+			totalWeight.Add(totalWeight, new(big.Int).SetUint64(vdr.Weight))
 		}
-		if totalWeight == 0 {
+		if totalWeight.Sign() == 0 {
 			return nil, errNoValidators
 		}
 
 		var (
 			peers               = n.Net.PeerInfo(maps.Keys(currentValidators))
-			upgradeTimes        = make(map[uint64]uint64) // upgrade time -> stake weight
+			upgradeTimes        = make(map[uint64]*big.Int) // upgrade time -> stake weight
 			modeUpgradeTimeUnix uint64
-			modeUpgradeWeight   uint64
+			modeUpgradeWeight   = new(big.Int)
 		)
 		for _, peer := range peers {
 			vdr := currentValidators[peer.ID]
-			upgradeWeight := upgradeTimes[peer.UpgradeTime]
-			upgradeWeight += vdr.Weight
-			upgradeTimes[peer.UpgradeTime] = upgradeWeight
+			upgradeWeight, ok := upgradeTimes[peer.UpgradeTime]
+			if !ok {
+				upgradeWeight = new(big.Int)
+				upgradeTimes[peer.UpgradeTime] = upgradeWeight
+			}
+			upgradeWeight.Add(upgradeWeight, new(big.Int).SetUint64(vdr.Weight))
 
-			if upgradeWeight > modeUpgradeWeight {
+			if upgradeWeight.Cmp(modeUpgradeWeight) > 0 {
 				modeUpgradeTimeUnix = peer.UpgradeTime
 				modeUpgradeWeight = upgradeWeight
 			}
 		}
 
-		modeUpgradeWeightPortion := float64(modeUpgradeWeight) / float64(totalWeight)
+		modeUpgradeWeightFloat, _ := modeUpgradeWeight.Float64()
+		totalWeightFloat, _ := totalWeight.Float64()
+		modeUpgradeWeightPortion := modeUpgradeWeightFloat / totalWeightFloat
 		result := map[string]interface{}{
 			"localUpgradeTime":            localUpgradeTime,
 			"modeUpgradeTime":             time.Unix(int64(modeUpgradeTimeUnix), 0).UTC(),

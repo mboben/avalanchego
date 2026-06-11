@@ -81,7 +81,7 @@ func (m *Majority) RecordOpinion(_ context.Context, nodeID ids.NodeID, blkIDs se
 
 	totalWeight := big.NewInt(0)
 	for _, weight := range m.nodeWeights {
-		totalWeight.Add(totalWeight, big.NewInt(int64(weight)))
+		totalWeight.Add(totalWeight, new(big.Int).SetUint64(weight))
 	}
 
 	// requiredWeight := totalWeight/2 + 1

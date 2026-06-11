@@ -150,4 +150,4 @@ Flare-specific timestamps differ from Avalanche mainnet — do not copy upgrade 
 2. **No Fuji testnet** — removed due to network ID conflicts (Songbird uses network ID 5); tests that use `upgrade.Fuji` upstream are adapted to Mainnet/Flare configs
 3. **libevm dependency** — uses the upstream published `github.com/ava-labs/libevm` directly (no local fork / no `replace` directive). The daemon-call logic that previously required a libevm fork lives in [core/daemon_call.go](core/daemon_call.go)
 4. **big.Int validator weights** — `validators.WarpSet.TotalWeight` and warp signature weight sums are `*big.Int` in the Flare fork (token supply exceeds uint64); warp tests here construct weights accordingly
-5. **Gossip disable semantics** — `gossip.Every` (root module) returns immediately for non-positive frequency (audit fix) instead of substituting a default period
+5. **Gossip semantics** — `gossip.Every` (root module) matches upstream (a non-positive frequency clamps to the default period). A prior Flare "disable on non-positive frequency" audit fix was reverted because it left the push-gossip queue unbounded when disabled; do not re-apply it on merge.

@@ -888,7 +888,17 @@ func getTxFeeConfig(v *viper.Viper, networkID uint32) genesis.TxFeeConfig {
 
 func getUpgradeConfig(v *viper.Viper, networkID uint32) (upgrade.Config, error) {
 	if !v.IsSet(UpgradeFileKey) && !v.IsSet(UpgradeFileContentKey) {
-		return upgrade.GetConfig(networkID), nil
+		upgradeConfig := upgrade.GetConfig(networkID)
+		// Flare: validate the fork schedule at startup so that a malformed
+		// config (e.g. a missing fork time) fails loudly instead of silently
+		// mis-activating consensus rules.
+		if err := upgradeConfig.Validate(); err != nil {
+			return upgrade.Config{}, fmt.Errorf("invalid upgrade config for networkID %s: %w",
+				constants.NetworkName(networkID),
+				err,
+			)
+		}
+		return upgradeConfig, nil
 	}
 
 	switch networkID {
@@ -921,6 +931,10 @@ func getUpgradeConfig(v *viper.Viper, networkID uint32) (upgrade.Config, error) 
 	var upgradeConfig upgrade.Config
 	if err := json.Unmarshal(upgradeBytes, &upgradeConfig); err != nil {
 		return upgrade.Config{}, fmt.Errorf("unable to unmarshal upgrade bytes: %w", err)
+	}
+	// Flare: validate user-provided fork schedules as well.
+	if err := upgradeConfig.Validate(); err != nil {
+		return upgrade.Config{}, fmt.Errorf("invalid upgrade config: %w", err)
 	}
 	return upgradeConfig, nil
 }

@@ -17,7 +17,9 @@ import (
 	"github.com/ava-labs/avalanchego/graft/coreth/plugin/evm/upgrade/ap3"
 	"github.com/ava-labs/avalanchego/graft/coreth/plugin/evm/upgrade/ap4"
 	"github.com/ava-labs/avalanchego/graft/coreth/plugin/evm/upgrade/ap5"
+	"github.com/ava-labs/avalanchego/snow"
 	"github.com/ava-labs/avalanchego/utils"
+	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/avalanchego/vms/components/gas"
 	"github.com/ava-labs/avalanchego/vms/evm/acp176"
 )
@@ -382,6 +384,9 @@ func TestExtraPrefix(t *testing.T) {
 
 			config := &extras.ChainConfig{
 				NetworkUpgrades: test.upgrades,
+				AvalancheContext: extras.AvalancheContext{
+					SnowCtx: &snow.Context{NetworkID: constants.MainnetID},
+				},
 			}
 			got, err := ExtraPrefix(config, test.parent, test.header, test.desiredTargetExcess)
 			require.ErrorIs(err, test.wantErr)
@@ -494,6 +499,9 @@ func TestVerifyExtraPrefix(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			config := &extras.ChainConfig{
 				NetworkUpgrades: test.upgrades,
+				AvalancheContext: extras.AvalancheContext{
+					SnowCtx: &snow.Context{NetworkID: constants.MainnetID},
+				},
 			}
 			err := VerifyExtraPrefix(config, test.parent, test.header)
 			require.ErrorIs(t, err, test.wantErr)

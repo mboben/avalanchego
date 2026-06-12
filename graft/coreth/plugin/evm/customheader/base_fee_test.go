@@ -517,6 +517,9 @@ func TestBaseFee(t *testing.T) {
 
 			config := &extras.ChainConfig{
 				NetworkUpgrades: test.upgrades,
+				AvalancheContext: extras.AvalancheContext{
+					SnowCtx: &snow.Context{NetworkID: constants.MainnetID},
+				},
 			}
 			got, err := BaseFee(config, test.parent, test.timeMS)
 			require.ErrorIs(err, test.wantErr)
@@ -603,6 +606,9 @@ func TestEstimateNextBaseFee(t *testing.T) {
 
 			config := &extras.ChainConfig{
 				NetworkUpgrades: test.upgrades,
+				AvalancheContext: extras.AvalancheContext{
+					SnowCtx: &snow.Context{NetworkID: constants.MainnetID},
+				},
 			}
 			got, err := EstimateNextBaseFee(config, test.parent, test.timeMS)
 			require.NoError(err)

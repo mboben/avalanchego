@@ -35,6 +35,9 @@ import (
 	"github.com/ava-labs/avalanchego/graft/coreth/consensus/dummy"
 	"github.com/ava-labs/avalanchego/graft/coreth/core/coretest"
 	"github.com/ava-labs/avalanchego/graft/coreth/params"
+	"github.com/ava-labs/avalanchego/graft/coreth/params/extras"
+	"github.com/ava-labs/avalanchego/snow"
+	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/libevm/common"
 	"github.com/ava-labs/libevm/core/rawdb"
 	"github.com/ava-labs/libevm/core/types"
@@ -56,8 +59,15 @@ func TestTransactionIndices(t *testing.T) {
 		addr2   = crypto.PubkeyToAddress(key2.PublicKey)
 		funds   = big.NewInt(10000000000000)
 		gspec   = &Genesis{
-			Config: &params.ChainConfig{HomesteadBlock: new(big.Int)},
-			Alloc:  types.GenesisAlloc{addr1: {Balance: funds}},
+			Config: params.WithExtra(
+				&params.ChainConfig{HomesteadBlock: new(big.Int)},
+				&extras.ChainConfig{
+					AvalancheContext: extras.AvalancheContext{
+						SnowCtx: &snow.Context{NetworkID: constants.MainnetID},
+					},
+				},
+			),
+			Alloc: types.GenesisAlloc{addr1: {Balance: funds}},
 		}
 		signer = types.LatestSigner(gspec.Config)
 	)
@@ -176,8 +186,15 @@ func TestTransactionSkipIndexing(t *testing.T) {
 		addr2   = crypto.PubkeyToAddress(key2.PublicKey)
 		funds   = big.NewInt(10000000000000)
 		gspec   = &Genesis{
-			Config: &params.ChainConfig{HomesteadBlock: new(big.Int)},
-			Alloc:  types.GenesisAlloc{addr1: {Balance: funds}},
+			Config: params.WithExtra(
+				&params.ChainConfig{HomesteadBlock: new(big.Int)},
+				&extras.ChainConfig{
+					AvalancheContext: extras.AvalancheContext{
+						SnowCtx: &snow.Context{NetworkID: constants.MainnetID},
+					},
+				},
+			),
+			Alloc: types.GenesisAlloc{addr1: {Balance: funds}},
 		}
 		signer = types.LatestSigner(gspec.Config)
 	)

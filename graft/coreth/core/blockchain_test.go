@@ -35,9 +35,12 @@ import (
 
 	"github.com/ava-labs/avalanchego/graft/coreth/consensus/dummy"
 	"github.com/ava-labs/avalanchego/graft/coreth/params"
+	"github.com/ava-labs/avalanchego/graft/coreth/params/extras"
 	"github.com/ava-labs/avalanchego/graft/coreth/plugin/evm/upgrade/ap3"
 	"github.com/ava-labs/avalanchego/graft/evm/core/state/pruner"
+	"github.com/ava-labs/avalanchego/snow"
 	"github.com/ava-labs/avalanchego/upgrade"
+	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/avalanchego/vms/evm/sync/customrawdb"
 	"github.com/ava-labs/libevm/common"
 	"github.com/ava-labs/libevm/core/rawdb"
@@ -452,8 +455,15 @@ func testPruningToNonPruning(t *testing.T, scheme string) {
 	)
 
 	gspec := &Genesis{
-		Config: &params.ChainConfig{HomesteadBlock: new(big.Int)},
-		Alloc:  types.GenesisAlloc{addr1: {Balance: big.NewInt(1000000)}},
+		Config: params.WithExtra(
+			&params.ChainConfig{HomesteadBlock: new(big.Int)},
+			&extras.ChainConfig{
+				AvalancheContext: extras.AvalancheContext{
+					SnowCtx: &snow.Context{NetworkID: constants.MainnetID},
+				},
+			},
+		),
+		Alloc: types.GenesisAlloc{addr1: {Balance: big.NewInt(1000000)}},
 	}
 
 	chainDataDir := t.TempDir()
@@ -593,8 +603,15 @@ func testRepopulateMissingTriesParallel(t *testing.T, parallelism int) {
 	// Ensure that key1 has some funds in the genesis block.
 	genesisBalance := big.NewInt(1000000)
 	gspec := &Genesis{
-		Config: &params.ChainConfig{HomesteadBlock: new(big.Int)},
-		Alloc:  types.GenesisAlloc{addr1: {Balance: genesisBalance}},
+		Config: params.WithExtra(
+			&params.ChainConfig{HomesteadBlock: new(big.Int)},
+			&extras.ChainConfig{
+				AvalancheContext: extras.AvalancheContext{
+					SnowCtx: &snow.Context{NetworkID: constants.MainnetID},
+				},
+			},
+		),
+		Alloc: types.GenesisAlloc{addr1: {Balance: genesisBalance}},
 	}
 
 	blockchain, err := createBlockChain(chainDB, pruningConfig, gspec, common.Hash{})

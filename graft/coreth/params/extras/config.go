@@ -20,7 +20,17 @@ import (
 )
 
 var (
-	TestLaunchConfig = &ChainConfig{}
+	// TestLaunchConfig is the root of the Test*ChainConfig chain; every other
+	// test config below is copied from it. It carries a non-Flare, non-Songbird
+	// SnowCtx (MainnetID) so the network classifiers (IsSongbirdCode /
+	// IsFlareFamilyCode) resolve to false in tests — matching production, where
+	// SnowCtx is always populated during VM initialization. Flare/Songbird
+	// tests override SnowCtx with the relevant network ID.
+	TestLaunchConfig = &ChainConfig{
+		AvalancheContext: AvalancheContext{
+			SnowCtx: &snow.Context{NetworkID: constants.MainnetID},
+		},
+	}
 
 	TestApricotPhase1Config = copyAndSet(TestLaunchConfig, func(c *ChainConfig) {
 		c.NetworkUpgrades.ApricotPhase1BlockTimestamp = utils.PointerTo[uint64](0)
@@ -291,23 +301,39 @@ func (c *ChainConfig) IsPrecompileEnabled(address common.Address, timestamp uint
 	return config != nil && !config.IsDisabled()
 }
 
+// requireSnowCtx returns the Avalanche context, panicking if it is nil.
+//
+// Network classification (Songbird / Flare-family) is consensus-relevant: it
+// selects gas targets and the ACP-176 base-fee floor. SnowCtx is populated
+// during VM initialization (see parseGenesis) and is intentionally not
+// serialized (json:"-"). A nil value here therefore means the config never went
+// through initialization or lost its context (e.g. a JSON/DB round-trip).
+// Rather than silently falling back to Avalanche semantics — which would
+// mis-activate consensus rules on a Flare/Songbird network — we fail loud.
+func (c *ChainConfig) requireSnowCtx(caller string) *snow.Context {
+	if c.SnowCtx == nil {
+		panic("extras.ChainConfig." + caller + ": SnowCtx is nil; network classification requires the SnowCtx set during VM initialization")
+	}
+	return c.SnowCtx
+}
+
 // IsSongbirdCode returns true if this is a Songbird-related network (Songbird, Coston, or Local).
 // This is determined by the network ID from the Avalanche context.
 func (c *ChainConfig) IsSongbirdCode() bool {
-	if c == nil || c.SnowCtx == nil {
+	if c == nil {
 		return false
 	}
-	networkID := c.SnowCtx.NetworkID
+	networkID := c.requireSnowCtx("IsSongbirdCode").NetworkID
 	return networkID == constants.SongbirdID || networkID == constants.CostonID || networkID == constants.LocalID
 }
 
 // IsFlareFamilyCode returns true if this is any Flare- or Songbird-family
 // network (Flare, Costwo, LocalFlare, Songbird, Coston, Local).
 func (c *ChainConfig) IsFlareFamilyCode() bool {
-	if c == nil || c.SnowCtx == nil {
+	if c == nil {
 		return false
 	}
-	id := c.SnowCtx.NetworkID
+	id := c.requireSnowCtx("IsFlareFamilyCode").NetworkID
 	return constants.IsFlareNetworkID(id) || constants.IsSgbNetworkID(id)
 }
 

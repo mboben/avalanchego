@@ -74,6 +74,9 @@ func TestGasLimit(t *testing.T) {
 
 			config := &extras.ChainConfig{
 				NetworkUpgrades: test.upgrades,
+				AvalancheContext: extras.AvalancheContext{
+					SnowCtx: &snow.Context{NetworkID: constants.MainnetID},
+				},
 			}
 			got, err := GasLimit(config, test.parent, 0)
 			require.ErrorIs(err, test.wantErr)
@@ -187,6 +190,9 @@ func TestVerifyGasUsed(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			config := &extras.ChainConfig{
 				NetworkUpgrades: test.upgrades,
+				AvalancheContext: extras.AvalancheContext{
+					SnowCtx: &snow.Context{NetworkID: constants.MainnetID},
+				},
 			}
 			err := VerifyGasUsed(config, test.parent, test.header)
 			require.ErrorIs(t, err, test.want)
@@ -339,6 +345,9 @@ func TestVerifyGasLimit(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			config := &extras.ChainConfig{
 				NetworkUpgrades: test.upgrades,
+				AvalancheContext: extras.AvalancheContext{
+					SnowCtx: &snow.Context{NetworkID: constants.MainnetID},
+				},
 			}
 			err := VerifyGasLimit(config, test.parent, test.header)
 			require.ErrorIs(t, err, test.want)
@@ -415,6 +424,9 @@ func TestGasCapacity(t *testing.T) {
 
 			config := &extras.ChainConfig{
 				NetworkUpgrades: test.upgrades,
+				AvalancheContext: extras.AvalancheContext{
+					SnowCtx: &snow.Context{NetworkID: constants.MainnetID},
+				},
 			}
 			got, err := GasCapacity(config, test.parent, test.timestamp)
 			require.ErrorIs(err, test.wantErr)
@@ -555,6 +567,9 @@ func TestRemainingAtomicGasCapacity(t *testing.T) {
 
 			config := &extras.ChainConfig{
 				NetworkUpgrades: test.upgrades,
+				AvalancheContext: extras.AvalancheContext{
+					SnowCtx: &snow.Context{NetworkID: constants.MainnetID},
+				},
 			}
 			got, err := RemainingAtomicGasCapacity(config, test.parent, test.header)
 			require.ErrorIs(err, test.wantErr)

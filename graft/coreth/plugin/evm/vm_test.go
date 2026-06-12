@@ -46,10 +46,12 @@ import (
 	"github.com/ava-labs/avalanchego/graft/evm/message"
 	"github.com/ava-labs/avalanchego/graft/evm/rpc"
 	"github.com/ava-labs/avalanchego/ids"
+	"github.com/ava-labs/avalanchego/snow"
 	"github.com/ava-labs/avalanchego/snow/snowtest"
 	"github.com/ava-labs/avalanchego/upgrade"
 	"github.com/ava-labs/avalanchego/upgrade/upgradetest"
 	"github.com/ava-labs/avalanchego/utils"
+	avalancheconstants "github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/avalanchego/utils/set"
 	"github.com/ava-labs/avalanchego/utils/timer/mockable"
 	"github.com/ava-labs/avalanchego/vms/components/chain"
@@ -1357,6 +1359,7 @@ func TestNoBlobsAllowed(t *testing.T) {
 
 	gspec := new(core.Genesis)
 	require.NoError(json.Unmarshal([]byte(genesisJSONCancun), gspec))
+	params.GetExtra(gspec.Config).SnowCtx = &snow.Context{NetworkID: avalancheconstants.MainnetID}
 
 	// Make one block with a single blob tx
 	signer := types.NewCancunSigner(gspec.Config.ChainID)

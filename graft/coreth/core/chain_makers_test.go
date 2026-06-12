@@ -33,6 +33,9 @@ import (
 
 	"github.com/ava-labs/avalanchego/graft/coreth/consensus/dummy"
 	"github.com/ava-labs/avalanchego/graft/coreth/params"
+	"github.com/ava-labs/avalanchego/graft/coreth/params/extras"
+	"github.com/ava-labs/avalanchego/snow"
+	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/libevm/common"
 	"github.com/ava-labs/libevm/core/rawdb"
 	"github.com/ava-labs/libevm/core/types"
@@ -56,8 +59,15 @@ func ExampleGenerateChain() {
 
 	// Ensure that key1 has some funds in the genesis block.
 	gspec := &Genesis{
-		Config: &params.ChainConfig{HomesteadBlock: new(big.Int)},
-		Alloc:  types.GenesisAlloc{addr1: {Balance: big.NewInt(1000000)}},
+		Config: params.WithExtra(
+			&params.ChainConfig{HomesteadBlock: new(big.Int)},
+			&extras.ChainConfig{
+				AvalancheContext: extras.AvalancheContext{
+					SnowCtx: &snow.Context{NetworkID: constants.MainnetID},
+				},
+			},
+		),
+		Alloc: types.GenesisAlloc{addr1: {Balance: big.NewInt(1000000)}},
 	}
 	genesis := gspec.MustCommit(genDb, triedb.NewDatabase(genDb, triedb.HashDefaults))
 

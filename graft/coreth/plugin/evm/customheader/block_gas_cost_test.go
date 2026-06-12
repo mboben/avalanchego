@@ -17,6 +17,8 @@ import (
 	"github.com/ava-labs/avalanchego/graft/coreth/plugin/evm/customtypes"
 	"github.com/ava-labs/avalanchego/graft/coreth/plugin/evm/upgrade/ap4"
 	"github.com/ava-labs/avalanchego/graft/coreth/plugin/evm/upgrade/ap5"
+	"github.com/ava-labs/avalanchego/snow"
+	"github.com/ava-labs/avalanchego/utils/constants"
 )
 
 func TestBlockGasCost(t *testing.T) {
@@ -74,6 +76,9 @@ func TestBlockGasCost(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			config := &extras.ChainConfig{
 				NetworkUpgrades: test.upgrades,
+				AvalancheContext: extras.AvalancheContext{
+					SnowCtx: &snow.Context{NetworkID: constants.MainnetID},
+				},
 			}
 			parent := customtypes.WithHeaderExtra(
 				&types.Header{

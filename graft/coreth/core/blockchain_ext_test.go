@@ -21,8 +21,11 @@ import (
 	"github.com/ava-labs/avalanchego/graft/coreth/consensus/dummy"
 	"github.com/ava-labs/avalanchego/graft/coreth/core/extstate"
 	"github.com/ava-labs/avalanchego/graft/coreth/params"
+	"github.com/ava-labs/avalanchego/graft/coreth/params/extras"
 	"github.com/ava-labs/avalanchego/graft/coreth/plugin/evm/customheader"
 	"github.com/ava-labs/avalanchego/graft/coreth/plugin/evm/upgrade/ap4"
+	"github.com/ava-labs/avalanchego/snow"
+	"github.com/ava-labs/avalanchego/utils/constants"
 
 	ethparams "github.com/ava-labs/libevm/params"
 )
@@ -229,8 +232,15 @@ func InsertChainAcceptSingleBlockTest(t *testing.T, create createFunc) {
 	// Ensure that key1 has some funds in the genesis block.
 	genesisBalance := big.NewInt(1000000)
 	gspec := &Genesis{
-		Config: &params.ChainConfig{HomesteadBlock: new(big.Int)},
-		Alloc:  types.GenesisAlloc{addr1: {Balance: genesisBalance}},
+		Config: params.WithExtra(
+			&params.ChainConfig{HomesteadBlock: new(big.Int)},
+			&extras.ChainConfig{
+				AvalancheContext: extras.AvalancheContext{
+					SnowCtx: &snow.Context{NetworkID: constants.MainnetID},
+				},
+			},
+		),
+		Alloc: types.GenesisAlloc{addr1: {Balance: genesisBalance}},
 	}
 	blockchain, err := create(chainDB, gspec, common.Hash{}, t.TempDir())
 	require.NoError(err)
@@ -293,8 +303,15 @@ func InsertLongForkedChainTest(t *testing.T, create createFunc) {
 	// Ensure that key1 has some funds in the genesis block.
 	genesisBalance := big.NewInt(1000000000)
 	gspec := &Genesis{
-		Config: &params.ChainConfig{HomesteadBlock: new(big.Int)},
-		Alloc:  types.GenesisAlloc{addr1: {Balance: genesisBalance}},
+		Config: params.WithExtra(
+			&params.ChainConfig{HomesteadBlock: new(big.Int)},
+			&extras.ChainConfig{
+				AvalancheContext: extras.AvalancheContext{
+					SnowCtx: &snow.Context{NetworkID: constants.MainnetID},
+				},
+			},
+		),
+		Alloc: types.GenesisAlloc{addr1: {Balance: genesisBalance}},
 	}
 
 	blockchain, err := create(chainDB, gspec, common.Hash{}, t.TempDir())
@@ -427,8 +444,15 @@ func AcceptNonCanonicalBlockTest(t *testing.T, create createFunc) {
 	// Ensure that key1 has some funds in the genesis block.
 	genesisBalance := big.NewInt(1000000000)
 	gspec := &Genesis{
-		Config: &params.ChainConfig{HomesteadBlock: new(big.Int)},
-		Alloc:  types.GenesisAlloc{addr1: {Balance: genesisBalance}},
+		Config: params.WithExtra(
+			&params.ChainConfig{HomesteadBlock: new(big.Int)},
+			&extras.ChainConfig{
+				AvalancheContext: extras.AvalancheContext{
+					SnowCtx: &snow.Context{NetworkID: constants.MainnetID},
+				},
+			},
+		),
+		Alloc: types.GenesisAlloc{addr1: {Balance: genesisBalance}},
 	}
 
 	blockchain, err := create(chainDB, gspec, common.Hash{}, t.TempDir())
@@ -517,8 +541,15 @@ func SetPreferenceRewindTest(t *testing.T, create createFunc) {
 	// Ensure that key1 has some funds in the genesis block.
 	genesisBalance := big.NewInt(1000000000)
 	gspec := &Genesis{
-		Config: &params.ChainConfig{HomesteadBlock: new(big.Int)},
-		Alloc:  types.GenesisAlloc{addr1: {Balance: genesisBalance}},
+		Config: params.WithExtra(
+			&params.ChainConfig{HomesteadBlock: new(big.Int)},
+			&extras.ChainConfig{
+				AvalancheContext: extras.AvalancheContext{
+					SnowCtx: &snow.Context{NetworkID: constants.MainnetID},
+				},
+			},
+		),
+		Alloc: types.GenesisAlloc{addr1: {Balance: genesisBalance}},
 	}
 
 	blockchain, err := create(chainDB, gspec, common.Hash{}, t.TempDir())
@@ -635,7 +666,14 @@ func BuildOnVariousStagesTest(t *testing.T, create createFunc) {
 	// Ensure that key1 has some funds in the genesis block.
 	genesisBalance := big.NewInt(1000000)
 	gspec := &Genesis{
-		Config: &params.ChainConfig{HomesteadBlock: new(big.Int)},
+		Config: params.WithExtra(
+			&params.ChainConfig{HomesteadBlock: new(big.Int)},
+			&extras.ChainConfig{
+				AvalancheContext: extras.AvalancheContext{
+					SnowCtx: &snow.Context{NetworkID: constants.MainnetID},
+				},
+			},
+		),
 		Alloc: types.GenesisAlloc{
 			addr1: {Balance: genesisBalance},
 			addr3: {Balance: genesisBalance},
@@ -772,8 +810,15 @@ func EmptyBlocksTest(t *testing.T, create createFunc) {
 	chainDB := rawdb.NewMemoryDatabase()
 	// Ensure that key1 has some funds in the genesis block.
 	gspec := &Genesis{
-		Config: &params.ChainConfig{HomesteadBlock: new(big.Int)},
-		Alloc:  types.GenesisAlloc{},
+		Config: params.WithExtra(
+			&params.ChainConfig{HomesteadBlock: new(big.Int)},
+			&extras.ChainConfig{
+				AvalancheContext: extras.AvalancheContext{
+					SnowCtx: &snow.Context{NetworkID: constants.MainnetID},
+				},
+			},
+		),
+		Alloc: types.GenesisAlloc{},
 	}
 
 	blockchain, err := create(chainDB, gspec, common.Hash{}, t.TempDir())
@@ -812,8 +857,15 @@ func EmptyAndNonEmptyBlocksTest(t *testing.T, create createFunc) {
 	// Ensure that key1 has some funds in the genesis block.
 	genesisBalance := big.NewInt(1000000000)
 	gspec := &Genesis{
-		Config: &params.ChainConfig{HomesteadBlock: new(big.Int)},
-		Alloc:  types.GenesisAlloc{addr1: {Balance: genesisBalance}},
+		Config: params.WithExtra(
+			&params.ChainConfig{HomesteadBlock: new(big.Int)},
+			&extras.ChainConfig{
+				AvalancheContext: extras.AvalancheContext{
+					SnowCtx: &snow.Context{NetworkID: constants.MainnetID},
+				},
+			},
+		),
+		Alloc: types.GenesisAlloc{addr1: {Balance: genesisBalance}},
 	}
 
 	blockchain, err := create(chainDB, gspec, common.Hash{}, t.TempDir())
@@ -876,8 +928,15 @@ func ReorgReInsertTest(t *testing.T, create createFunc) {
 	// Ensure that key1 has some funds in the genesis block.
 	genesisBalance := big.NewInt(1000000000)
 	gspec := &Genesis{
-		Config: &params.ChainConfig{HomesteadBlock: new(big.Int)},
-		Alloc:  types.GenesisAlloc{addr1: {Balance: genesisBalance}},
+		Config: params.WithExtra(
+			&params.ChainConfig{HomesteadBlock: new(big.Int)},
+			&extras.ChainConfig{
+				AvalancheContext: extras.AvalancheContext{
+					SnowCtx: &snow.Context{NetworkID: constants.MainnetID},
+				},
+			},
+		),
+		Alloc: types.GenesisAlloc{addr1: {Balance: genesisBalance}},
 	}
 
 	blockchain, err := create(chainDB, gspec, common.Hash{}, t.TempDir())
@@ -967,8 +1026,15 @@ func AcceptBlockIdenticalStateRootTest(t *testing.T, create createFunc) {
 	// Ensure that key1 has some funds in the genesis block.
 	genesisBalance := big.NewInt(1000000000)
 	gspec := &Genesis{
-		Config: &params.ChainConfig{HomesteadBlock: new(big.Int)},
-		Alloc:  types.GenesisAlloc{addr1: {Balance: genesisBalance}},
+		Config: params.WithExtra(
+			&params.ChainConfig{HomesteadBlock: new(big.Int)},
+			&extras.ChainConfig{
+				AvalancheContext: extras.AvalancheContext{
+					SnowCtx: &snow.Context{NetworkID: constants.MainnetID},
+				},
+			},
+		),
+		Alloc: types.GenesisAlloc{addr1: {Balance: genesisBalance}},
 	}
 
 	blockchain, err := create(chainDB, gspec, common.Hash{}, t.TempDir())
@@ -1088,8 +1154,15 @@ func ReprocessAcceptBlockIdenticalStateRootTest(t *testing.T, create createFunc)
 	// Ensure that key1 has some funds in the genesis block.
 	genesisBalance := big.NewInt(1000000000)
 	gspec := &Genesis{
-		Config: &params.ChainConfig{HomesteadBlock: new(big.Int)},
-		Alloc:  types.GenesisAlloc{addr1: {Balance: genesisBalance}},
+		Config: params.WithExtra(
+			&params.ChainConfig{HomesteadBlock: new(big.Int)},
+			&extras.ChainConfig{
+				AvalancheContext: extras.AvalancheContext{
+					SnowCtx: &snow.Context{NetworkID: constants.MainnetID},
+				},
+			},
+		),
+		Alloc: types.GenesisAlloc{addr1: {Balance: genesisBalance}},
 	}
 
 	blockchain, err := create(chainDB, gspec, common.Hash{}, t.TempDir())
@@ -1384,8 +1457,15 @@ func ReexecBlocksTest(t *testing.T, create ReexecTestFunc) {
 	// Ensure that key1 has some funds in the genesis block.
 	genesisBalance := big.NewInt(1000000)
 	gspec := &Genesis{
-		Config: &params.ChainConfig{HomesteadBlock: new(big.Int)},
-		Alloc:  types.GenesisAlloc{addr1: {Balance: genesisBalance}},
+		Config: params.WithExtra(
+			&params.ChainConfig{HomesteadBlock: new(big.Int)},
+			&extras.ChainConfig{
+				AvalancheContext: extras.AvalancheContext{
+					SnowCtx: &snow.Context{NetworkID: constants.MainnetID},
+				},
+			},
+		),
+		Alloc: types.GenesisAlloc{addr1: {Balance: genesisBalance}},
 	}
 
 	blockchain, err := create(chainDB, gspec, common.Hash{}, t.TempDir(), 4096)
@@ -1502,8 +1582,15 @@ func ReexecMaxBlocksTest(t *testing.T, create ReexecTestFunc) {
 	// Ensure that key1 has some funds in the genesis block.
 	genesisBalance := big.NewInt(1000000)
 	gspec := &Genesis{
-		Config: &params.ChainConfig{HomesteadBlock: new(big.Int)},
-		Alloc:  types.GenesisAlloc{addr1: {Balance: genesisBalance}},
+		Config: params.WithExtra(
+			&params.ChainConfig{HomesteadBlock: new(big.Int)},
+			&extras.ChainConfig{
+				AvalancheContext: extras.AvalancheContext{
+					SnowCtx: &snow.Context{NetworkID: constants.MainnetID},
+				},
+			},
+		),
+		Alloc: types.GenesisAlloc{addr1: {Balance: genesisBalance}},
 	}
 
 	blockchain, err := create(chainDB, gspec, common.Hash{}, t.TempDir(), 4096)
@@ -1622,8 +1709,15 @@ func ReexecCorruptedStateTest(t *testing.T, create ReexecTestFunc) {
 
 	// Ensure that key1 has some funds in the genesis block.
 	gspec := &Genesis{
-		Config: &params.ChainConfig{HomesteadBlock: new(big.Int)},
-		Alloc:  types.GenesisAlloc{addr1: {Balance: genesisBalance}},
+		Config: params.WithExtra(
+			&params.ChainConfig{HomesteadBlock: new(big.Int)},
+			&extras.ChainConfig{
+				AvalancheContext: extras.AvalancheContext{
+					SnowCtx: &snow.Context{NetworkID: constants.MainnetID},
+				},
+			},
+		),
+		Alloc: types.GenesisAlloc{addr1: {Balance: genesisBalance}},
 	}
 
 	blockchain, err := create(chainDB, gspec, common.Hash{}, tempDir, 4096)

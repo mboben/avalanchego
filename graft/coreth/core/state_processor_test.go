@@ -41,8 +41,10 @@ import (
 	"github.com/ava-labs/avalanchego/graft/coreth/plugin/evm/upgrade/ap1"
 	"github.com/ava-labs/avalanchego/graft/coreth/plugin/evm/upgrade/ap3"
 	"github.com/ava-labs/avalanchego/graft/coreth/plugin/evm/upgrade/cortina"
+	"github.com/ava-labs/avalanchego/snow"
 	"github.com/ava-labs/avalanchego/upgrade"
 	"github.com/ava-labs/avalanchego/utils"
+	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/avalanchego/vms/evm/acp176"
 	"github.com/ava-labs/libevm/common"
 	"github.com/ava-labs/libevm/consensus/misc/eip4844"
@@ -285,6 +287,9 @@ func TestStateProcessorErrors(t *testing.T) {
 						NetworkUpgrades: extras.NetworkUpgrades{
 							ApricotPhase1BlockTimestamp: utils.PointerTo[uint64](0),
 							ApricotPhase2BlockTimestamp: utils.PointerTo[uint64](0),
+						},
+						AvalancheContext: extras.AvalancheContext{
+							SnowCtx: &snow.Context{NetworkID: constants.MainnetID},
 						},
 					},
 				),

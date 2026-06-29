@@ -77,7 +77,7 @@ var (
 		DurangoTime:           time.Date(2025, time.August, 5, 12, 0, 0, 0, time.UTC),
 		EtnaTime:              time.Date(2025, time.December, 2, 12, 0, 0, 0, time.UTC),
 		FortunaTime:           time.Date(2026, time.April, 14, 12, 0, 0, 0, time.UTC),
-		GraniteTime:           UnscheduledActivationTime,
+		GraniteTime:           time.Date(2026, time.July, 14, 12, 0, 0, 0, time.UTC),
 		GraniteEpochDuration:  5 * time.Minute,
 	}
 	Songbird = Config{
@@ -95,7 +95,7 @@ var (
 		DurangoTime:            time.Date(2025, time.July, 22, 12, 0, 0, 0, time.UTC),
 		EtnaTime:               time.Date(2025, time.November, 25, 12, 0, 0, 0, time.UTC),
 		FortunaTime:            time.Date(2026, time.March, 31, 12, 0, 0, 0, time.UTC),
-		GraniteTime:            UnscheduledActivationTime,
+		GraniteTime:            time.Date(2026, time.July, 7, 12, 0, 0, 0, time.UTC),
 		GraniteEpochDuration:   5 * time.Minute,
 	}
 	Costwo = Config{

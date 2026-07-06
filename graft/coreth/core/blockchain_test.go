@@ -449,8 +449,15 @@ func testArchiveUngracefulShutdown(t *testing.T, scheme string) {
 	)
 
 	gspec := &Genesis{
-		Config: &params.ChainConfig{HomesteadBlock: new(big.Int)},
-		Alloc:  types.GenesisAlloc{addr1: {Balance: big.NewInt(1000000)}},
+		Config: params.WithExtra(
+			&params.ChainConfig{HomesteadBlock: new(big.Int)},
+			&extras.ChainConfig{
+				AvalancheContext: extras.AvalancheContext{
+					SnowCtx: &snow.Context{NetworkID: constants.MainnetID},
+				},
+			},
+		),
+		Alloc: types.GenesisAlloc{addr1: {Balance: big.NewInt(1000000)}},
 	}
 
 	chainDataDir := t.TempDir()

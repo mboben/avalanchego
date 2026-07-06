@@ -213,7 +213,7 @@ func TestCommitInterval(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, _, err := GetConfig(tt.configJSON, constants.MainnetID)
+			_, _, err := GetConfig(tt.configJSON, constants.CostwoID)
 			require.ErrorIs(t, err, tt.wantError)
 		})
 	}

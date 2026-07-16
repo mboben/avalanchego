@@ -103,6 +103,8 @@ Coreth implements the C-Chain EVM for Flare/Songbird (module `github.com/ava-lab
 
 **Accessing extras in coreth code:** `rulesExtra := params.GetRulesExtra(rules)` (Avalanche/Flare rules) and `configExtra := params.GetExtra(chainConfig)` (chain-config extras). `RulesExtra.IsSongbirdCode` / `extras.IsFlareFamilyCode` branch on network.
 
+**TxPool minimum-fee floor:** `plugin/evm/vm.go` `initializeChain` selects the ACP-176 params once (`acp176Params` = `granite.DefaultParams` on Flare-family via `IsFlareFamilyCode`, else `acp176.DefaultParams`) and uses them for both `DesiredTargetExcessWith` and the init-time `txPool.SetMinFee` (500 GWei floor on Flare-family; upstream uses the `acp176.MinGasPrice` constant). The former Granite fork-transition handling — per-Accept `SetMinFee` re-evaluation in `plugin/evm/wrapped_block.go`, the `minTxPoolFee` helper, and the `LegacyPool.SetMinFee` eviction + `lookup.BelowFeeCap` in `core/txpool/legacypool/legacypool.go` — was **removed after Granite activated on all Flare-family networks (July 2026)**; those files now match upstream. Take upstream's versions on merge; **do not re-apply the transition handling.**
+
 ## Key Patterns
 
 - **Network detection**: Use `constants.IsFlareNetworkID(networkID)` / `constants.IsSgbNetworkID(networkID)` to branch on network type.
@@ -194,6 +196,7 @@ In coreth (`graft/coreth/`):
 **`graft/coreth/plugin/evm/vm.go`:**
 - Keep Flare's atomic transaction functions (`verifyTxAtTip`, `verifyTx`, `verifyTxs`, `GetAtomicUTXOs`, `ParseAddress`)
 - These are removed in upstream but still needed for Flare. Note: upstream relocated these atomic functions to `graft/coreth/plugin/evm/atomic/vm/vm.go` — keep Flare's versions there.
+- Keep the `acp176Params` selection in `initializeChain` (Granite params on Flare-family) feeding `DesiredTargetExcessWith` and the init-time `txPool.SetMinFee` (500 GWei floor). Do **not** restore the removed fork-transition handling (per-Accept `SetMinFee` in `wrapped_block.go`, legacypool eviction) — see "TxPool minimum-fee floor" above.
 
 **Test files with JSON data (`graft/coreth/internal/ethapi/testdata/`):**
 - The conflict is usually about transaction hashes, state roots, block hashes

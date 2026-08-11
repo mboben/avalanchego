@@ -230,7 +230,7 @@ func Execute(
 		b.CheckSenderBalanceBound(stateDB, signer, tx)
 
 		// Executes the transaction and calls [state.StateDB.Finalise].
-		receipt, err := core.ApplyTransaction(
+		receipt, err := ApplyTransactionWithExtras(
 			config,
 			chainCtx,
 			&header.Coinbase,

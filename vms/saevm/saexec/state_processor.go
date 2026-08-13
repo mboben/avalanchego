@@ -18,7 +18,9 @@ import (
 	"github.com/ava-labs/libevm/log"
 	"github.com/ava-labs/libevm/params"
 
+	dconsensus "github.com/ava-labs/avalanchego/graft/coreth/consensus"
 	dcore "github.com/ava-labs/avalanchego/graft/coreth/core"
+	corethextras "github.com/ava-labs/avalanchego/graft/coreth/params/extras"
 )
 
 // ExtrasConfig parameterises the divergences from upstream transaction
@@ -85,7 +87,49 @@ func (e *daemonEvmCaller) GetGasLimit() uint64 {
 	return e.evm.Context.GasLimit
 }
 
-// ApplyTransactionWithExtras mirrors core.ApplyTransaction
+// legacyChainContext bridges SAE's libevm chain context to grafted coreth's
+// legacy context. Header lookup is the only operation used after the explicit
+// block author has been supplied; it preserves BLOCKHASH behavior. Engine is
+// deliberately nil because SAE always passes the header coinbase as author.
+type legacyChainContext struct {
+	core.ChainContext
+}
+
+var _ dcore.ChainContext = legacyChainContext{}
+
+func (legacyChainContext) Engine() dconsensus.Engine { return nil }
+
+// applyTransaction selects the transaction implementation appropriate for the
+// block timestamp. Historical pre-Helicon C-Chain blocks must keep using
+// coreth's StateTransition because it contains the one-time Flare/Songbird
+// transition-contract calls. From Helicon onward, only the prioritised fee
+// refund and daemon call remain, as implemented by ApplyTransactionWithExtras.
+//
+// A nil Helicon timestamp identifies generic SAE configurations outside the
+// C-Chain; they retain SAE's transaction implementation.
+func applyTransaction(config *params.ChainConfig, bc core.ChainContext, author *common.Address, gp *core.GasPool, statedb *state.StateDB, header *types.Header, tx *types.Transaction, usedGas *uint64, cfg vm.Config) (*types.Receipt, error) {
+	upgrades, hasCorethExtras := config.Hooks().(*corethextras.ChainConfig)
+	if hasCorethExtras && upgrades != nil && upgrades.HeliconTimestamp != nil && !upgrades.IsHelicon(header.Time) {
+		legacyBC := legacyChainContext{ChainContext: bc}
+		blockContext := dcore.NewEVMBlockContext(header, legacyBC, author)
+		return dcore.ApplyTransaction(
+			config,
+			legacyBC,
+			blockContext,
+			(*dcore.GasPool)(gp),
+			statedb,
+			header,
+			tx,
+			usedGas,
+			cfg,
+		)
+	}
+
+	return ApplyTransactionWithExtras(config, bc, author, gp, statedb, header, tx, usedGas, cfg)
+}
+
+// ApplyTransactionWithExtras mirrors core.ApplyTransaction for Helicon and
+// later blocks.
 // Check for any differences in the upstream implementation when updating libevm
 func ApplyTransactionWithExtras(config *params.ChainConfig, bc core.ChainContext, author *common.Address, gp *core.GasPool, statedb *state.StateDB, header *types.Header, tx *types.Transaction, usedGas *uint64, cfg vm.Config) (*types.Receipt, error) {
 	msg, err := core.TransactionToMessage(tx, types.MakeSigner(config, header.Number, header.Time), header.BaseFee)

@@ -27,7 +27,10 @@ import (
 	"github.com/ava-labs/avalanchego/graft/coreth/params/extras"
 	"github.com/ava-labs/avalanchego/graft/coreth/plugin/evm/upgrade/ap4"
 	"github.com/ava-labs/avalanchego/graft/evm/constants"
+	"github.com/ava-labs/avalanchego/snow"
+	networkconstants "github.com/ava-labs/avalanchego/utils/constants"
 
+	dcore "github.com/ava-labs/avalanchego/graft/coreth/core"
 	corethparams "github.com/ava-labs/avalanchego/graft/coreth/params"
 	corethevm "github.com/ava-labs/avalanchego/graft/coreth/plugin/evm"
 	ethparams "github.com/ava-labs/libevm/params"
@@ -51,6 +54,7 @@ var (
 	deadBurnAddress    = common.HexToAddress("0x000000000000000000000000000000000000dEaD")
 	ftsoContractAddr   = common.HexToAddress("0x1000000000000000000000000000000000000003")
 	daemonContractAddr = common.HexToAddress("0x1000000000000000000000000000000000000002")
+	governanceAddr     = common.HexToAddress("0x1000000000000000000000000000000000000007")
 
 	// Prioritised FTSO calldata prefixes, per network family (see
 	// graft/coreth/core/daemon.go).
@@ -437,6 +441,15 @@ func (e *applyTxEnv) apply(t *testing.T, txData types.TxData) (*types.Receipt, e
 	)
 }
 
+func (e *applyTxEnv) applyForkAware(t *testing.T, txData types.TxData) (*types.Receipt, error) {
+	t.Helper()
+	tx := types.MustSignNewTx(e.key, e.signer, txData)
+	return applyTransaction(
+		e.config, stubChainContext{}, &e.header.Coinbase, &e.gp,
+		e.statedb, e.header, tx, &e.usedGas, vm.Config{},
+	)
+}
+
 // feeOf returns gasUsed * gasPrice as a uint256.
 func feeOf(t *testing.T, gasUsed uint64, gasPrice *big.Int) *uint256.Int {
 	t.Helper()
@@ -598,6 +611,77 @@ func testApplyTransactionWithExtrasNonFlareChain(t *testing.T) {
 	assert.True(t, env.statedb.GetBalance(deadBurnAddress).IsZero(), "nothing burned")
 	assert.True(t, env.statedb.GetBalance(daemonContractAddr).IsZero(), "daemon must not run on non-Flare chains")
 	assert.Equal(t, new(uint256.Int).Sub(initial, actualFee), env.statedb.GetBalance(env.sender), "sender pays the full fee")
+}
+
+func TestApplyTransactionHeliconBoundary(t *testing.T) {
+	withCChainExtras(t, testApplyTransactionHeliconBoundary)
+}
+
+// testApplyTransactionHeliconBoundary proves that historical execution keeps
+// the one-time transition-contract behavior until Helicon, and stops it at the
+// inclusive fork timestamp. The governance contract stores COINBASE in slot 0:
+// the user's call writes the normal 0x0100... coinbase, while the legacy
+// transition handler repeats the call with the governance signal coinbase.
+func testApplyTransactionHeliconBoundary(t *testing.T) {
+	heliconTime := testBlockTime
+	newGovernance := common.HexToAddress("0x100000000000000000000000000000000000000f")
+	governanceSignal := dcore.GetGovernanceSettingsCoinbaseSignalAddr(
+		corethparams.LocalFlareChainID,
+		heliconTime,
+	)
+	data := append(
+		append([]byte{}, dcore.SetGovernanceAddressSelector(corethparams.LocalFlareChainID, heliconTime)...),
+		common.LeftPadBytes(newGovernance.Bytes(), common.HashLength)...,
+	)
+
+	tests := []struct {
+		name         string
+		blockTime    uint64
+		wantCoinbase common.Address
+	}{
+		{
+			name:         "before_helicon_uses_legacy_transition_calls",
+			blockTime:    heliconTime - 1,
+			wantCoinbase: governanceSignal,
+		},
+		{
+			name:         "at_helicon_uses_reduced_extras",
+			blockTime:    heliconTime,
+			wantCoinbase: constants.BlackholeAddr,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			env := newApplyTxEnv(t, corethparams.LocalFlareChainID, uint256.NewInt(0))
+			chainExtras := *extras.TestHeliconChainConfig
+			chainExtras.HeliconTimestamp = &heliconTime
+			chainExtras.SnowCtx = &snow.Context{NetworkID: networkconstants.LocalFlareID}
+			corethparams.WithExtra(env.config, &chainExtras)
+			env.header.Time = tt.blockTime
+
+			// COINBASE; PUSH0; SSTORE; STOP. The second (legacy-only) call
+			// overwrites slot 0 with the transition signal address.
+			env.statedb.SetCode(governanceAddr, []byte{byte(vm.COINBASE), byte(vm.PUSH0), byte(vm.SSTORE), byte(vm.STOP)})
+
+			receipt, err := env.applyForkAware(t, &types.LegacyTx{
+				Nonce:    0,
+				To:       &governanceAddr,
+				Gas:      100_000,
+				GasPrice: big.NewInt(100 * ethparams.GWei),
+				Data:     data,
+			})
+			require.NoError(t, err, "applyTransaction()")
+			require.Equal(t, types.ReceiptStatusSuccessful, receipt.Status, "receipt status")
+
+			assert.Equal(
+				t,
+				common.BytesToHash(tt.wantCoinbase.Bytes()),
+				env.statedb.GetState(governanceAddr, common.Hash{}),
+				"coinbase observed by the last governance-contract call",
+			)
+		})
+	}
 }
 
 func TestApplyTransactionWithExtrasDaemonInvalidation(t *testing.T) {

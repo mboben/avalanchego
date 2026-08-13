@@ -230,7 +230,7 @@ func Execute(
 		b.CheckSenderBalanceBound(stateDB, signer, tx)
 
 		// Executes the transaction and calls [state.StateDB.Finalise].
-		receipt, err := ApplyTransactionWithExtras(
+		receipt, err := applyTransaction(
 			config,
 			chainCtx,
 			&header.Coinbase,
@@ -251,12 +251,12 @@ func Execute(
 		// the queue. It's only worth it if [blocks.LastToSettleAt] regularly
 		// returns false, meaning that execution is blocking consensus.
 
-		// The [types.Header] that we pass to [core.ApplyTransaction] is
+		// The [types.Header] that we pass to [applyTransaction] is
 		// modified to reduce gas price from the worst-case value agreed by
 		// consensus. This changes the hash, which is what is copied to receipts
 		// and logs.
 		//
-		// [core.ApplyTransaction] also doesn't set [types.Receipt.EffectiveGasPrice].
+		// [applyTransaction] also doesn't set [types.Receipt.EffectiveGasPrice].
 		// Fixing both here avoids needing to call [types.Receipt.DeriveFields].
 		receipt.BlockHash = b.Hash()
 		for _, l := range receipt.Logs {

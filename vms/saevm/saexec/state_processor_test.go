@@ -444,7 +444,7 @@ func (e *applyTxEnv) apply(t *testing.T, txData types.TxData) (*types.Receipt, e
 func (e *applyTxEnv) applyForkAware(t *testing.T, txData types.TxData) (*types.Receipt, error) {
 	t.Helper()
 	tx := types.MustSignNewTx(e.key, e.signer, txData)
-	return applyTransaction(
+	return ApplyTransaction(
 		e.config, stubChainContext{}, &e.header.Coinbase, &e.gp,
 		e.statedb, e.header, tx, &e.usedGas, vm.Config{},
 	)
@@ -613,6 +613,45 @@ func testApplyTransactionWithExtrasNonFlareChain(t *testing.T) {
 	assert.Equal(t, new(uint256.Int).Sub(initial, actualFee), env.statedb.GetBalance(env.sender), "sender pays the full fee")
 }
 
+// TestIsLegacyCorethBlock pins the era predicate that gates both the legacy
+// transaction-application branch and the rpc tracers' base-fee normalisation:
+// only pre-Helicon coreth blocks are legacy; post-Helicon coreth blocks and
+// configs without coreth extras (generic SAE) are SAE-era.
+func TestIsLegacyCorethBlock(t *testing.T) {
+	const helicon = uint64(1_000)
+
+	withCChainExtras(t, func(t *testing.T) {
+		corethConfig := func(heliconTime *uint64) *ethparams.ChainConfig {
+			config := newTestChainConfig(corethparams.LocalFlareChainID)
+			chainExtras := *extras.TestHeliconChainConfig
+			chainExtras.HeliconTimestamp = heliconTime
+			chainExtras.SnowCtx = &snow.Context{NetworkID: networkconstants.LocalFlareID}
+			corethparams.WithExtra(config, &chainExtras)
+			return config
+		}
+		heliconTime := helicon
+
+		tests := []struct {
+			name      string
+			config    *ethparams.ChainConfig
+			blockTime uint64
+			want      bool
+		}{
+			{"no_coreth_extras_before", newTestChainConfig(corethparams.LocalFlareChainID), helicon - 1, false},
+			{"no_coreth_extras_after", newTestChainConfig(corethparams.LocalFlareChainID), helicon + 1, false},
+			{"coreth_pre_helicon", corethConfig(&heliconTime), helicon - 1, true},
+			{"coreth_at_helicon", corethConfig(&heliconTime), helicon, false},
+			{"coreth_post_helicon", corethConfig(&heliconTime), helicon + 1, false},
+			{"coreth_helicon_unscheduled", corethConfig(nil), helicon - 1, false},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				assert.Equal(t, tt.want, IsLegacyCorethBlock(tt.config, tt.blockTime))
+			})
+		}
+	})
+}
+
 func TestApplyTransactionHeliconBoundary(t *testing.T) {
 	withCChainExtras(t, testApplyTransactionHeliconBoundary)
 }
@@ -671,7 +710,7 @@ func testApplyTransactionHeliconBoundary(t *testing.T) {
 				GasPrice: big.NewInt(100 * ethparams.GWei),
 				Data:     data,
 			})
-			require.NoError(t, err, "applyTransaction()")
+			require.NoError(t, err, "ApplyTransaction()")
 			require.Equal(t, types.ReceiptStatusSuccessful, receipt.Status, "receipt status")
 
 			assert.Equal(

@@ -99,7 +99,19 @@ var _ dcore.ChainContext = legacyChainContext{}
 
 func (legacyChainContext) Engine() dconsensus.Engine { return nil }
 
-// applyTransaction selects the transaction implementation appropriate for the
+// IsLegacyCorethBlock reports whether a block with the given timestamp is
+// applied through the legacy pre-Helicon coreth StateTransition (see
+// [ApplyTransaction]) rather than [ApplyTransactionWithExtras]. Only these
+// blocks use the header base fee directly; SAE-era blocks (post-Helicon coreth,
+// or any config without coreth extras) carry a worst-case base-fee bound whose
+// executed value must be derived (see [DeriveExecutedBaseFee]). A config without
+// coreth extras, or with no scheduled Helicon, is never legacy.
+func IsLegacyCorethBlock(config *params.ChainConfig, blockTime uint64) bool {
+	upgrades, hasCorethExtras := config.Hooks().(*corethextras.ChainConfig)
+	return hasCorethExtras && upgrades != nil && upgrades.HeliconTimestamp != nil && !upgrades.IsHelicon(blockTime)
+}
+
+// ApplyTransaction selects the transaction implementation appropriate for the
 // block timestamp. Historical pre-Helicon C-Chain blocks must keep using
 // coreth's StateTransition because it contains the one-time Flare/Songbird
 // transition-contract calls. From Helicon onward, only the prioritised fee
@@ -107,9 +119,11 @@ func (legacyChainContext) Engine() dconsensus.Engine { return nil }
 //
 // A nil Helicon timestamp identifies generic SAE configurations outside the
 // C-Chain; they retain SAE's transaction implementation.
-func applyTransaction(config *params.ChainConfig, bc core.ChainContext, author *common.Address, gp *core.GasPool, statedb *state.StateDB, header *types.Header, tx *types.Transaction, usedGas *uint64, cfg vm.Config) (*types.Receipt, error) {
-	upgrades, hasCorethExtras := config.Hooks().(*corethextras.ChainConfig)
-	if hasCorethExtras && upgrades != nil && upgrades.HeliconTimestamp != nil && !upgrades.IsHelicon(header.Time) {
+//
+// Besides [Execute]'s transaction loop, this is the per-transaction replay
+// primitive of the SAE rpc block-level tracers, which inject a tracer via cfg.
+func ApplyTransaction(config *params.ChainConfig, bc core.ChainContext, author *common.Address, gp *core.GasPool, statedb *state.StateDB, header *types.Header, tx *types.Transaction, usedGas *uint64, cfg vm.Config) (*types.Receipt, error) {
+	if IsLegacyCorethBlock(config, header.Time) {
 		legacyBC := legacyChainContext{ChainContext: bc}
 		blockContext := dcore.NewEVMBlockContext(header, legacyBC, author)
 		return dcore.ApplyTransaction(

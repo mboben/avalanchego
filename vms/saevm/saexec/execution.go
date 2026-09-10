@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"math/big"
 	"time"
 
 	"github.com/ava-labs/libevm/common"
@@ -327,7 +326,11 @@ func Execute(
 		b.CheckSenderBalanceBound(stateDB, signer, tx)
 
 		// Executes the transaction and calls [state.StateDB.Finalise].
-		receipt, err := core.ApplyTransaction(
+		//
+		// Flare: [ApplyTransaction] is the era-splitting selector (legacy coreth
+		// StateTransition pre-Helicon, [ApplyTransactionWithExtras] from Helicon),
+		// NOT libevm's core.ApplyTransaction. See state_processor.go.
+		receipt, err := ApplyTransaction(
 			chainConfig,
 			chainCtx,
 			&header.Coinbase,

@@ -2713,11 +2713,7 @@ func (s *State) updateL1ValidatorManager(
 }
 
 func (s *State) updateStakeMetrics() error {
-	totalWeight, err := s.validators.TotalWeight(constants.PrimaryNetworkID)
-	if err != nil {
-		return fmt.Errorf("failed to get total weight of primary network: %w", err)
-	}
-
+	totalWeight := s.validators.TotalWeight(constants.PrimaryNetworkID)
 	s.metrics.SetLocalStake(s.validators.GetWeight(constants.PrimaryNetworkID, s.ctx.NodeID))
 	s.metrics.SetTotalStake(totalWeight)
 	return nil

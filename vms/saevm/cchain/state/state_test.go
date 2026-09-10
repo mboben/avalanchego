@@ -435,7 +435,7 @@ func TestApply_BonusBlock(t *testing.T) {
 		},
 		{
 			name:               "non_mainnet_bonus_height",
-			networkID:          constants.FujiID,
+			networkID:          constants.CostwoID,
 			height:             bonusHeight,
 			wantInSharedMemory: true,
 		},

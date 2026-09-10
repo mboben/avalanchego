@@ -1424,8 +1424,17 @@ func TestLegacyMarkersRepairedOnStartup(t *testing.T) {
 	addr := crypto.PubkeyToAddress(key.PublicKey)
 	db := rawdb.NewMemoryDatabase()
 	gspec := &Genesis{
-		Config: &params.ChainConfig{HomesteadBlock: new(big.Int)},
-		Alloc:  types.GenesisAlloc{addr: {Balance: big.NewInt(1000000)}},
+		// Flare: network classification (customheader.GasLimit's Songbird
+		// schedule) requires a SnowCtx, as in the other tests of this file.
+		Config: params.WithExtra(
+			&params.ChainConfig{HomesteadBlock: new(big.Int)},
+			&extras.ChainConfig{
+				AvalancheContext: extras.AvalancheContext{
+					SnowCtx: &snow.Context{NetworkID: constants.MainnetID},
+				},
+			},
+		),
+		Alloc: types.GenesisAlloc{addr: {Balance: big.NewInt(1000000)}},
 	}
 
 	blockchain, err := createBlockChain(db, pruningConfig, gspec, common.Hash{})

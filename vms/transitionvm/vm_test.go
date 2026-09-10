@@ -154,8 +154,9 @@ func tryNewSUT(t *testing.T, blocksUntilTransition int, opts ...sutOption) (*SUT
 		db:    memdb.New(),
 		state: newFakeState(),
 		// Eager transitions only happen on production networks, so default to
-		// one to keep that path reachable.
-		networkID: constants.MainnetID,
+		// one to keep that path reachable. Flare: Avalanche mainnet is not a
+		// Flare production network ([constants.ProductionNetworkIDs]).
+		networkID: constants.FlareID,
 		// The clock sits at the genesis, before any positive transition time,
 		// so tests opt in to the eager-transition path with [withClockAt].
 		now:            snowmantest.GenesisTimestamp,
@@ -573,8 +574,8 @@ func TestEagerTransition(t *testing.T) {
 			wantVersion:  "post",
 		},
 		{
-			name:         "fresh_node_syncing_fuji",
-			networkID:    constants.FujiID,
+			name:         "fresh_node_syncing_costwo", // Flare: Fuji was removed; Costwo is a production network
+			networkID:    constants.CostwoID,
 			preStateSync: true,
 			wantVersion:  "post",
 		},

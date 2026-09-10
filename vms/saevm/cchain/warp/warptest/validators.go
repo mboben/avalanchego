@@ -201,10 +201,6 @@ func SetValidators(tb testing.TB, ctx *snow.Context, vdrs *Validators) {
 	}
 	vdrState.GetWarpValidatorSetsF = func(context.Context, uint64) (map[ids.ID]validators.WarpSet, error) {
 		return map[ids.ID]validators.WarpSet{
-			ctx.SubnetID: {
-				Validators:  vdrs.validators,
-				TotalWeight: big.NewInt(int64(len(vdrs.validators))),
-			},
 			ctx.SubnetID: vdrs.WarpSet(),
 		}, nil
 	}

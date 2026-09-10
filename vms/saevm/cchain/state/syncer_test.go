@@ -77,7 +77,7 @@ func TestSyncer_BonusBlock(t *testing.T) {
 		},
 		{
 			name:      "non_mainnet_applies_bonus",
-			networkID: constants.FujiID,
+			networkID: constants.CostwoID,
 		},
 	}
 

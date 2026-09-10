@@ -55,7 +55,7 @@ func init() {
 // forward.
 func TestBonusBlocks(t *testing.T) {
 	const (
-		url = primary.MainnetAPIURI + "/ext/bc/C/rpc"
+		url = primary.FlareAPIURI + "/ext/bc/C/rpc"
 		// envVar must be set to run the test.
 		envVar = "SAEVM_TEST_MAINNET_API"
 	)

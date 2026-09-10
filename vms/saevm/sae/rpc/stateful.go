@@ -14,6 +14,7 @@ import (
 	"github.com/ava-labs/libevm/common/hexutil"
 	"github.com/ava-labs/libevm/consensus"
 	"github.com/ava-labs/libevm/core"
+	"github.com/ava-labs/libevm/core/rawdb"
 	"github.com/ava-labs/libevm/core/state"
 	"github.com/ava-labs/libevm/core/types"
 	"github.com/ava-labs/libevm/core/vm"
@@ -24,7 +25,6 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/ava-labs/avalanchego/vms/saevm/blocks"
-	"github.com/ava-labs/avalanchego/vms/saevm/hook"
 	"github.com/ava-labs/avalanchego/vms/saevm/saexec"
 )
 
@@ -159,14 +159,6 @@ func (b *backend) StateAtTransaction(ctx context.Context, ethB *types.Block, txI
 		return nil, bCtx, nil, nil, err
 	}
 
-	// Restored by number because ethB carries a faked header whose hash
-	// differs from the canonical one.
-	num := rpc.BlockNumber(ethB.NumberU64()) // #nosec G115 -- won't overflow for a while.
-	executed, err := b.restoreExecutedBlock(ctx, rpc.BlockNumberOrHashWithNumber(num))
-	if err != nil {
-		return nil, bCtx, nil, nil, fmt.Errorf("restoring traced block: %w", err)
-	}
-
 	// Replay transactions 0..txIndex-1 to produce the state just before the
 	// target transaction.
 	result, err := saexec.Execute(
@@ -230,28 +222,19 @@ func (a *tracerAPI) TraceBlock(ctx context.Context, blob hexutil.Bytes, config *
 		return nil, errors.New("genesis is not traceable") // Copied from [tracers.TraceBlock]
 	}
 
-	// A synchronous (pre-SAE) block carries the base fee its transactions
-	// actually paid, so it is traced as supplied.
-	resealed := block
-	if hdr := block.Header(); !hook.Synchronous(a.tracerBackend.Hooks(), hdr) {
-		parent, err := a.tracerBackend.restoreExecutedParent(ctx, block)
-		if err != nil {
-			return nil, fmt.Errorf("restoring parent block: %w", err)
-		}
-		// The parent's gas clock, advanced to the start of the block,
-		// determines the executed base fee, so the supplied one is discarded.
-		gasClock := parent.ExecutedByGasTime()
-		gasClock.BeforeBlock(a.tracerBackend.Hooks().BlockTime(hdr))
-		hdr.BaseFee = gasClock.BaseFee().ToBig()
-		resealed = block.WithSeal(hdr)
+	// Flare: the re-seal (upstream inlines it here) is shared with the
+	// bad-block path of [tracerAPI.IntermediateRoots], and the block is
+	// replayed through the era-aware Flare pipeline ([tracerAPI.traceBlockReplay]
+	// in trace_block.go) instead of libevm's plain loop ([tracers.TraceBlock]).
+	resealed, err := a.resealWithExecutedBaseFee(ctx, block)
+	if err != nil {
+		return nil, err
 	}
-
-	api := tracers.NewAPI(&suppliedHashBackend{
+	return a.traceBlockReplay(ctx, &suppliedHashBackend{
 		tracerBackend: a.tracerBackend,
 		supplied:      block,
 		resealed:      resealed,
-	})
-	return tracers.TraceBlock(ctx, api, resealed, config)
+	}, resealed, config)
 }
 
 // TraceBlockFromFile shadows [tracers.API.TraceBlockFromFile], which would

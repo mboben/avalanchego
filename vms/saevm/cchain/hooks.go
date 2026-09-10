@@ -5,7 +5,6 @@ package cchain
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"iter"
@@ -30,7 +29,6 @@ import (
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/snow"
 	"github.com/ava-labs/avalanchego/snow/engine/snowman/block"
-	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/avalanchego/utils/set"
 	"github.com/ava-labs/avalanchego/vms/components/gas"
 	"github.com/ava-labs/avalanchego/vms/evm/acp176"
@@ -311,26 +309,11 @@ var (
 	// block's extData does not hash to the ExtDataHash committed in its header.
 	errExtDataHashMismatch = errors.New("extData hash does not match header")
 
-	//go:embed extdata-fuji.json
-	fujiExtDataHashes []byte
-	//go:embed extdata-mainnet.json
-	mainnetExtDataHashes []byte
-	extDataHashes        map[uint32]map[uint64]common.Hash
+	extDataHashes map[uint32]map[uint64]common.Hash
 )
 
 func init() {
-	mainnet := make(map[uint64]common.Hash)
-	if err := json.Unmarshal(mainnetExtDataHashes, &mainnet); err != nil {
-		panic(fmt.Errorf("unmarshalling extdata-mainnet.json: %w", err))
-	}
-	fuji := make(map[uint64]common.Hash)
-	if err := json.Unmarshal(fujiExtDataHashes, &fuji); err != nil {
-		panic(fmt.Errorf("unmarshalling extdata-fuji.json: %w", err))
-	}
-	extDataHashes = map[uint32]map[uint64]common.Hash{
-		constants.MainnetID: mainnet,
-		constants.FujiID:    fuji,
-	}
+	extDataHashes = map[uint32]map[uint64]common.Hash{}
 }
 
 func (h *hooks) VerifyBlockSyntax(b *types.Block) error {

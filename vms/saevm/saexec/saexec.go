@@ -8,6 +8,7 @@
 package saexec
 
 import (
+	"context"
 	"fmt"
 	"sync/atomic"
 
@@ -37,6 +38,10 @@ type Executor struct {
 	done  chan struct{}
 	log   logging.Logger
 	hooks hook.Points
+	// Flare: ctx is cancelled by [Executor.Close] to abort a block waiting in
+	// [hook.ExecutionGate.AwaitExecutionPrerequisites].
+	ctx    context.Context
+	cancel context.CancelFunc
 
 	queue        chan queuedBlock
 	lastExecuted atomic.Pointer[blocks.Block]
@@ -74,11 +79,14 @@ func New(
 		return nil, fmt.Errorf("initializing saexec metrics: %w", err)
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
 	e := &Executor{
 		Tracker: tracker,
 		done:    make(chan struct{}), // closed by [Executor.processQueue] once `queue` is closed and drained
 		log:     logger,
 		hooks:   hooks,
+		ctx:     ctx,
+		cancel:  cancel,
 		// On startup we enqueue every block since the last time the trie DB was
 		// committed, so the queue needs sufficient capacity to avoid
 		// [Executor.Enqueue] warning about it being too full.
@@ -102,8 +110,12 @@ func New(
 }
 
 // Close shuts down the [Executor] and waits for all queued blocks to finish
-// executing.
+// executing. A block still waiting in
+// [hook.ExecutionGate.AwaitExecutionPrerequisites] is aborted instead; it and
+// every block queued after it remain accepted-but-unexecuted and are
+// re-executed on restart (recovery re-enqueues all such blocks).
 func (e *Executor) Close() {
+	e.cancel() // Flare: abort a block waiting on its execution prerequisites
 	close(e.queue)
 	<-e.done
 }

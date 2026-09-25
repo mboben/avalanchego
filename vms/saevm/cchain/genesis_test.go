@@ -21,6 +21,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/ava-labs/avalanchego/graft/coreth/params/extras"
+	"github.com/ava-labs/avalanchego/graft/coreth/precompile/contracts/pchaingateway"
 	"github.com/ava-labs/avalanchego/graft/coreth/precompile/contracts/warp"
 	"github.com/ava-labs/avalanchego/snow"
 	"github.com/ava-labs/avalanchego/upgrade"
@@ -134,6 +135,11 @@ func TestParseGenesis(t *testing.T) {
 										avalancheutils.PointerTo[uint64](1709740800), // Durango
 									),
 								},
+								{
+									Config: pchaingateway.NewDefaultConfig(
+										avalancheutils.PointerTo[uint64](1790089200), // Helicon
+									),
+								},
 							},
 						},
 					},
@@ -201,6 +207,11 @@ func TestParseGenesis(t *testing.T) {
 										avalancheutils.PointerTo[uint64](1750766400), // Durango
 									),
 								},
+								{
+									Config: pchaingateway.NewDefaultConfig(
+										unscheduled, // Helicon
+									),
+								},
 							},
 						},
 					},
@@ -265,6 +276,11 @@ func TestParseGenesis(t *testing.T) {
 								{
 									Config: warp.NewDefaultConfig(
 										initiallyActive, // Durango
+									),
+								},
+								{
+									Config: pchaingateway.NewDefaultConfig(
+										unscheduled, // Helicon
 									),
 								},
 							},
@@ -454,7 +470,8 @@ func TestHistoricalGenesisHashes(t *testing.T) {
 
 		// Added the SAE fields: the ACP-176 target exponent, the ACP-283 min
 		// price exponent, and the settlement markers.
-		upgradetest.Helicon: "0xa8ba8fe99b2affb0ed27d0d8c825f6292c3c6f5eb9d53707504bea02ac9c1a9b",
+		// Added the P-chain gateway precompile (Flare).
+		upgradetest.Helicon: "0x5770c0a49d60be8790f3e7d9b911a414c676cec7fec92cba00b30ac2be8a5392",
 	}
 	_ = hashes[upgradetest.Latest] // Enforce completeness at compile time.
 

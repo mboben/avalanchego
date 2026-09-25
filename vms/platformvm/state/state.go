@@ -1328,6 +1328,31 @@ func (s *State) GetTx(txID ids.ID) (*txs.Tx, status.Status, error) {
 	return ptx.tx, ptx.status, nil
 }
 
+// GetTxBytes returns the stored bytes of the transaction txID without parsing
+// it. Flare: used by the P-chain gateway reader, which parses outside the
+// P-chain lock and prices the parse by these bytes.
+func (s *State) GetTxBytes(txID ids.ID) ([]byte, error) {
+	if tx, exists := s.addedTxs[txID]; exists {
+		return tx.tx.Bytes(), nil
+	}
+	if tx, cached := s.txCache.Get(txID); cached {
+		if tx == nil {
+			return nil, database.ErrNotFound
+		}
+		return tx.tx.Bytes(), nil
+	}
+
+	txBytes, err := s.txDB.Get(txID[:])
+	if err != nil {
+		return nil, err
+	}
+	stx := txBytesAndStatus{}
+	if _, err := txs.GenesisCodec.Unmarshal(txBytes, &stx); err != nil {
+		return nil, err
+	}
+	return stx.Tx, nil
+}
+
 func (s *State) AddTx(tx *txs.Tx, status status.Status) {
 	s.addedTxs[tx.ID()] = &txAndStatus{
 		tx:     tx,
@@ -2600,6 +2625,40 @@ func (s *State) GetStatelessBlock(blockID ids.ID) (block.Block, error) {
 
 	s.blockCache.Put(blockID, blk)
 	return blk, nil
+}
+
+// GetBlockBytes returns the stored bytes of the block blockID without parsing
+// its transactions. Flare: used by the P-chain gateway reader
+// (vms/platformvm/pchainreader), which parses outside the P-chain lock and
+// prices the parse by these bytes. Same lookup order as GetStatelessBlock.
+func (s *State) GetBlockBytes(blockID ids.ID) ([]byte, error) {
+	if blk, exists := s.addedBlocks[blockID]; exists {
+		return blk.Bytes(), nil
+	}
+	if blk, cached := s.blockCache.Get(blockID); cached {
+		if blk == nil {
+			return nil, database.ErrNotFound
+		}
+		return blk.Bytes(), nil
+	}
+
+	blkBytes, err := s.blockDB.Get(blockID[:])
+	if err != nil {
+		return nil, err
+	}
+	return storedBlockBytes(blkBytes), nil
+}
+
+// storedBlockBytes unwraps the legacy [stateBlk] storage format, if present,
+// without parsing the block. A raw block never unmarshals as a stateBlk: its
+// type ID would have to equal the remaining length (only possible for blocks
+// far shorter than any real one) and the codec rejects trailing bytes.
+func storedBlockBytes(stored []byte) []byte {
+	blkState := stateBlk{}
+	if _, err := block.GenesisCodec.Unmarshal(stored, &blkState); err == nil {
+		return blkState.Bytes
+	}
+	return stored
 }
 
 func (s *State) GetBlockIDAtHeight(height uint64) (ids.ID, error) {

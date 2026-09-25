@@ -91,6 +91,13 @@ func (e *Executor) processQueue() {
 				"Block execution failed",
 				zap.Error(err),
 			)
+		case errors.Is(err, context.Canceled):
+			// Flare: [Executor.Close] cancelled a block waiting on its
+			// execution prerequisites; it is re-executed on restart.
+			log.Info(
+				"Block execution aborted by shutdown",
+				zap.Error(err),
+			)
 		case err != nil:
 			log.Error(
 				"Error of unknown severity in block execution",
@@ -123,6 +130,14 @@ func (e *Executor) execute(b *blocks.Block, log logging.Logger) error {
 	// acceptance.
 	if last := e.lastExecuted.Load().Hash(); last != b.ParentHash() {
 		return fmt.Errorf("executing block built on parent %#x when last executed %#x", b.ParentHash(), last)
+	}
+
+	// Flare: canonical execution MAY have node-local prerequisites (e.g. the
+	// P-chain height committed in the header must be accepted locally).
+	if gate, ok := e.hooks.(hook.ExecutionGate); ok {
+		if err := gate.AwaitExecutionPrerequisites(e.ctx, b.EthBlock()); err != nil {
+			return fmt.Errorf("awaiting execution prerequisites: %w", err)
+		}
 	}
 
 	start := time.Now()

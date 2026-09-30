@@ -18,20 +18,24 @@ import (
 // Revert reasons for caller errors. They are returned as a Solidity
 // Error(string) revert so that calling contracts can handle them.
 const (
-	reasonHeightNotCommitted   = "PChainGateway: P-chain height not committed"
-	reasonHeightAboveBound     = "PChainGateway: height above committed P-chain height"
-	reasonInvalidInput         = "PChainGateway: invalid input"
-	reasonPageSizeExceedsCap   = "PChainGateway: page size exceeds cap"
-	reasonTxIndexOutOfRange    = "PChainGateway: tx index out of range"
-	reasonUnsupportedTx        = "PChainGateway: unsupported tx type"
-	reasonInputIndexOutOfRange = "PChainGateway: input index out of range"
-	reasonInvalidInputOrder    = "PChainGateway: invalid input order"
+	reasonHeightNotCommitted    = "PChainGateway: P-chain height not committed"
+	reasonHeightAboveBound      = "PChainGateway: height above committed P-chain height"
+	reasonInvalidInput          = "PChainGateway: invalid input"
+	reasonPageSizeExceedsCap    = "PChainGateway: page size exceeds cap"
+	reasonTxIndexOutOfRange     = "PChainGateway: tx index out of range"
+	reasonUnsupportedTx         = "PChainGateway: unsupported tx type"
+	reasonInputIndexOutOfRange  = "PChainGateway: input index out of range"
+	reasonOutputIndexOutOfRange = "PChainGateway: output index out of range"
+	reasonInvalidInputOrder     = "PChainGateway: invalid input order"
 )
 
 var (
 	// errPChainReaderUnavailable is a node-local failure: the chain context
 	// carries no P-chain reader (never the case for the in-process C-chain).
 	errPChainReaderUnavailable = errors.New("P-chain reader unavailable")
+	// errChainContextUnavailable is a node-local failure: the EVM carries no
+	// chain context (never the case for the in-process C-chain).
+	errChainContextUnavailable = errors.New("chain context unavailable")
 
 	errorSelector = crypto.Keccak256([]byte("Error(string)"))[:4]
 	stringType    = mustNewType("string")
@@ -81,6 +85,8 @@ func readerError(err error) (reason string, callerError bool) {
 		return reasonUnsupportedTx, true
 	case errors.Is(err, pchain.ErrInputIndexOutOfRange):
 		return reasonInputIndexOutOfRange, true
+	case errors.Is(err, pchain.ErrOutputIndexOutOfRange):
+		return reasonOutputIndexOutOfRange, true
 	case errors.Is(err, pchain.ErrInvalidInputOrder):
 		return reasonInvalidInputOrder, true
 	default:

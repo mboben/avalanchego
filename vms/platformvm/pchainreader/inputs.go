@@ -26,11 +26,12 @@ type utxoKey struct {
 
 // ownerEntry is the resolved owner of a consumed output.
 type ownerEntry struct {
-	resolved  bool
-	genesis   bool
-	locktime  uint64
-	threshold uint32
-	addrs     []ids.ShortID
+	resolved          bool
+	genesis           bool
+	locktime          uint64
+	stakeableLocktime uint64
+	threshold         uint32
+	addrs             []ids.ShortID
 	// txBytes is the stored size of the producing transaction, charged on
 	// every resolution of this output (0 for genesis UTXOs).
 	txBytes uint64
@@ -67,16 +68,19 @@ func (b *blockReader) GetInputs(
 		return inputs, total, nil // an empty page orders and resolves nothing
 	}
 
-	page := ins[from:end]
+	// positions holds the canonical positions of the page in the requested
+	// order; nil for the canonical order itself.
+	var positions []int
 	if order == pchain.InputOrderByUTXOTxIDString {
-		perm := db.inputsByString(txIndex)
-		page = make([]*avax.TransferableInput, 0, end-from)
-		for _, i := range perm[from:end] {
-			page = append(page, ins[i])
-		}
+		positions = db.inputsByString(txIndex)[from:end]
 	}
-	for _, in := range page {
-		input, err := r.resolveInput(in, charge)
+	importedFrom := int(db.importedFrom[txIndex])
+	for k := from; k < end; k++ {
+		position := int(k)
+		if positions != nil {
+			position = positions[k-from]
+		}
+		input, err := r.resolveInput(ins[position], position >= importedFrom, charge)
 		if err != nil {
 			return nil, total, err
 		}
@@ -108,10 +112,17 @@ func permutationByString(ins []*avax.TransferableInput) []int {
 	return perm
 }
 
-func (r *Reader) resolveInput(in *avax.TransferableInput, charge pchain.ByteCharger) (pchain.Input, error) {
+// resolveInput decodes a consumed input and, unless it is an imported input,
+// resolves the owner of the consumed output.
+func (r *Reader) resolveInput(in *avax.TransferableInput, imported bool, charge pchain.ByteCharger) (pchain.Input, error) {
+	// The asset an accepted input claims is the asset of the output it
+	// consumes (VerifySpendUTXOs checks it, for imported inputs against the
+	// shared-memory UTXO), so it is known without resolving the output.
 	input := pchain.Input{
 		UTXOTxID:        in.TxID,
 		UTXOOutputIndex: in.OutputIndex,
+		AssetID:         in.AssetID(),
+		Imported:        imported,
 	}
 
 	transferIn := in.In
@@ -124,6 +135,12 @@ func (r *Reader) resolveInput(in *avax.TransferableInput, charge pchain.ByteChar
 	} else if transferIn != nil {
 		input.Amount = transferIn.Amount()
 	}
+	if imported {
+		// The consumed UTXO was produced on the source chain: there is no
+		// producing P-chain transaction and no genesis entry to look up (an
+		// imported UTXO ID may even collide with a genesis key).
+		return input, nil
+	}
 
 	owner, err := r.resolveOwner(utxoKey{txID: in.TxID, index: in.OutputIndex}, charge)
 	if err != nil {
@@ -133,6 +150,7 @@ func (r *Reader) resolveInput(in *avax.TransferableInput, charge pchain.ByteChar
 	if owner.resolved {
 		input.Resolved = true
 		input.Locktime = owner.locktime
+		input.StakeableLocktime = owner.stakeableLocktime
 		input.Threshold = owner.threshold
 		input.Addresses = owner.addrs
 	}
@@ -216,20 +234,31 @@ func (r *Reader) producedOutput(tx *txs.Tx, key utxoKey) (verify.State, error) {
 	return nil, nil
 }
 
-// ownersFromOutput extracts the secp256k1fx owner of out, unwrapping a
-// stakeable lock. Outputs of other types are unresolved.
-func ownersFromOutput(out verify.State) ownerEntry {
+// secpOwner unwraps a stakeable lock around out and returns the lock's
+// locktime (0 when unlocked) and the secp256k1fx transfer output, or false
+// for an output of any other type.
+func secpOwner(out verify.State) (uint64, *secp256k1fx.TransferOutput, bool) {
+	var stakeableLocktime uint64
 	if locked, ok := out.(*stakeable.LockOut); ok {
+		stakeableLocktime = locked.Locktime
 		out = locked.TransferableOut
 	}
 	transferOut, ok := out.(*secp256k1fx.TransferOutput)
+	return stakeableLocktime, transferOut, ok
+}
+
+// ownersFromOutput extracts the secp256k1fx owner of out, unwrapping a
+// stakeable lock. Outputs of other types are unresolved.
+func ownersFromOutput(out verify.State) ownerEntry {
+	stakeableLocktime, transferOut, ok := secpOwner(out)
 	if !ok {
 		return ownerEntry{}
 	}
 	return ownerEntry{
-		resolved:  true,
-		locktime:  transferOut.Locktime,
-		threshold: transferOut.Threshold,
-		addrs:     transferOut.Addrs,
+		resolved:          true,
+		locktime:          transferOut.Locktime,
+		stakeableLocktime: stakeableLocktime,
+		threshold:         transferOut.Threshold,
+		addrs:             transferOut.Addrs,
 	}
 }

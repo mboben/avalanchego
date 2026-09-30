@@ -40,6 +40,19 @@
   },
   {
     "inputs": [],
+    "name": "getNativeAssetId",
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
     "name": "getPChainHeight",
     "outputs": [
       {
@@ -131,9 +144,19 @@
             "type": "uint32"
           },
           {
+            "internalType": "bytes32",
+            "name": "assetId",
+            "type": "bytes32"
+          },
+          {
             "internalType": "uint64",
             "name": "amount",
             "type": "uint64"
+          },
+          {
+            "internalType": "bool",
+            "name": "imported",
+            "type": "bool"
           },
           {
             "internalType": "bool",
@@ -143,6 +166,11 @@
           {
             "internalType": "uint64",
             "name": "locktime",
+            "type": "uint64"
+          },
+          {
+            "internalType": "uint64",
+            "name": "stakeableLocktime",
             "type": "uint64"
           },
           {
@@ -180,6 +208,82 @@
       },
       {
         "internalType": "uint32",
+        "name": "txIndex",
+        "type": "uint32"
+      },
+      {
+        "internalType": "uint32",
+        "name": "fromOutput",
+        "type": "uint32"
+      },
+      {
+        "internalType": "uint32",
+        "name": "maxOutputs",
+        "type": "uint32"
+      }
+    ],
+    "name": "getTransactionOutputs",
+    "outputs": [
+      {
+        "internalType": "struct IPChainGateway.Output[]",
+        "name": "outputs",
+        "type": "tuple[]",
+        "components": [
+          {
+            "internalType": "uint8",
+            "name": "kind",
+            "type": "uint8"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "assetId",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "uint64",
+            "name": "amount",
+            "type": "uint64"
+          },
+          {
+            "internalType": "uint64",
+            "name": "locktime",
+            "type": "uint64"
+          },
+          {
+            "internalType": "uint64",
+            "name": "stakeableLocktime",
+            "type": "uint64"
+          },
+          {
+            "internalType": "uint32",
+            "name": "threshold",
+            "type": "uint32"
+          },
+          {
+            "internalType": "bytes20[]",
+            "name": "addresses",
+            "type": "bytes20[]"
+          }
+        ]
+      },
+      {
+        "internalType": "uint32",
+        "name": "outputCount",
+        "type": "uint32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint64",
+        "name": "height",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint32",
         "name": "fromIndex",
         "type": "uint32"
       },
@@ -196,6 +300,11 @@
       {
         "internalType": "uint32",
         "name": "maxInputsPerTx",
+        "type": "uint32"
+      },
+      {
+        "internalType": "uint32",
+        "name": "maxOutputsPerTx",
         "type": "uint32"
       }
     ],
@@ -262,8 +371,18 @@
             "type": "bytes32"
           },
           {
+            "internalType": "bytes32",
+            "name": "remoteChainId",
+            "type": "bytes32"
+          },
+          {
             "internalType": "uint32",
             "name": "inputCount",
+            "type": "uint32"
+          },
+          {
+            "internalType": "uint32",
+            "name": "outputCount",
             "type": "uint32"
           },
           {
@@ -282,9 +401,19 @@
                 "type": "uint32"
               },
               {
+                "internalType": "bytes32",
+                "name": "assetId",
+                "type": "bytes32"
+              },
+              {
                 "internalType": "uint64",
                 "name": "amount",
                 "type": "uint64"
+              },
+              {
+                "internalType": "bool",
+                "name": "imported",
+                "type": "bool"
               },
               {
                 "internalType": "bool",
@@ -294,6 +423,11 @@
               {
                 "internalType": "uint64",
                 "name": "locktime",
+                "type": "uint64"
+              },
+              {
+                "internalType": "uint64",
+                "name": "stakeableLocktime",
                 "type": "uint64"
               },
               {
@@ -310,6 +444,48 @@
                 "internalType": "uint32[]",
                 "name": "sigIndices",
                 "type": "uint32[]"
+              }
+            ]
+          },
+          {
+            "internalType": "struct IPChainGateway.Output[]",
+            "name": "outputs",
+            "type": "tuple[]",
+            "components": [
+              {
+                "internalType": "uint8",
+                "name": "kind",
+                "type": "uint8"
+              },
+              {
+                "internalType": "bytes32",
+                "name": "assetId",
+                "type": "bytes32"
+              },
+              {
+                "internalType": "uint64",
+                "name": "amount",
+                "type": "uint64"
+              },
+              {
+                "internalType": "uint64",
+                "name": "locktime",
+                "type": "uint64"
+              },
+              {
+                "internalType": "uint64",
+                "name": "stakeableLocktime",
+                "type": "uint64"
+              },
+              {
+                "internalType": "uint32",
+                "name": "threshold",
+                "type": "uint32"
+              },
+              {
+                "internalType": "bytes20[]",
+                "name": "addresses",
+                "type": "bytes20[]"
               }
             ]
           }

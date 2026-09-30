@@ -52,6 +52,7 @@ graft_go_test(
         "//utils",
         "//utils/constants",
         "//utils/formatting/address",
+        "@com_github_ava_labs_libevm//common",
         "@com_github_ava_labs_libevm//core/vm",
         "@com_github_ava_labs_libevm//crypto",
         "@com_github_stretchr_testify//require",

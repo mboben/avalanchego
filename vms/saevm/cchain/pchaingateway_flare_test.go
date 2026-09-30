@@ -25,11 +25,13 @@ import (
 
 var _ pchain.Reader = (*gatewayFakeReader)(nil)
 
-// gatewayFakeReader serves a fixed set of decoded P-chain blocks and inputs.
+// gatewayFakeReader serves a fixed set of decoded P-chain blocks, inputs and
+// outputs.
 type gatewayFakeReader struct {
-	last   uint64
-	blocks map[uint64]*pchain.Block
-	inputs map[uint64]map[uint32][]pchain.Input
+	last    uint64
+	blocks  map[uint64]*pchain.Block
+	inputs  map[uint64]map[uint32][]pchain.Input
+	outputs map[uint64]map[uint32][]pchain.Output
 }
 
 func (r *gatewayFakeReader) LastAcceptedHeight() (uint64, error) {
@@ -52,14 +54,15 @@ func (r *gatewayFakeReader) GetBlock(height uint64, charge pchain.ByteCharger) (
 			return nil, err
 		}
 	}
-	return &gatewayFakeBlockReader{blk: blk, inputs: r.inputs[height]}, nil
+	return &gatewayFakeBlockReader{blk: blk, inputs: r.inputs[height], outputs: r.outputs[height]}, nil
 }
 
-// gatewayFakeBlockReader serves the inputs of one fake block. Inputs carry no
-// producing-transaction bytes, so nothing is charged for them.
+// gatewayFakeBlockReader serves the inputs and outputs of one fake block.
+// Inputs carry no producing-transaction bytes, so nothing is charged for them.
 type gatewayFakeBlockReader struct {
-	blk    *pchain.Block
-	inputs map[uint32][]pchain.Input
+	blk     *pchain.Block
+	inputs  map[uint32][]pchain.Input
+	outputs map[uint32][]pchain.Output
 }
 
 func (b *gatewayFakeBlockReader) Block() *pchain.Block {
@@ -88,15 +91,35 @@ func (b *gatewayFakeBlockReader) GetInputs(txIndex, from, max uint32, order pcha
 	return ins[from:end], total, nil
 }
 
+func (b *gatewayFakeBlockReader) GetOutputs(txIndex, from, max uint32) ([]pchain.Output, uint32, error) {
+	if int(txIndex) >= len(b.blk.Txs) {
+		return nil, 0, pchain.ErrTxIndexOutOfRange
+	}
+	if b.blk.Txs[txIndex].Type == pchain.TxUnsupported {
+		return nil, 0, pchain.ErrUnsupportedTx
+	}
+	outs := b.outputs[txIndex]
+	total := uint32(len(outs))
+	if from > total {
+		return nil, total, pchain.ErrOutputIndexOutOfRange
+	}
+	end := total
+	if max < total-from {
+		end = from + max
+	}
+	return outs[from:end], total, nil
+}
+
 // gatewayFixture is the P-chain state the fake reader serves: one block at
 // height 7 with a single permissionless validator transaction spending one
-// resolved input.
+// resolved input and staking one output.
 type gatewayFixture struct {
 	reader   *gatewayFakeReader
 	height   uint64
 	block    *pchain.Block
 	tx       pchain.Tx
 	input    pchain.Input
+	output   pchain.Output
 	owner    ids.ShortID
 	blockID  ids.ID
 	parentID ids.ID
@@ -105,14 +128,23 @@ type gatewayFixture struct {
 func newGatewayFixture() *gatewayFixture {
 	const height = 7
 	owner := ids.ShortID{0xaa}
+	assetID := ids.ID{0x50}
 	input := pchain.Input{
 		UTXOTxID:        ids.ID{0x01},
 		UTXOOutputIndex: 3,
+		AssetID:         assetID,
 		Amount:          1_000,
 		Resolved:        true,
 		Threshold:       1,
 		Addresses:       []ids.ShortID{owner},
 		SigIndices:      []uint32{0},
+	}
+	output := pchain.Output{
+		Kind:      pchain.OutputStake,
+		AssetID:   assetID,
+		Amount:    1_000,
+		Threshold: 1,
+		Addresses: []ids.ShortID{owner},
 	}
 	tx := pchain.Tx{
 		Type:             pchain.TxAddPermissionlessValidator,
@@ -124,6 +156,7 @@ func newGatewayFixture() *gatewayFixture {
 		Weight:           1_000,
 		DelegationShares: 20_000,
 		InputCount:       1,
+		OutputCount:      1,
 	}
 	blockID, parentID := ids.ID{0x31}, ids.ID{0x30}
 	blk := &pchain.Block{
@@ -136,14 +169,16 @@ func newGatewayFixture() *gatewayFixture {
 	}
 	return &gatewayFixture{
 		reader: &gatewayFakeReader{
-			last:   height,
-			blocks: map[uint64]*pchain.Block{height: blk},
-			inputs: map[uint64]map[uint32][]pchain.Input{height: {0: {input}}},
+			last:    height,
+			blocks:  map[uint64]*pchain.Block{height: blk},
+			inputs:  map[uint64]map[uint32][]pchain.Input{height: {0: {input}}},
+			outputs: map[uint64]map[uint32][]pchain.Output{height: {0: {output}}},
 		},
 		height:   height,
 		block:    blk,
 		tx:       tx,
 		input:    input,
+		output:   output,
 		owner:    owner,
 		blockID:  blockID,
 		parentID: parentID,
@@ -176,6 +211,12 @@ func (f *gatewayFixture) assertGatewayReads(ctx context.Context, t *testing.T, s
 	require.NoError(err)
 	require.Equal(f.height, height, "getPChainHeight()")
 
+	got, err = call(pchaingateway.PackGetNativeAssetId())
+	require.NoError(err, "getNativeAssetId()")
+	nativeAssetID, err := pchaingateway.UnpackGetNativeAssetIdOutput(got)
+	require.NoError(err)
+	require.Equal([32]byte(sut.ctx.AVAXAssetID), nativeAssetID, "getNativeAssetId()")
+
 	got, err = call(pchaingateway.PackGetBlock(f.height))
 	require.NoError(err, "getBlock(%d)", f.height)
 	blk, err := pchaingateway.UnpackGetBlockOutput(got)
@@ -192,15 +233,23 @@ func (f *gatewayFixture) assertGatewayReads(ctx context.Context, t *testing.T, s
 	require.ErrorContains(err, "above committed P-chain height", "getBlock(%d) above the bound", f.height+1)
 
 	got, err = call(pchaingateway.PackGetTransactions(pchaingateway.GetTransactionsInput{
-		Height:         f.height,
-		FromIndex:      0,
-		MaxTxs:         32,
-		TypeFilter:     big.NewInt(0),
-		MaxInputsPerTx: 8,
+		Height:          f.height,
+		FromIndex:       0,
+		MaxTxs:          32,
+		TypeFilter:      big.NewInt(0),
+		MaxInputsPerTx:  8,
+		MaxOutputsPerTx: 8,
 	}))
-	require.NoError(err, "getTransactions(%d, 0, 32, 0, 8)", f.height)
+	require.NoError(err, "getTransactions(%d, 0, 32, 0, 8, 8)", f.height)
 	txs, err := pchaingateway.UnpackGetTransactionsOutput(got)
 	require.NoError(err)
+	wantOutput := pchaingateway.Output{
+		Kind:      uint8(pchain.OutputStake),
+		AssetId:   f.output.AssetID,
+		Amount:    f.output.Amount,
+		Threshold: 1,
+		Addresses: [][20]byte{f.owner},
+	}
 	require.Equal(pchaingateway.GetTransactionsOutput{
 		Txs: []pchaingateway.Tx{{
 			TxType:           uint8(pchain.TxAddPermissionlessValidator),
@@ -212,18 +261,35 @@ func (f *gatewayFixture) assertGatewayReads(ctx context.Context, t *testing.T, s
 			Weight:           f.tx.Weight,
 			DelegationShares: f.tx.DelegationShares,
 			InputCount:       1,
+			OutputCount:      1,
 			Inputs: []pchaingateway.Input{{
 				UtxoTxId:        f.input.UTXOTxID,
 				UtxoOutputIndex: f.input.UTXOOutputIndex,
+				AssetId:         f.input.AssetID,
 				Amount:          f.input.Amount,
 				Resolved:        true,
 				Threshold:       1,
 				Addresses:       [][20]byte{f.owner},
 				SigIndices:      []uint32{0},
 			}},
+			Outputs: []pchaingateway.Output{wantOutput},
 		}},
 		NextIndex: 1,
-	}, txs, "getTransactions(%d, 0, 32, 0, 8)", f.height)
+	}, txs, "getTransactions(%d, 0, 32, 0, 8, 8)", f.height)
+
+	got, err = call(pchaingateway.PackGetTransactionOutputs(pchaingateway.GetTransactionOutputsInput{
+		Height:     f.height,
+		TxIndex:    0,
+		FromOutput: 0,
+		MaxOutputs: 64,
+	}))
+	require.NoError(err, "getTransactionOutputs(%d, 0, 0, 64)", f.height)
+	outputs, err := pchaingateway.UnpackGetTransactionOutputsOutput(got)
+	require.NoError(err)
+	require.Equal(pchaingateway.GetTransactionOutputsOutput{
+		Outputs:     []pchaingateway.Output{wantOutput},
+		OutputCount: 1,
+	}, outputs, "getTransactionOutputs(%d, 0, 0, 64)", f.height)
 
 	got, err = call(pchaingateway.PackGetStakeOwner(pchaingateway.GetStakeOwnerInput{
 		Height:  f.height,

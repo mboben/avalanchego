@@ -26,11 +26,40 @@ type decodedBlock struct {
 	// bytes is the stored size of the block, charged on every read.
 	bytes uint64
 	// ins holds the consumed inputs of every decoded transaction, indexed
-	// like block.Txs; nil for unsupported transactions.
+	// like block.Txs; nil for unsupported transactions. For import
+	// transactions the P-chain inputs come first, then the imported inputs.
 	ins [][]*avax.TransferableInput
+	// importedFrom is, per transaction, the position in ins at which the
+	// imported inputs start (len(ins[i]) when there are none).
+	importedFrom []uint32
+	// outs references the produced outputs of every decoded transaction
+	// inside the parsed transaction; they are converted per requested page.
+	outs []txOutputs
 	// byString caches, per transaction, the permutation of ins in
 	// [pchain.InputOrderByUTXOTxIDString], computed once on first use.
 	byString []stringOrder
+}
+
+// txOutputs references the produced outputs of one transaction: the BaseTx
+// outputs, then the type-specific extra outputs (the stake outputs of a
+// staker, the exported outputs of an export) at the positions the P-chain
+// assigns them (avax.Produce, unstakeUTXOs, the export executor).
+type txOutputs struct {
+	outs      []*avax.TransferableOutput
+	extra     []*avax.TransferableOutput
+	extraKind pchain.OutputKind
+}
+
+func (o txOutputs) count() uint32 {
+	return uint32(len(o.outs) + len(o.extra))
+}
+
+// at returns the output at position i and its kind.
+func (o txOutputs) at(i int) (*avax.TransferableOutput, pchain.OutputKind) {
+	if i < len(o.outs) {
+		return o.outs[i], pchain.OutputTransfer
+	}
+	return o.extra[i-len(o.outs)], o.extraKind
 }
 
 // stringOrder lazily holds the CB58-string order of one transaction's inputs.
@@ -72,27 +101,23 @@ func (r *Reader) decode(blk block.Block) *decodedBlock {
 			Kind:      kind.kind,
 			Txs:       make([]pchain.Tx, len(rawTxs)),
 		},
-		ins:      make([][]*avax.TransferableInput, len(rawTxs)),
-		byString: make([]stringOrder, len(rawTxs)),
+		ins:          make([][]*avax.TransferableInput, len(rawTxs)),
+		importedFrom: make([]uint32, len(rawTxs)),
+		outs:         make([]txOutputs, len(rawTxs)),
+		byString:     make([]stringOrder, len(rawTxs)),
 	}
 	for i, tx := range rawTxs {
-		d := &txDecoder{
-			blockTime: timestamp,
-			durango:   durango,
-			tx: pchain.Tx{
-				Index: uint32(i),
-				ID:    tx.ID(),
-			},
-		}
+		d := newTxDecoder(timestamp, durango, uint32(i), tx.ID())
 		if err := tx.Unsigned.Visit(d); err != nil {
 			// Only a malformed auto-renewed node ID can fail, and accepted
 			// transactions are syntactically verified; expose the transaction
 			// as unsupported rather than failing the whole block.
-			d.tx = pchain.Tx{Index: uint32(i), ID: tx.ID()}
-			d.ins = nil
+			d = newTxDecoder(timestamp, durango, uint32(i), tx.ID())
 		}
 		db.block.Txs[i] = d.tx
 		db.ins[i] = d.ins
+		db.importedFrom[i] = d.importedFrom
+		db.outs[i] = d.outs
 	}
 	return db
 }
@@ -147,14 +172,25 @@ func (v *kindVisitor) ApricotAtomicBlock(*block.ApricotAtomicBlock) error {
 	return nil
 }
 
-// txDecoder decodes one transaction into a [pchain.Tx]. Transactions the
-// gateway does not expose leave tx.Type at [pchain.TxUnsupported].
+// txDecoder decodes one transaction into a [pchain.Tx] plus references to
+// its inputs and outputs. Transactions the gateway does not expose leave
+// tx.Type at [pchain.TxUnsupported].
 type txDecoder struct {
 	blockTime uint64
 	durango   bool
 
-	tx  pchain.Tx
-	ins []*avax.TransferableInput
+	tx           pchain.Tx
+	ins          []*avax.TransferableInput
+	importedFrom uint32
+	outs         txOutputs
+}
+
+func newTxDecoder(blockTime uint64, durango bool, index uint32, id ids.ID) *txDecoder {
+	return &txDecoder{
+		blockTime: blockTime,
+		durango:   durango,
+		tx:        pchain.Tx{Index: index, ID: id},
+	}
 }
 
 // startTime applies the Durango rule: post-Durango stakers start at the chain
@@ -166,9 +202,26 @@ func (d *txDecoder) startTime(txStart uint64) uint64 {
 	return txStart
 }
 
-func (d *txDecoder) setInputs(ins []*avax.TransferableInput) {
-	d.ins = ins
-	d.tx.InputCount = uint32(len(ins))
+// setInputs records the consumed inputs: the P-chain inputs ins followed by
+// the imported inputs of an import transaction. The parsed slices are never
+// appended to in place.
+func (d *txDecoder) setInputs(ins, imported []*avax.TransferableInput) {
+	if len(imported) == 0 {
+		d.ins = ins
+	} else {
+		all := make([]*avax.TransferableInput, 0, len(ins)+len(imported))
+		all = append(all, ins...)
+		d.ins = append(all, imported...)
+	}
+	d.importedFrom = uint32(len(ins))
+	d.tx.InputCount = uint32(len(d.ins))
+}
+
+// setOutputs records the produced outputs: the BaseTx outputs outs followed
+// by the type-specific extra outputs of kind extraKind.
+func (d *txDecoder) setOutputs(outs, extra []*avax.TransferableOutput, extraKind pchain.OutputKind) {
+	d.outs = txOutputs{outs: outs, extra: extra, extraKind: extraKind}
+	d.tx.OutputCount = d.outs.count()
 }
 
 func (d *txDecoder) boundedStaker(
@@ -176,6 +229,8 @@ func (d *txDecoder) boundedStaker(
 	validator txs.Validator,
 	delegationShares uint32,
 	ins []*avax.TransferableInput,
+	outs []*avax.TransferableOutput,
+	stake []*avax.TransferableOutput,
 ) {
 	d.tx.Type = txType
 	d.tx.NodeID = validator.NodeID
@@ -183,13 +238,28 @@ func (d *txDecoder) boundedStaker(
 	d.tx.EndTime = validator.End
 	d.tx.Weight = validator.Wght
 	d.tx.DelegationShares = delegationShares
-	d.setInputs(ins)
+	d.setInputs(ins, nil)
+	d.setOutputs(outs, stake, pchain.OutputStake)
+}
+
+// transfer decodes a value-moving transaction: it takes effect at the block
+// time and carries nothing but inputs and outputs.
+func (d *txDecoder) transfer(
+	txType pchain.TxType,
+	ins, imported []*avax.TransferableInput,
+	outs, extra []*avax.TransferableOutput,
+	extraKind pchain.OutputKind,
+) {
+	d.tx.Type = txType
+	d.tx.StartTime = d.blockTime
+	d.setInputs(ins, imported)
+	d.setOutputs(outs, extra, extraKind)
 }
 
 // Apricot transactions.
 
 func (d *txDecoder) AddValidatorTx(tx *txs.AddValidatorTx) error {
-	d.boundedStaker(pchain.TxAddValidator, tx.Validator, tx.DelegationShares, tx.Ins)
+	d.boundedStaker(pchain.TxAddValidator, tx.Validator, tx.DelegationShares, tx.Ins, tx.Outs, tx.StakeOuts)
 	return nil
 }
 
@@ -198,7 +268,7 @@ func (*txDecoder) AddSubnetValidatorTx(*txs.AddSubnetValidatorTx) error {
 }
 
 func (d *txDecoder) AddDelegatorTx(tx *txs.AddDelegatorTx) error {
-	d.boundedStaker(pchain.TxAddDelegator, tx.Validator, 0, tx.Ins)
+	d.boundedStaker(pchain.TxAddDelegator, tx.Validator, 0, tx.Ins, tx.Outs, tx.StakeOuts)
 	return nil
 }
 
@@ -210,11 +280,15 @@ func (*txDecoder) CreateSubnetTx(*txs.CreateSubnetTx) error {
 	return nil
 }
 
-func (*txDecoder) ImportTx(*txs.ImportTx) error {
+func (d *txDecoder) ImportTx(tx *txs.ImportTx) error {
+	d.transfer(pchain.TxImport, tx.Ins, tx.ImportedInputs, tx.Outs, nil, pchain.OutputTransfer)
+	d.tx.RemoteChainID = tx.SourceChain
 	return nil
 }
 
-func (*txDecoder) ExportTx(*txs.ExportTx) error {
+func (d *txDecoder) ExportTx(tx *txs.ExportTx) error {
+	d.transfer(pchain.TxExport, tx.Ins, nil, tx.Outs, tx.ExportedOutputs, pchain.OutputExported)
+	d.tx.RemoteChainID = tx.DestinationChain
 	return nil
 }
 
@@ -222,7 +296,13 @@ func (*txDecoder) AdvanceTimeTx(*txs.AdvanceTimeTx) error {
 	return nil
 }
 
-func (*txDecoder) RewardValidatorTx(*txs.RewardValidatorTx) error {
+// RewardValidatorTx removes a bounded staker at its end time; it is only
+// valid once the chain time (the block timestamp) has reached that end.
+func (d *txDecoder) RewardValidatorTx(tx *txs.RewardValidatorTx) error {
+	d.tx.Type = pchain.TxRewardValidator
+	d.tx.StartTime = d.blockTime
+	d.tx.EndTime = d.blockTime
+	d.tx.StakerTxID = tx.TxID
 	return nil
 }
 
@@ -240,7 +320,7 @@ func (d *txDecoder) AddPermissionlessValidatorTx(tx *txs.AddPermissionlessValida
 	if tx.Subnet != constants.PrimaryNetworkID {
 		return nil
 	}
-	d.boundedStaker(pchain.TxAddPermissionlessValidator, tx.Validator, tx.DelegationShares, tx.Ins)
+	d.boundedStaker(pchain.TxAddPermissionlessValidator, tx.Validator, tx.DelegationShares, tx.Ins, tx.Outs, tx.StakeOuts)
 	return nil
 }
 
@@ -248,7 +328,7 @@ func (d *txDecoder) AddPermissionlessDelegatorTx(tx *txs.AddPermissionlessDelega
 	if tx.Subnet != constants.PrimaryNetworkID {
 		return nil
 	}
-	d.boundedStaker(pchain.TxAddPermissionlessDelegator, tx.Validator, 0, tx.Ins)
+	d.boundedStaker(pchain.TxAddPermissionlessDelegator, tx.Validator, 0, tx.Ins, tx.Outs, tx.StakeOuts)
 	return nil
 }
 
@@ -258,7 +338,8 @@ func (*txDecoder) TransferSubnetOwnershipTx(*txs.TransferSubnetOwnershipTx) erro
 	return nil
 }
 
-func (*txDecoder) BaseTx(*txs.BaseTx) error {
+func (d *txDecoder) BaseTx(tx *txs.BaseTx) error {
+	d.transfer(pchain.TxBase, tx.Ins, nil, tx.Outs, nil, pchain.OutputTransfer)
 	return nil
 }
 
@@ -299,7 +380,8 @@ func (d *txDecoder) AddAutoRenewedValidatorTx(tx *txs.AddAutoRenewedValidatorTx)
 	d.tx.Weight = tx.Weight()
 	d.tx.DelegationShares = tx.DelegationShares
 	d.tx.AutoCompoundRewardShares = tx.AutoCompoundRewardShares
-	d.setInputs(tx.Ins)
+	d.setInputs(tx.Ins, nil)
+	d.setOutputs(tx.Outs, tx.StakeOuts, pchain.OutputStake)
 	return nil
 }
 
@@ -309,7 +391,8 @@ func (d *txDecoder) SetAutoRenewedValidatorConfigTx(tx *txs.SetAutoRenewedValida
 	d.tx.Period = tx.Period
 	d.tx.AutoCompoundRewardShares = tx.AutoCompoundRewardShares
 	d.tx.StakerTxID = tx.TxID
-	d.setInputs(tx.Ins)
+	d.setInputs(tx.Ins, nil)
+	d.setOutputs(tx.Outs, nil, pchain.OutputTransfer)
 	return nil
 }
 

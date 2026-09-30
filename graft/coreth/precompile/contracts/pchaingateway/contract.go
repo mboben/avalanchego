@@ -2,8 +2,9 @@
 // See the file LICENSE for licensing terms.
 
 // Package pchaingateway implements the P-chain gateway, a Flare-only stateful
-// precompile that lets contracts read accepted P-chain blocks and
-// primary-network staking transactions during EVM execution (pull model).
+// precompile that lets contracts read accepted P-chain blocks and transactions
+// (primary-network staking transactions, imports, exports and plain transfers)
+// during EVM execution (pull model).
 //
 // Determinism: every read is bounded by the P-chain height the SAE block
 // builder committed into the block header (HeaderExtra.PChainHeight, the
@@ -33,14 +34,28 @@ var (
 
 // Input mirrors IPChainGateway.Input.
 type Input struct {
-	UtxoTxId        [32]byte
-	UtxoOutputIndex uint32
-	Amount          uint64
-	Resolved        bool
-	Locktime        uint64
-	Threshold       uint32
-	Addresses       [][20]byte
-	SigIndices      []uint32
+	UtxoTxId          [32]byte
+	UtxoOutputIndex   uint32
+	AssetId           [32]byte
+	Amount            uint64
+	Imported          bool
+	Resolved          bool
+	Locktime          uint64
+	StakeableLocktime uint64
+	Threshold         uint32
+	Addresses         [][20]byte
+	SigIndices        []uint32
+}
+
+// Output mirrors IPChainGateway.Output.
+type Output struct {
+	Kind              uint8
+	AssetId           [32]byte
+	Amount            uint64
+	Locktime          uint64
+	StakeableLocktime uint64
+	Threshold         uint32
+	Addresses         [][20]byte
 }
 
 // Tx mirrors IPChainGateway.Tx.
@@ -56,8 +71,11 @@ type Tx struct {
 	DelegationShares         uint32
 	AutoCompoundRewardShares uint32
 	StakerTxId               [32]byte
+	RemoteChainId            [32]byte
 	InputCount               uint32
+	OutputCount              uint32
 	Inputs                   []Input
+	Outputs                  []Output
 }
 
 // GetBlockOutput is the output of getBlock.
@@ -71,11 +89,12 @@ type GetBlockOutput struct {
 
 // GetTransactionsInput is the input of getTransactions.
 type GetTransactionsInput struct {
-	Height         uint64
-	FromIndex      uint32
-	MaxTxs         uint32
-	TypeFilter     *big.Int
-	MaxInputsPerTx uint32
+	Height          uint64
+	FromIndex       uint32
+	MaxTxs          uint32
+	TypeFilter      *big.Int
+	MaxInputsPerTx  uint32
+	MaxOutputsPerTx uint32
 }
 
 // GetTransactionsOutput is the output of getTransactions.
@@ -97,6 +116,20 @@ type GetTransactionInputsInput struct {
 type GetTransactionInputsOutput struct {
 	Inputs     []Input
 	InputCount uint32
+}
+
+// GetTransactionOutputsInput is the input of getTransactionOutputs.
+type GetTransactionOutputsInput struct {
+	Height     uint64
+	TxIndex    uint32
+	FromOutput uint32
+	MaxOutputs uint32
+}
+
+// GetTransactionOutputsOutput is the output of getTransactionOutputs.
+type GetTransactionOutputsOutput struct {
+	Outputs     []Output
+	OutputCount uint32
 }
 
 // GetStakeOwnerInput is the input of getStakeOwner.
@@ -129,6 +162,23 @@ func UnpackGetPChainHeightOutput(output []byte) (uint64, error) {
 	return height, err
 }
 
+// PackGetNativeAssetId packs the getNativeAssetId call (selector included).
+func PackGetNativeAssetId() ([]byte, error) {
+	return PChainGatewayABI.Pack("getNativeAssetId")
+}
+
+// PackGetNativeAssetIdOutput packs the getNativeAssetId output.
+func PackGetNativeAssetIdOutput(assetID [32]byte) ([]byte, error) {
+	return PChainGatewayABI.PackOutput("getNativeAssetId", assetID)
+}
+
+// UnpackGetNativeAssetIdOutput unpacks the getNativeAssetId output.
+func UnpackGetNativeAssetIdOutput(output []byte) ([32]byte, error) {
+	var assetID [32]byte
+	err := PChainGatewayABI.UnpackIntoInterface(&assetID, "getNativeAssetId", output)
+	return assetID, err
+}
+
 // PackGetBlock packs the getBlock call (selector included).
 func PackGetBlock(height uint64) ([]byte, error) {
 	return PChainGatewayABI.Pack("getBlock", height)
@@ -155,7 +205,7 @@ func UnpackGetBlockOutput(output []byte) (GetBlockOutput, error) {
 
 // PackGetTransactions packs the getTransactions call (selector included).
 func PackGetTransactions(in GetTransactionsInput) ([]byte, error) {
-	return PChainGatewayABI.Pack("getTransactions", in.Height, in.FromIndex, in.MaxTxs, in.TypeFilter, in.MaxInputsPerTx)
+	return PChainGatewayABI.Pack("getTransactions", in.Height, in.FromIndex, in.MaxTxs, in.TypeFilter, in.MaxInputsPerTx, in.MaxOutputsPerTx)
 }
 
 // UnpackGetTransactionsInput unpacks the getTransactions arguments (selector omitted).
@@ -201,6 +251,30 @@ func UnpackGetTransactionInputsOutput(output []byte) (GetTransactionInputsOutput
 	return out, err
 }
 
+// PackGetTransactionOutputs packs the getTransactionOutputs call (selector included).
+func PackGetTransactionOutputs(in GetTransactionOutputsInput) ([]byte, error) {
+	return PChainGatewayABI.Pack("getTransactionOutputs", in.Height, in.TxIndex, in.FromOutput, in.MaxOutputs)
+}
+
+// UnpackGetTransactionOutputsInput unpacks the getTransactionOutputs arguments (selector omitted).
+func UnpackGetTransactionOutputsInput(input []byte) (GetTransactionOutputsInput, error) {
+	var in GetTransactionOutputsInput
+	err := PChainGatewayABI.UnpackInputIntoInterface(&in, "getTransactionOutputs", input)
+	return in, err
+}
+
+// PackGetTransactionOutputsOutput packs the getTransactionOutputs output.
+func PackGetTransactionOutputsOutput(out GetTransactionOutputsOutput) ([]byte, error) {
+	return PChainGatewayABI.PackOutput("getTransactionOutputs", out.Outputs, out.OutputCount)
+}
+
+// UnpackGetTransactionOutputsOutput unpacks the getTransactionOutputs output.
+func UnpackGetTransactionOutputsOutput(output []byte) (GetTransactionOutputsOutput, error) {
+	var out GetTransactionOutputsOutput
+	err := PChainGatewayABI.UnpackIntoInterface(&out, "getTransactionOutputs", output)
+	return out, err
+}
+
 // PackGetStakeOwner packs the getStakeOwner call (selector included).
 func PackGetStakeOwner(in GetStakeOwnerInput) ([]byte, error) {
 	return PChainGatewayABI.Pack("getStakeOwner", in.Height, in.TxIndex, in.Order)
@@ -228,14 +302,17 @@ func UnpackGetStakeOwnerOutput(output []byte) (GetStakeOwnerOutput, error) {
 // toInput converts a reader input to its ABI form.
 func toInput(in pchain.Input) Input {
 	out := Input{
-		UtxoTxId:        in.UTXOTxID,
-		UtxoOutputIndex: in.UTXOOutputIndex,
-		Amount:          in.Amount,
-		Resolved:        in.Resolved,
-		Locktime:        in.Locktime,
-		Threshold:       in.Threshold,
-		Addresses:       make([][20]byte, len(in.Addresses)),
-		SigIndices:      make([]uint32, len(in.SigIndices)),
+		UtxoTxId:          in.UTXOTxID,
+		UtxoOutputIndex:   in.UTXOOutputIndex,
+		AssetId:           in.AssetID,
+		Amount:            in.Amount,
+		Imported:          in.Imported,
+		Resolved:          in.Resolved,
+		Locktime:          in.Locktime,
+		StakeableLocktime: in.StakeableLocktime,
+		Threshold:         in.Threshold,
+		Addresses:         make([][20]byte, len(in.Addresses)),
+		SigIndices:        make([]uint32, len(in.SigIndices)),
 	}
 	for i, addr := range in.Addresses {
 		out.Addresses[i] = addr
@@ -244,8 +321,26 @@ func toInput(in pchain.Input) Input {
 	return out
 }
 
-// toTx converts a reader transaction and its inline inputs to the ABI form.
-func toTx(tx pchain.Tx, inputs []pchain.Input) Tx {
+// toOutput converts a reader output to its ABI form.
+func toOutput(output pchain.Output) Output {
+	out := Output{
+		Kind:              uint8(output.Kind),
+		AssetId:           output.AssetID,
+		Amount:            output.Amount,
+		Locktime:          output.Locktime,
+		StakeableLocktime: output.StakeableLocktime,
+		Threshold:         output.Threshold,
+		Addresses:         make([][20]byte, len(output.Addresses)),
+	}
+	for i, addr := range output.Addresses {
+		out.Addresses[i] = addr
+	}
+	return out
+}
+
+// toTx converts a reader transaction and its inline inputs and outputs to the
+// ABI form.
+func toTx(tx pchain.Tx, inputs []pchain.Input, outputs []pchain.Output) Tx {
 	out := Tx{
 		TxType:                   uint8(tx.Type),
 		Index:                    tx.Index,
@@ -258,11 +353,17 @@ func toTx(tx pchain.Tx, inputs []pchain.Input) Tx {
 		DelegationShares:         tx.DelegationShares,
 		AutoCompoundRewardShares: tx.AutoCompoundRewardShares,
 		StakerTxId:               tx.StakerTxID,
+		RemoteChainId:            tx.RemoteChainID,
 		InputCount:               tx.InputCount,
+		OutputCount:              tx.OutputCount,
 		Inputs:                   make([]Input, len(inputs)),
+		Outputs:                  make([]Output, len(outputs)),
 	}
 	for i, in := range inputs {
 		out.Inputs[i] = toInput(in)
+	}
+	for i, output := range outputs {
+		out.Outputs[i] = toOutput(output)
 	}
 	return out
 }
@@ -271,11 +372,13 @@ func toTx(tx pchain.Tx, inputs []pchain.Input) Tx {
 // registered by their ABI selectors.
 func createPChainGatewayPrecompile() contract.StatefulPrecompiledContract {
 	abiFunctionMap := map[string]contract.RunStatefulPrecompileFunc{
-		"getPChainHeight":      getPChainHeight,
-		"getBlock":             getBlock,
-		"getTransactions":      getTransactions,
-		"getTransactionInputs": getTransactionInputs,
-		"getStakeOwner":        getStakeOwner,
+		"getPChainHeight":       getPChainHeight,
+		"getNativeAssetId":      getNativeAssetId,
+		"getBlock":              getBlock,
+		"getTransactions":       getTransactions,
+		"getTransactionInputs":  getTransactionInputs,
+		"getTransactionOutputs": getTransactionOutputs,
+		"getStakeOwner":         getStakeOwner,
 	}
 
 	functions := make([]*contract.StatefulPrecompileFunction, 0, len(abiFunctionMap))

@@ -118,6 +118,7 @@ func TestPChainReaderOverVM(t *testing.T) {
 	require.Equal(vm.MinValidatorStake, got.Weight)
 	require.Equal(uint32(reward.PercentDenominator), got.DelegationShares)
 	require.NotZero(got.InputCount)
+	require.NotZero(got.OutputCount)
 
 	// The stake is funded either from genesis UTXOs, whose owners are
 	// resolved from the genesis allocation rather than from a producing
@@ -145,6 +146,32 @@ func TestPChainReaderOverVM(t *testing.T) {
 		funded += in.Amount
 	}
 	require.GreaterOrEqual(funded, vm.MinValidatorStake)
+
+	// The produced outputs are the wallet's change outputs followed by the
+	// stake outputs, at the indexes the P-chain assigns the UTXOs; all are
+	// owned by the funded keys and the stake adds up to the weight.
+	outputs, outputTotal, err := blkReader.GetOutputs(0, 0, 64)
+	require.NoError(err)
+	require.Equal(got.OutputCount, outputTotal)
+	require.Len(outputs, int(outputTotal))
+	var (
+		staked    uint64
+		seenStake bool
+	)
+	for _, out := range outputs {
+		require.Len(out.Addresses, 1)
+		require.True(fundedAddrs.Contains(out.Addresses[0]))
+		switch out.Kind {
+		case pchain.OutputStake:
+			seenStake = true
+			staked += out.Amount
+		case pchain.OutputTransfer:
+			require.False(seenStake, "change outputs precede stake outputs")
+		default:
+			require.FailNowf("unexpected output kind", "%d", out.Kind)
+		}
+	}
+	require.Equal(got.Weight, staked)
 
 	_, err = reader.GetBlock(last+1, nil)
 	require.ErrorIs(err, pchain.ErrNotAccepted)

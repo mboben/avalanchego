@@ -86,10 +86,18 @@ func typeSelected(filter *big.Int, txType pchain.TxType) bool {
 	return filter == nil || filter.Sign() == 0 || filter.Bit(int(txType)) == 1
 }
 
-func countAddresses(inputs []pchain.Input) uint64 {
+func countInputAddresses(inputs []pchain.Input) uint64 {
 	var n uint64
 	for _, in := range inputs {
 		n += uint64(len(in.Addresses))
+	}
+	return n
+}
+
+func countOutputAddresses(outputs []pchain.Output) uint64 {
+	var n uint64
+	for _, out := range outputs {
+		n += uint64(len(out.Addresses))
 	}
 	return n
 }
@@ -107,6 +115,28 @@ func getPChainHeight(accessibleState contract.AccessibleState, caller common.Add
 		return revert(remainingGas, reasonHeightNotCommitted)
 	}
 	packed, err := PackGetPChainHeightOutput(height)
+	if err != nil {
+		return nil, remainingGas, err
+	}
+	return packed, remainingGas, nil
+}
+
+// getNativeAssetId returns the asset ID of the native token (the primary
+// network's AVAX asset ID: FLR on Flare, SGB on Songbird), the value an
+// input's or output's assetId must equal for its amount to be native funds.
+// It is a genesis constant, identical on every node.
+//
+//nolint:revive // General-purpose types lose the meaning of args if unused ones are removed
+func getNativeAssetId(accessibleState contract.AccessibleState, caller common.Address, addr common.Address, input []byte, suppliedGas uint64, readOnly bool) ([]byte, uint64, error) {
+	remainingGas, err := contract.DeductGas(suppliedGas, GetNativeAssetIdGas)
+	if err != nil {
+		return nil, 0, err
+	}
+	snowCtx := accessibleState.GetSnowContext()
+	if snowCtx == nil {
+		return invalidate(accessibleState, errChainContextUnavailable)
+	}
+	packed, err := PackGetNativeAssetIdOutput(snowCtx.AVAXAssetID)
 	if err != nil {
 		return nil, remainingGas, err
 	}
@@ -151,7 +181,7 @@ func getBlock(accessibleState contract.AccessibleState, caller common.Address, a
 	return packed, remainingGas, nil
 }
 
-// getTransactions returns a page of decoded staking transactions.
+// getTransactions returns a page of decoded transactions.
 //
 //nolint:revive // General-purpose types lose the meaning of args if unused ones are removed
 func getTransactions(accessibleState contract.AccessibleState, caller common.Address, addr common.Address, input []byte, suppliedGas uint64, readOnly bool) ([]byte, uint64, error) {
@@ -163,12 +193,14 @@ func getTransactions(accessibleState contract.AccessibleState, caller common.Add
 	if err != nil {
 		return revert(remainingGas, reasonInvalidInput)
 	}
-	if in.MaxTxs > MaxTxsPerCall || in.MaxInputsPerTx > MaxInlineInputsPerTx {
+	if in.MaxTxs > MaxTxsPerCall || in.MaxInputsPerTx > MaxInlineInputsPerTx || in.MaxOutputsPerTx > MaxInlineOutputsPerTx {
 		return revert(remainingGas, reasonPageSizeExceedsCap)
 	}
 	// Charge the requested page before any P-chain access (caps make the
 	// multiplication safe).
-	pageGas := uint64(in.MaxTxs)*TxGas + uint64(in.MaxTxs)*uint64(in.MaxInputsPerTx)*InputGas
+	pageGas := uint64(in.MaxTxs)*TxGas +
+		uint64(in.MaxTxs)*uint64(in.MaxInputsPerTx)*InputGas +
+		uint64(in.MaxTxs)*uint64(in.MaxOutputsPerTx)*OutputGas
 	if remainingGas, err = contract.DeductGas(remainingGas, pageGas); err != nil {
 		return nil, 0, err
 	}
@@ -180,9 +212,9 @@ func getTransactions(accessibleState contract.AccessibleState, caller common.Add
 		return invalidate(accessibleState, err)
 	}
 
-	// The block is decoded and paid for once; the per-transaction input reads
-	// below work on that decoded block and charge only the producing
-	// transactions they resolve.
+	// The block is decoded and paid for once; the per-transaction input and
+	// output reads below work on that decoded block and charge only the
+	// producing transactions the inputs resolve.
 	charge := byteCharger(&remainingGas)
 	blkReader, err := reader.GetBlock(in.Height, charge)
 	if err != nil {
@@ -211,8 +243,15 @@ func getTransactions(accessibleState contract.AccessibleState, caller common.Add
 				return readerFailure(accessibleState, remainingGas, err)
 			}
 		}
-		addresses += countAddresses(inputs)
-		txs = append(txs, toTx(tx, inputs))
+		var outputs []pchain.Output
+		if in.MaxOutputsPerTx > 0 && tx.OutputCount > 0 {
+			outputs, _, err = blkReader.GetOutputs(next, 0, in.MaxOutputsPerTx)
+			if err != nil {
+				return readerFailure(accessibleState, remainingGas, err)
+			}
+		}
+		addresses += countInputAddresses(inputs) + countOutputAddresses(outputs)
+		txs = append(txs, toTx(tx, inputs, outputs))
 	}
 	if remainingGas, err = contract.DeductGas(remainingGas, addresses*AddressGas); err != nil {
 		return nil, 0, err
@@ -268,7 +307,7 @@ func getTransactionInputs(accessibleState contract.AccessibleState, caller commo
 	if err != nil {
 		return readerFailure(accessibleState, remainingGas, err)
 	}
-	if remainingGas, err = contract.DeductGas(remainingGas, countAddresses(inputs)*AddressGas); err != nil {
+	if remainingGas, err = contract.DeductGas(remainingGas, countInputAddresses(inputs)*AddressGas); err != nil {
 		return nil, 0, err
 	}
 
@@ -286,7 +325,61 @@ func getTransactionInputs(accessibleState contract.AccessibleState, caller commo
 	return packed, remainingGas, nil
 }
 
-// getStakeOwner attributes a staking transaction to one P-chain address the
+// getTransactionOutputs returns a page of the outputs of one transaction.
+//
+//nolint:revive // General-purpose types lose the meaning of args if unused ones are removed
+func getTransactionOutputs(accessibleState contract.AccessibleState, caller common.Address, addr common.Address, input []byte, suppliedGas uint64, readOnly bool) ([]byte, uint64, error) {
+	remainingGas, err := contract.DeductGas(suppliedGas, BlockReadGas)
+	if err != nil {
+		return nil, 0, err
+	}
+	in, err := UnpackGetTransactionOutputsInput(input)
+	if err != nil {
+		return revert(remainingGas, reasonInvalidInput)
+	}
+	if in.MaxOutputs > MaxOutputsPerCall {
+		return revert(remainingGas, reasonPageSizeExceedsCap)
+	}
+	if remainingGas, err = contract.DeductGas(remainingGas, uint64(in.MaxOutputs)*OutputGas); err != nil {
+		return nil, 0, err
+	}
+	if reason, ok := checkBound(accessibleState, in.Height); !ok {
+		return revert(remainingGas, reason)
+	}
+	reader, err := pchainReader(accessibleState)
+	if err != nil {
+		return invalidate(accessibleState, err)
+	}
+
+	blkReader, err := reader.GetBlock(in.Height, byteCharger(&remainingGas))
+	if err != nil {
+		return readerFailure(accessibleState, remainingGas, err)
+	}
+	// Outputs live in the decoded block, which the call has already paid
+	// for; only the returned addresses are charged on top of the page.
+	outputs, total, err := blkReader.GetOutputs(in.TxIndex, in.FromOutput, in.MaxOutputs)
+	if err != nil {
+		return readerFailure(accessibleState, remainingGas, err)
+	}
+	if remainingGas, err = contract.DeductGas(remainingGas, countOutputAddresses(outputs)*AddressGas); err != nil {
+		return nil, 0, err
+	}
+
+	out := GetTransactionOutputsOutput{
+		Outputs:     make([]Output, len(outputs)),
+		OutputCount: total,
+	}
+	for i, output := range outputs {
+		out.Outputs[i] = toOutput(output)
+	}
+	packed, err := PackGetTransactionOutputsOutput(out)
+	if err != nil {
+		return nil, remainingGas, err
+	}
+	return packed, remainingGas, nil
+}
+
+// getStakeOwner attributes a transaction to one P-chain address the
 // way the Flare P-chain indexer does: the first input (in the requested
 // order), restricted to the owners whose signatures authorized the spend, and
 // among those the lexically smallest bech32 address string. Genesis and

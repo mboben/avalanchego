@@ -6,6 +6,7 @@ go_library(
     srcs = [
         "decode.go",
         "inputs.go",
+        "outputs.go",
         "reader.go",
         "store.go",
     ],

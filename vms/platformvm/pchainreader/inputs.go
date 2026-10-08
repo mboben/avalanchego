@@ -80,7 +80,7 @@ func (b *blockReader) GetInputs(
 		if positions != nil {
 			position = positions[k-from]
 		}
-		input, err := r.resolveInput(ins[position], position >= importedFrom, charge)
+		input, err := r.resolveInput(ins[position], db.creds[txIndex][position], position >= importedFrom, charge)
 		if err != nil {
 			return nil, total, err
 		}
@@ -112,9 +112,10 @@ func permutationByString(ins []*avax.TransferableInput) []int {
 	return perm
 }
 
-// resolveInput decodes a consumed input and, unless it is an imported input,
-// resolves the owner of the consumed output.
-func (r *Reader) resolveInput(in *avax.TransferableInput, imported bool, charge pchain.ByteCharger) (pchain.Input, error) {
+// resolveInput decodes a consumed input together with the signatures of its
+// credential cred (nil when the transaction has none for it) and, unless it
+// is an imported input, resolves the owner of the consumed output.
+func (r *Reader) resolveInput(in *avax.TransferableInput, cred *secp256k1fx.Credential, imported bool, charge pchain.ByteCharger) (pchain.Input, error) {
 	// The asset an accepted input claims is the asset of the output it
 	// consumes (VerifySpendUTXOs checks it, for imported inputs against the
 	// shared-memory UTXO), so it is known without resolving the output.
@@ -134,6 +135,9 @@ func (r *Reader) resolveInput(in *avax.TransferableInput, imported bool, charge 
 		input.SigIndices = secpIn.SigIndices
 	} else if transferIn != nil {
 		input.Amount = transferIn.Amount()
+	}
+	if cred != nil {
+		input.Signatures = cred.Sigs
 	}
 	if imported {
 		// The consumed UTXO was produced on the source chain: there is no

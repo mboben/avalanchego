@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/ava-labs/libevm/common"
+
 	"github.com/ava-labs/avalanchego/graft/coreth/precompile/contract"
 	"github.com/ava-labs/avalanchego/snow/pchain"
 )
@@ -139,10 +141,12 @@ type GetStakeOwnerInput struct {
 	Order   uint8
 }
 
-// GetStakeOwnerOutput is the output of getStakeOwner.
+// GetStakeOwnerOutput is the output of getStakeOwner: the attributed owner's
+// P-chain address and the C-chain (EVM) address of the same key.
 type GetStakeOwnerOutput struct {
-	Owner    [20]byte
-	Resolved bool
+	PChainOwner [20]byte
+	CChainOwner common.Address
+	Resolved    bool
 }
 
 // PackGetPChainHeight packs the getPChainHeight call (selector included).
@@ -289,7 +293,7 @@ func UnpackGetStakeOwnerInput(input []byte) (GetStakeOwnerInput, error) {
 
 // PackGetStakeOwnerOutput packs the getStakeOwner output.
 func PackGetStakeOwnerOutput(out GetStakeOwnerOutput) ([]byte, error) {
-	return PChainGatewayABI.PackOutput("getStakeOwner", out.Owner, out.Resolved)
+	return PChainGatewayABI.PackOutput("getStakeOwner", out.PChainOwner, out.CChainOwner, out.Resolved)
 }
 
 // UnpackGetStakeOwnerOutput unpacks the getStakeOwner output.

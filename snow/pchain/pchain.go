@@ -24,6 +24,12 @@ import (
 	"github.com/ava-labs/avalanchego/ids"
 )
 
+// SignatureLen is the length of a secp256k1 credential signature (r||s||v).
+// It equals utils/crypto/secp256k1.SignatureLen; it is kept local so that this
+// package stays a leaf (the reader's assignment of credential signatures to
+// [Input.Signatures] does not compile if the two ever differ).
+const SignatureLen = 65
+
 var (
 	// ErrNotAccepted is returned when a height above the local last accepted
 	// P-chain height is requested.
@@ -179,6 +185,11 @@ type Tx struct {
 	InputCount uint32
 	// OutputCount is the number of produced outputs; see [BlockReader.GetOutputs].
 	OutputCount uint32
+	// UnsignedBytes is the serialized unsigned transaction: the message its
+	// credentials sign, either as its plain sha256 digest or as the Ethereum
+	// signed-message hash of that digest's hex encoding (see
+	// vms/secp256k1fx.SigningHashes). Nil for [TxUnsupported].
+	UnsignedBytes []byte
 }
 
 // Input is a consumed UTXO of a transaction together with the owner of the
@@ -217,6 +228,12 @@ type Input struct {
 	// SigIndices are the positions in Addresses whose signatures authorized
 	// the spend.
 	SigIndices []uint32
+	// Signatures are the signatures (r||s||v) of the input's secp256k1fx
+	// credential, aligned with SigIndices: Signatures[k] was produced by the
+	// owner Addresses[SigIndices[k]] over the transaction's
+	// [Tx.UnsignedBytes]. Nil when the transaction carries no secp256k1fx
+	// credential at the input's position. Imported inputs carry theirs too.
+	Signatures [][SignatureLen]byte
 }
 
 // Output is a produced output of a transaction. Its position in the

@@ -86,8 +86,13 @@
     "outputs": [
       {
         "internalType": "bytes20",
-        "name": "owner",
+        "name": "pChainOwner",
         "type": "bytes20"
+      },
+      {
+        "internalType": "address",
+        "name": "cChainOwner",
+        "type": "address"
       },
       {
         "internalType": "bool",

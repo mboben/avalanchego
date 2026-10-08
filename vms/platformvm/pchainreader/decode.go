@@ -11,8 +11,10 @@ import (
 	"github.com/ava-labs/avalanchego/snow/pchain"
 	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/avalanchego/vms/components/avax"
+	"github.com/ava-labs/avalanchego/vms/components/verify"
 	"github.com/ava-labs/avalanchego/vms/platformvm/block"
 	"github.com/ava-labs/avalanchego/vms/platformvm/txs"
+	"github.com/ava-labs/avalanchego/vms/secp256k1fx"
 )
 
 var (
@@ -32,6 +34,12 @@ type decodedBlock struct {
 	// importedFrom is, per transaction, the position in ins at which the
 	// imported inputs start (len(ins[i]) when there are none).
 	importedFrom []uint32
+	// creds holds, per decoded transaction and aligned with ins, the
+	// secp256k1fx credential of each input (nil for a missing or other
+	// credential type); see inputCredentials. Together with the unsigned
+	// bytes kept in block.Txs they let a reader recover the signers, and keep
+	// about the transactions' serialized size alive per cached block.
+	creds [][]*secp256k1fx.Credential
 	// outs references the produced outputs of every decoded transaction
 	// inside the parsed transaction; they are converted per requested page.
 	outs []txOutputs
@@ -103,6 +111,7 @@ func (r *Reader) decode(blk block.Block) *decodedBlock {
 		},
 		ins:          make([][]*avax.TransferableInput, len(rawTxs)),
 		importedFrom: make([]uint32, len(rawTxs)),
+		creds:        make([][]*secp256k1fx.Credential, len(rawTxs)),
 		outs:         make([]txOutputs, len(rawTxs)),
 		byString:     make([]stringOrder, len(rawTxs)),
 	}
@@ -114,12 +123,36 @@ func (r *Reader) decode(blk block.Block) *decodedBlock {
 			// as unsupported rather than failing the whole block.
 			d = newTxDecoder(timestamp, durango, uint32(i), tx.ID())
 		}
+		if d.tx.Type != pchain.TxUnsupported {
+			d.tx.UnsignedBytes = tx.Unsigned.Bytes()
+			db.creds[i] = inputCredentials(tx.Creds, len(d.ins))
+		}
 		db.block.Txs[i] = d.tx
 		db.ins[i] = d.ins
 		db.importedFrom[i] = d.importedFrom
 		db.outs[i] = d.outs
 	}
 	return db
+}
+
+// inputCredentials returns the secp256k1fx credentials of the first n inputs
+// of a transaction, in input order. Consensus pairs credential i with input i
+// (VerifySpendUTXOs; an import's imported inputs follow its P-chain inputs,
+// as in setInputs) and treats any credential beyond the inputs as an
+// authorization (the validator-authority credential of a config
+// transaction), which is left out. A missing or non-secp256k1fx credential
+// leaves a nil entry.
+func inputCredentials(creds []verify.Verifiable, n int) []*secp256k1fx.Credential {
+	if n == 0 {
+		return nil
+	}
+	out := make([]*secp256k1fx.Credential, n)
+	for i := 0; i < n && i < len(creds); i++ {
+		if cred, ok := creds[i].(*secp256k1fx.Credential); ok {
+			out[i] = cred
+		}
+	}
+	return out
 }
 
 // kindVisitor maps a block's concrete type to its [pchain.BlockKind].

@@ -16,6 +16,7 @@ import (
 	"github.com/ava-labs/avalanchego/snow/pchain"
 	"github.com/ava-labs/avalanchego/upgrade"
 	"github.com/ava-labs/avalanchego/utils/constants"
+	"github.com/ava-labs/avalanchego/utils/crypto/secp256k1"
 	"github.com/ava-labs/avalanchego/vms/components/avax"
 	"github.com/ava-labs/avalanchego/vms/platformvm/block"
 	"github.com/ava-labs/avalanchego/vms/platformvm/signer"
@@ -295,6 +296,7 @@ func TestDecodeBanffStandardBlock(t *testing.T) {
 		Type:             pchain.TxAddPermissionlessValidator,
 		Index:            0,
 		ID:               validatorTx.ID(),
+		UnsignedBytes:    validatorTx.Unsigned.Bytes(),
 		NodeID:           nodeA,
 		StartTime:        postDurangoTime, // Durango: chain time, not the tx's start
 		EndTime:          222,
@@ -304,15 +306,16 @@ func TestDecodeBanffStandardBlock(t *testing.T) {
 		OutputCount:      1, // the stake output
 	}, got.Txs[0])
 	require.Equal(pchain.Tx{
-		Type:        pchain.TxAddPermissionlessDelegator,
-		Index:       1,
-		ID:          delegatorTx.ID(),
-		NodeID:      nodeA,
-		StartTime:   postDurangoTime,
-		EndTime:     444,
-		Weight:      500,
-		InputCount:  1,
-		OutputCount: 1,
+		Type:          pchain.TxAddPermissionlessDelegator,
+		Index:         1,
+		ID:            delegatorTx.ID(),
+		UnsignedBytes: delegatorTx.Unsigned.Bytes(),
+		NodeID:        nodeA,
+		StartTime:     postDurangoTime,
+		EndTime:       444,
+		Weight:        500,
+		InputCount:    1,
+		OutputCount:   1,
 	}, got.Txs[1])
 	// A subnet staker is not a primary-network staker: skipped but counted.
 	require.Equal(pchain.Tx{Type: pchain.TxUnsupported, Index: 2, ID: subnetValidatorTx.ID()}, got.Txs[2])
@@ -320,6 +323,7 @@ func TestDecodeBanffStandardBlock(t *testing.T) {
 		Type:                     pchain.TxAddAutoRenewedValidator,
 		Index:                    3,
 		ID:                       autoRenewedTxID,
+		UnsignedBytes:            autoRenewedTx.Unsigned.Bytes(),
 		NodeID:                   nodeC,
 		StartTime:                postDurangoTime,
 		EndTime:                  postDurangoTime + 90*24*3600,
@@ -334,6 +338,7 @@ func TestDecodeBanffStandardBlock(t *testing.T) {
 		Type:                     pchain.TxSetAutoRenewedValidatorConfig,
 		Index:                    4,
 		ID:                       configTx.ID(),
+		UnsignedBytes:            configTx.Unsigned.Bytes(),
 		StartTime:                postDurangoTime,
 		Period:                   0,
 		AutoCompoundRewardShares: 1_000_000,
@@ -382,12 +387,13 @@ func TestDecodeProposalAndOptionBlocks(t *testing.T) {
 	require.Equal(pchain.TxAddPermissionlessDelegator, got.Txs[0].Type)
 	// The proposal transaction is always last.
 	require.Equal(pchain.Tx{
-		Type:       pchain.TxRewardAutoRenewedValidator,
-		Index:      1,
-		ID:         rewardTx.ID(),
-		StartTime:  postDurangoTime,
-		EndTime:    postDurangoTime,
-		StakerTxID: stakerTxID,
+		Type:          pchain.TxRewardAutoRenewedValidator,
+		Index:         1,
+		ID:            rewardTx.ID(),
+		UnsignedBytes: rewardTx.Unsigned.Bytes(),
+		StartTime:     postDurangoTime,
+		EndTime:       postDurangoTime,
+		StakerTxID:    stakerTxID,
 	}, got.Txs[1])
 
 	got, err = getBlock(reader, 2, nil)
@@ -458,6 +464,7 @@ func TestDecodeApricotBlocks(t *testing.T) {
 		Type:             pchain.TxAddValidator,
 		Index:            0,
 		ID:               legacyValidator.ID(),
+		UnsignedBytes:    legacyValidator.Unsigned.Bytes(),
 		NodeID:           nodeID,
 		StartTime:        555, // pre-Durango: the transaction's own start
 		EndTime:          666,
@@ -475,15 +482,16 @@ func TestDecodeApricotBlocks(t *testing.T) {
 	require.NoError(err)
 	require.Equal(pchain.BlockStandard, got.Kind)
 	require.Equal(pchain.Tx{
-		Type:        pchain.TxAddDelegator,
-		Index:       0,
-		ID:          legacyDelegator.ID(),
-		NodeID:      nodeID,
-		StartTime:   777,
-		EndTime:     888,
-		Weight:      25,
-		InputCount:  1,
-		OutputCount: 1,
+		Type:          pchain.TxAddDelegator,
+		Index:         0,
+		ID:            legacyDelegator.ID(),
+		UnsignedBytes: legacyDelegator.Unsigned.Bytes(),
+		NodeID:        nodeID,
+		StartTime:     777,
+		EndTime:       888,
+		Weight:        25,
+		InputCount:    1,
+		OutputCount:   1,
 	}, got.Txs[0])
 
 	got, err = getBlock(reader, 4, nil)
@@ -495,6 +503,7 @@ func TestDecodeApricotBlocks(t *testing.T) {
 		Type:          pchain.TxImport,
 		Index:         0,
 		ID:            atomicTx.ID(),
+		UnsignedBytes: atomicTx.Unsigned.Bytes(),
 		RemoteChainID: sourceChain,
 		InputCount:    2, // the P-chain input, then the imported input
 		OutputCount:   1,
@@ -1143,9 +1152,9 @@ func TestDecodeTransferTransactions(t *testing.T) {
 	got, err := getBlock(reader, 1, nil)
 	require.NoError(err)
 	require.Equal([]pchain.Tx{
-		{Type: pchain.TxImport, Index: 0, ID: importedTx.ID(), StartTime: postDurangoTime, RemoteChainID: sourceChain, InputCount: 3, OutputCount: 1},
-		{Type: pchain.TxExport, Index: 1, ID: exportedTx.ID(), StartTime: postDurangoTime, RemoteChainID: destinationChain, InputCount: 1, OutputCount: 3},
-		{Type: pchain.TxBase, Index: 2, ID: transferTx.ID(), StartTime: postDurangoTime, InputCount: 1, OutputCount: 2},
+		{Type: pchain.TxImport, Index: 0, ID: importedTx.ID(), UnsignedBytes: importedTx.Unsigned.Bytes(), StartTime: postDurangoTime, RemoteChainID: sourceChain, InputCount: 3, OutputCount: 1},
+		{Type: pchain.TxExport, Index: 1, ID: exportedTx.ID(), UnsignedBytes: exportedTx.Unsigned.Bytes(), StartTime: postDurangoTime, RemoteChainID: destinationChain, InputCount: 1, OutputCount: 3},
+		{Type: pchain.TxBase, Index: 2, ID: transferTx.ID(), UnsignedBytes: transferTx.Unsigned.Bytes(), StartTime: postDurangoTime, InputCount: 1, OutputCount: 2},
 	}, got.Txs)
 
 	outputs, total, err := getOutputs(reader, 1, 0, 0, 10)
@@ -1201,12 +1210,13 @@ func TestDecodeRewardValidatorProposal(t *testing.T) {
 	// The removal takes effect at the block time, which is the removed
 	// staker's end time; the proposal transaction is last.
 	require.Equal(pchain.Tx{
-		Type:       pchain.TxRewardValidator,
-		Index:      1,
-		ID:         rewardTx.ID(),
-		StartTime:  postDurangoTime,
-		EndTime:    postDurangoTime,
-		StakerTxID: stakerTxID,
+		Type:          pchain.TxRewardValidator,
+		Index:         1,
+		ID:            rewardTx.ID(),
+		UnsignedBytes: rewardTx.Unsigned.Bytes(),
+		StartTime:     postDurangoTime,
+		EndTime:       postDurangoTime,
+		StakerTxID:    stakerTxID,
 	}, got.Txs[1])
 
 	// A reward transaction has neither inputs nor outputs.
@@ -1226,7 +1236,7 @@ func TestDecodeRewardValidatorProposal(t *testing.T) {
 	store.accept(apricot)
 	got, err = getBlock(reader, 3, nil)
 	require.NoError(err)
-	require.Equal(pchain.Tx{Type: pchain.TxRewardValidator, Index: 0, ID: rewardTx.ID(), StakerTxID: stakerTxID}, got.Txs[0])
+	require.Equal(pchain.Tx{Type: pchain.TxRewardValidator, Index: 0, ID: rewardTx.ID(), StakerTxID: stakerTxID, UnsignedBytes: rewardTx.Unsigned.Bytes()}, got.Txs[0])
 }
 
 // TestGetInputsImportTx checks that the P-chain inputs of an import are
@@ -1538,4 +1548,104 @@ func TestDecodeMalformedTxIsUnsupported(t *testing.T) {
 	require.ErrorIs(err, pchain.ErrUnsupportedTx)
 	_, _, err = getOutputs(reader, 1, 0, 0, 1)
 	require.ErrorIs(err, pchain.ErrUnsupportedTx)
+}
+
+// TestGetInputsSignatures checks that inputs carry the signatures of their
+// credential, aligned with the signature indices, that decoded transactions
+// expose their unsigned bytes, and that the two recover the signers, as the
+// gateway's getStakeOwner needs.
+func TestGetInputsSignatures(t *testing.T) {
+	require := require.New(t)
+	keys := secp256k1.TestKeys()
+	k0, k1, authority := keys[0], keys[1], keys[2]
+
+	// The producing transaction: two outputs, owned by k0 and k1.
+	producer := signedTx(t, plainTransfer(
+		[]*avax.TransferableInput{transferInput(ids.GenerateTestID(), 0, 10, 0)},
+		transferOutput(5, owners(k0.Address())),
+		transferOutput(5, owners(k1.Address())),
+	))
+	ins := func() []*avax.TransferableInput {
+		return []*avax.TransferableInput{
+			transferInput(producer.ID(), 0, 5, 0),
+			transferInput(producer.ID(), 1, 5, 0),
+		}
+	}
+	signedBy := func(unsigned txs.UnsignedTx, signers ...[]*secp256k1.PrivateKey) *txs.Tx {
+		tx, err := txs.NewSigned(unsigned, txs.Codec, signers)
+		require.NoError(err)
+		return tx
+	}
+	// A transfer whose two inputs are signed by k0 and k1, one credential each.
+	transfer := signedBy(plainTransfer(ins(), transferOutput(10, owners(k0.Address()))), []*secp256k1.PrivateKey{k0}, []*secp256k1.PrivateKey{k1})
+	// A config transaction: the credential of its input, then the validator
+	// authority's, which is not an input credential.
+	config := signedBy(&txs.SetAutoRenewedValidatorConfigTx{
+		BaseTx: baseTx(ins()[:1], nil),
+		TxID:   ids.GenerateTestID(),
+		Auth:   &secp256k1fx.Input{SigIndices: []uint32{0}},
+		Period: 1,
+	}, []*secp256k1.PrivateKey{k0}, []*secp256k1.PrivateKey{authority})
+	// A transfer with fewer credentials than inputs, and one with none.
+	short := signedBy(plainTransfer(ins(), transferOutput(10, owners(k1.Address()))), []*secp256k1.PrivateKey{k0})
+	unsigned := signedTx(t, plainTransfer(ins(), transferOutput(10, owners(k0.Address()))))
+
+	store := newFakeStore()
+	store.txs[producer.ID()] = producer
+	store.accept(newBanffStandard(t, postDurangoTime, ids.GenerateTestID(), 1, transfer, config, short, unsigned))
+	reader := New(store, nil, testUpgrades)
+
+	blk, err := getBlock(reader, 1, nil)
+	require.NoError(err)
+	for i, tx := range []*txs.Tx{transfer, config, short, unsigned} {
+		require.Equal(tx.Unsigned.Bytes(), blk.Txs[i].UnsignedBytes)
+	}
+	sigsOf := func(tx *txs.Tx, credIndex int) [][pchain.SignatureLen]byte {
+		cred, ok := tx.Creds[credIndex].(*secp256k1fx.Credential)
+		require.True(ok)
+		return cred.Sigs
+	}
+
+	// The transfer: each input carries its own credential's signature, which
+	// recovers to its owner over the transaction's unsigned bytes.
+	inputs, _, err := getInputs(reader, 1, 0, 0, 2, pchain.InputOrderCanonical, nil)
+	require.NoError(err)
+	require.Len(inputs, 2)
+	require.Equal(sigsOf(transfer, 0), inputs[0].Signatures)
+	require.Equal(sigsOf(transfer, 1), inputs[1].Signatures)
+	hashes := secp256k1fx.NewSigningHashes(blk.Txs[0].UnsignedBytes)
+	for i, key := range []*secp256k1.PrivateKey{k0, k1} {
+		require.Equal([]ids.ShortID{key.Address()}, inputs[i].Addresses)
+		pk, err := hashes.RecoverSigner(nil, inputs[i].Signatures[0][:], key.Address())
+		require.NoError(err)
+		require.Equal(key.EthAddress(), pk.EthAddress())
+	}
+	byString, _, err := getInputs(reader, 1, 0, 0, 2, pchain.InputOrderByUTXOTxIDString, nil)
+	require.NoError(err)
+	require.Equal(inputs, byString)
+
+	// The config transaction: its input credential only; the trailing
+	// authority credential is not an input credential.
+	inputs, _, err = getInputs(reader, 1, 1, 0, 1, pchain.InputOrderCanonical, nil)
+	require.NoError(err)
+	require.Len(inputs, 1)
+	require.Equal(sigsOf(config, 0), inputs[0].Signatures)
+	pk, err := secp256k1fx.NewSigningHashes(blk.Txs[1].UnsignedBytes).RecoverSigner(nil, inputs[0].Signatures[0][:], k0.Address())
+	require.NoError(err)
+	require.Equal(k0.Address(), pk.Address())
+
+	// Fewer credentials than inputs: the inputs beyond them have none.
+	inputs, _, err = getInputs(reader, 1, 2, 0, 2, pchain.InputOrderCanonical, nil)
+	require.NoError(err)
+	require.Len(inputs, 2)
+	require.Equal(sigsOf(short, 0), inputs[0].Signatures)
+	require.Nil(inputs[1].Signatures)
+
+	// No credentials at all.
+	inputs, _, err = getInputs(reader, 1, 3, 0, 2, pchain.InputOrderCanonical, nil)
+	require.NoError(err)
+	require.Len(inputs, 2)
+	for _, in := range inputs {
+		require.Nil(in.Signatures)
+	}
 }

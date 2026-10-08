@@ -43,6 +43,7 @@ go_test(
         "//snow/pchain",
         "//upgrade",
         "//utils/constants",
+        "//utils/crypto/secp256k1",
         "//vms/components/avax",
         "//vms/platformvm/block",
         "//vms/platformvm/signer",

@@ -58,6 +58,7 @@ one. There are no refunds for short pages. Constants in `gas.go`:
 | per byte of P-chain data decoded: the block's stored bytes on every call, plus the stored bytes of each producing transaction resolved for an input (genesis UTXOs and imported inputs: none) | 10 |
 | per input of the transaction when a non-empty page (`maxInputs > 0`, `fromInput < inputCount`) is read with `order = 1` (`getTransactionInputs`, `getStakeOwner`): ordering by CB58 string touches every input | 1 000 |
 | per returned owner address, of inputs and outputs (per candidate for `getStakeOwner`) | 200 |
+| signature recovery of the attributed owner (`getStakeOwner`, when the first input has a candidate owner): up to two secp256k1 public-key recoveries, one per accepted signing scheme | 6 000 |
 
 Caps: `maxTxs ≤ 32`, `maxInputsPerTx ≤ 8`, `maxOutputsPerTx ≤ 8`, `maxInputs ≤ 64`, `maxOutputs ≤ 64`. A full
 `getTransactions(…, 32, …, 8, 8)` page costs 2 996 000 gas plus bytes and addresses. Byte pricing follows the measured
@@ -129,7 +130,7 @@ filters non-native entries: that would break the UTXO indexes and the pagination
 `stakeableLocktime` of a stakeable-locked output, 0 otherwise; resolved from the producing transaction: BaseTx
 outputs, returned stake, reward UTXOs and genesis UTXOs) and `sigIndices`, the owner slots whose signatures authorized
 the spend. `resolved == false` means the producing output is unknown (owner fields zero). Addresses are P-chain
-addresses (`bytes20`), not EVM addresses.
+addresses (`bytes20`), not EVM addresses; only `getStakeOwner` derives an EVM address, from the owner's signature.
 
 An import's inputs are its P-chain inputs (fee payment, usually none) followed by its **imported** inputs, the UTXOs
 exported by the source chain (`utxoTxId` is that chain's export transaction). Imported inputs are flagged
@@ -162,12 +163,26 @@ Types 4 (config) and 10 (transfer) have transfer outputs only; types 5 and 11 ha
 Reproduces the attribution rule of the Flare P-chain indexer (`utils/staking/utils.go` `DedupeTxs` and
 `indexer/shared` `selectSigners`): take the first input in the requested order, keep only the owners that signed it
 (all owners if there are no usable signature indices), and pick the lexically smallest **bech32** string with the
-network's HRP. Genesis inputs (UTXOs of the genesis allocation, which have no producing transaction; their
-`utxoTxId` is zero on production networks), imported inputs and unresolved inputs yield `resolved == false`, even
-though `getTransactionInputs` reports the genesis allocation's owner for genesis inputs. So does a located output with
+network's HRP. The owner is returned twice: `pChainOwner`, its P-chain address, and `cChainOwner`, the C-chain (EVM)
+address of the same key. A P-chain address (`ripemd160(sha256(compressed key))`) cannot be converted into an EVM
+address (`keccak256(uncompressed key)[12:]`), but the owner signed the transaction: the node recovers the public key
+from the owner's signature in the input's credential (the signature at the owner's slot of `sigIndices`) over the
+unsigned transaction bytes, under either signing scheme the P-chain accepts — the plain sha256 of the bytes, or the
+Ethereum signed-message hash of its hex encoding that Ethereum wallets produce — exactly as `vms/secp256k1fx`
+`VerifyCredentials` does (both call `secp256k1fx.SigningHashes.RecoverSigner`, so the gateway cannot diverge from
+consensus), and derives both addresses from the key. The reader exposes the material as `pchain.Tx.UnsignedBytes` and
+`pchain.Input.Signatures` (credential *i* of a transaction belongs to input *i*; the trailing validator-authority
+credential of a config transaction is not an input credential). `resolved` is true only when an owner is attributed
+**and** its signature recovers to it, so `resolved` implies both addresses are set. Consensus verified exactly that
+signature before accepting the transaction, so the recovery cannot fail for accepted data; a failure (data the
+P-chain never accepts) leaves the stake unattributed, `(0, 0, false)`, deterministically, rather than reverting.
+
+Genesis inputs (UTXOs of the genesis allocation, which have no producing transaction; their `utxoTxId` is zero on
+production networks), imported inputs and unresolved inputs yield `resolved == false`, even though
+`getTransactionInputs` reports the genesis allocation's owner for genesis inputs. So does a located output with
 threshold 0: secp256k1fx permits an owner with no addresses (spendable without signatures), `getTransactionInputs`
 reports it as `resolved` with an empty `addresses`, but there is nobody to attribute the stake to, so `getStakeOwner`
-returns `(0, false)`. Output resolution and stake attribution are different conditions. Bech32 string order is not
+returns `(0, 0, false)`. Output resolution and stake attribution are different conditions. Bech32 string order is not
 byte order, which is why the node does this comparison. On transfers (types 8, 9, 10) the rule attributes the sender
 of the first input — the fee payer of an import, which has no owner when the import is funded from imported UTXOs
 alone.

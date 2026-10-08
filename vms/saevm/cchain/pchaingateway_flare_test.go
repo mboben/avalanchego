@@ -12,6 +12,7 @@ import (
 	"time"
 
 	ethereum "github.com/ava-labs/libevm"
+	"github.com/ava-labs/libevm/common"
 	"github.com/stretchr/testify/require"
 
 	"github.com/ava-labs/avalanchego/graft/coreth/precompile/contracts/pchaingateway"
@@ -20,7 +21,9 @@ import (
 	"github.com/ava-labs/avalanchego/snow/pchain"
 	"github.com/ava-labs/avalanchego/upgrade"
 	"github.com/ava-labs/avalanchego/upgrade/upgradetest"
+	"github.com/ava-labs/avalanchego/utils/crypto/secp256k1"
 	"github.com/ava-labs/avalanchego/vms/saevm/cchain/tx/txtest"
+	"github.com/ava-labs/avalanchego/vms/secp256k1fx"
 )
 
 var _ pchain.Reader = (*gatewayFakeReader)(nil)
@@ -112,7 +115,7 @@ func (b *gatewayFakeBlockReader) GetOutputs(txIndex, from, max uint32) ([]pchain
 
 // gatewayFixture is the P-chain state the fake reader serves: one block at
 // height 7 with a single permissionless validator transaction spending one
-// resolved input and staking one output.
+// resolved input, signed by its owner, and staking one output.
 type gatewayFixture struct {
 	reader   *gatewayFakeReader
 	height   uint64
@@ -121,13 +124,23 @@ type gatewayFixture struct {
 	input    pchain.Input
 	output   pchain.Output
 	owner    ids.ShortID
+	cOwner   common.Address // the EVM address of the owner's key
 	blockID  ids.ID
 	parentID ids.ID
 }
 
-func newGatewayFixture() *gatewayFixture {
+func newGatewayFixture(t *testing.T) *gatewayFixture {
+	t.Helper()
 	const height = 7
-	owner := ids.ShortID{0xaa}
+	// The input is owned by a deterministic key, which signed the
+	// (arbitrary) unsigned transaction bytes in the plain scheme.
+	key := secp256k1.TestKeys()[0]
+	owner := key.Address()
+	unsignedBytes := []byte("gateway fixture validator transaction")
+	sig, err := key.SignHash(secp256k1fx.NewSigningHashes(unsignedBytes).Plain)
+	require.NoError(t, err)
+	var signature [pchain.SignatureLen]byte
+	copy(signature[:], sig)
 	assetID := ids.ID{0x50}
 	input := pchain.Input{
 		UTXOTxID:        ids.ID{0x01},
@@ -138,6 +151,7 @@ func newGatewayFixture() *gatewayFixture {
 		Threshold:       1,
 		Addresses:       []ids.ShortID{owner},
 		SigIndices:      []uint32{0},
+		Signatures:      [][pchain.SignatureLen]byte{signature},
 	}
 	output := pchain.Output{
 		Kind:      pchain.OutputStake,
@@ -157,6 +171,7 @@ func newGatewayFixture() *gatewayFixture {
 		DelegationShares: 20_000,
 		InputCount:       1,
 		OutputCount:      1,
+		UnsignedBytes:    unsignedBytes,
 	}
 	blockID, parentID := ids.ID{0x31}, ids.ID{0x30}
 	blk := &pchain.Block{
@@ -180,6 +195,7 @@ func newGatewayFixture() *gatewayFixture {
 		input:    input,
 		output:   output,
 		owner:    owner,
+		cOwner:   key.EthAddress(),
 		blockID:  blockID,
 		parentID: parentID,
 	}
@@ -299,7 +315,7 @@ func (f *gatewayFixture) assertGatewayReads(ctx context.Context, t *testing.T, s
 	require.NoError(err, "getStakeOwner(%d, 0, 0)", f.height)
 	ownerOut, err := pchaingateway.UnpackGetStakeOwnerOutput(got)
 	require.NoError(err)
-	require.Equal(pchaingateway.GetStakeOwnerOutput{Owner: f.owner, Resolved: true}, ownerOut, "getStakeOwner(%d, 0, 0)", f.height)
+	require.Equal(pchaingateway.GetStakeOwnerOutput{PChainOwner: f.owner, CChainOwner: f.cOwner, Resolved: true}, ownerOut, "getStakeOwner(%d, 0, 0)", f.height)
 }
 
 // TestPChainGatewayPrecompile drives the gateway end to end: the SAE builder
@@ -309,7 +325,7 @@ func TestPChainGatewayPrecompile(t *testing.T) {
 	t.Run("activated_at_genesis", func(t *testing.T) {
 		// The default SUT runs every upgrade, Helicon included, from genesis,
 		// so writeState activates the gateway account in the genesis state.
-		f := newGatewayFixture()
+		f := newGatewayFixture(t)
 		key := txtest.NewKey(t)
 		ctx, sut := newSUT(t,
 			withMaxAllocFor(key.EthAddress()),
@@ -331,7 +347,7 @@ func TestPChainGatewayPrecompile(t *testing.T) {
 	t.Run("activated_at_first_helicon_block", func(t *testing.T) {
 		// A pre-Helicon genesis carries no gateway account; the first Helicon
 		// block activates it in StartExecutingBlock.
-		f := newGatewayFixture()
+		f := newGatewayFixture(t)
 		key := txtest.NewKey(t)
 		heliconTime := upgrade.InitiallyActiveTime.Add(5 * time.Second)
 		timeOpt, _ := withVMTime(heliconTime)
@@ -356,7 +372,7 @@ func TestPChainGatewayPrecompile(t *testing.T) {
 
 	t.Run("no_committed_height_reverts", func(t *testing.T) {
 		// A block built without a block context has no committed height.
-		f := newGatewayFixture()
+		f := newGatewayFixture(t)
 		key := txtest.NewKey(t)
 		ctx, sut := newSUT(t,
 			withMaxAllocFor(key.EthAddress()),

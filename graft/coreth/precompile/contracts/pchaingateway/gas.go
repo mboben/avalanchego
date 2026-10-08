@@ -56,6 +56,14 @@ const (
 	// dominates) on an M-series laptop, i.e. ~160 gas at the 100 Mgas/s
 	// target; 1,000 gas/input keeps a >6x margin.
 	InputOrderGas uint64 = 1_000
+	// SignatureRecoveryGas is charged by getStakeOwner when its input has a
+	// candidate owner: the owner's C-chain address is recovered from the
+	// owner's signature on the transaction, which takes up to two secp256k1
+	// public-key recoveries (one per signing scheme the P-chain accepts, see
+	// vms/secp256k1fx.SigningHashes), each priced like the EVM ecrecover
+	// precompile (3,000 gas). It is charged whichever scheme matches and
+	// whether or not the recovery succeeds, so it depends on chain data only.
+	SignatureRecoveryGas uint64 = 6_000
 
 	// MaxTxsPerCall caps maxTxs of getTransactions.
 	MaxTxsPerCall = 32
@@ -105,9 +113,13 @@ func GetTransactionOutputsGas(maxOutputs uint32, blockBytes uint64, addresses in
 // GetStakeOwnerGas is the cost of getStakeOwner given the total stored bytes
 // decoded, the number of inputs ordered by CB58 string (the transaction's
 // input count in order 1, else 0) and the number of candidate owner addresses
-// of the first input.
+// of the first input (the signature recovery is charged when there is one).
 func GetStakeOwnerGas(decodedBytes uint64, orderedInputs uint32, candidates int) uint64 {
-	return BlockReadGas + InputGas + decodedBytes*ByteGas + uint64(orderedInputs)*InputOrderGas + uint64(candidates)*AddressGas
+	gas := BlockReadGas + InputGas + decodedBytes*ByteGas + uint64(orderedInputs)*InputOrderGas + uint64(candidates)*AddressGas
+	if candidates > 0 {
+		gas += SignatureRecoveryGas
+	}
+	return gas
 }
 
 // InputOrderingGas is the cost of ordering the inputs of a transaction with

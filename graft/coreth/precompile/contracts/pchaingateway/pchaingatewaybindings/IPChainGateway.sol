@@ -134,12 +134,16 @@ interface IPChainGateway {
 
     /// @notice Stake owner attribution compatible with the Flare P-chain indexer: the first input in
     /// the given `order`, restricted to the owners that signed it, choosing the lexically smallest
-    /// bech32 address string. `resolved` is false when the input is missing, imported, unresolved, a
-    /// genesis UTXO or an ownerless output (threshold 0, no addresses), which resolves for
-    /// `getTransactionInputs` but cannot be attributed. On transfers it attributes the sender (fee payer).
+    /// bech32 address string. `pChainOwner` is that owner's P-chain address and `cChainOwner` the
+    /// EVM address of the same key, recovered from the owner's signature on the transaction (the
+    /// P-chain accepts signatures over the plain transaction hash and Ethereum-prefixed ones).
+    /// `resolved` is false, and both addresses zero, when the input is missing, imported, unresolved,
+    /// a genesis UTXO or an ownerless output (threshold 0, no addresses), which resolves for
+    /// `getTransactionInputs` but cannot be attributed, or when the owner's signature does not recover
+    /// to it (impossible for accepted transactions). On transfers it attributes the sender (fee payer).
     function getStakeOwner(
         uint64 height,
         uint32 txIndex,
         uint8 order
-    ) external view returns (bytes20 owner, bool resolved);
+    ) external view returns (bytes20 pChainOwner, address cChainOwner, bool resolved);
 }

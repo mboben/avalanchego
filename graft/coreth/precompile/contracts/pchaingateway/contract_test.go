@@ -24,7 +24,9 @@ import (
 	"github.com/ava-labs/avalanchego/snow/pchain"
 	"github.com/ava-labs/avalanchego/snow/snowtest"
 	"github.com/ava-labs/avalanchego/utils/constants"
+	"github.com/ava-labs/avalanchego/utils/crypto/secp256k1"
 	"github.com/ava-labs/avalanchego/utils/formatting/address"
+	"github.com/ava-labs/avalanchego/vms/secp256k1fx"
 )
 
 // fakeReader is an in-memory pchain.Reader that charges the configured
@@ -167,10 +169,15 @@ var (
 	byteFirst   = ids.ID{0x01}
 	stringFirst = ids.ID{0x03}
 
-	addrA = ids.ShortID{0xa}
-	addrB = ids.ShortID{0xb}
-	addrC = ids.ShortID{0xc}
-	addrD = ids.ShortID{0xd}
+	// Owners are the P-chain addresses of deterministic keys, so that the
+	// fixture inputs can carry the owners' signatures and getStakeOwner can
+	// recover their C-chain addresses; keyE owns nothing.
+	testKeys                     = secp256k1.TestKeys()
+	keyA, keyB, keyC, keyD, keyE = testKeys[0], testKeys[1], testKeys[2], testKeys[3], testKeys[4]
+	addrA                        = keyA.Address()
+	addrB                        = keyB.Address()
+	addrC                        = keyC.Address()
+	addrD                        = keyD.Address()
 
 	validatorTxID   = ids.ID{0x11}
 	delegatorTxID   = ids.ID{0x12}
@@ -196,19 +203,22 @@ var (
 	customAssetID = ids.ID{0x51}
 )
 
+// The fixture transactions use their ID bytes as unsigned bytes (any distinct
+// bytes would do); their inputs carry the owners' signatures over them, in
+// the plain scheme unless noted.
 var testInputs = map[uint32][]pchain.Input{
 	0: { // validator: canonical order byteFirst, stringFirst
-		{UTXOTxID: byteFirst, UTXOOutputIndex: 0, AssetID: nativeAssetID, Amount: 700, Resolved: true, Threshold: 2, Addresses: []ids.ShortID{addrA, addrB, addrC}, SigIndices: []uint32{0, 2}},
-		{UTXOTxID: stringFirst, UTXOOutputIndex: 1, AssetID: nativeAssetID, Amount: 300, Resolved: true, Threshold: 1, Addresses: []ids.ShortID{addrD}, SigIndices: []uint32{0}},
+		{UTXOTxID: byteFirst, UTXOOutputIndex: 0, AssetID: nativeAssetID, Amount: 700, Resolved: true, Threshold: 2, Addresses: []ids.ShortID{addrA, addrB, addrC}, SigIndices: []uint32{0, 2}, Signatures: sigs(validatorTxID[:], keyA, keyC)},
+		{UTXOTxID: stringFirst, UTXOOutputIndex: 1, AssetID: nativeAssetID, Amount: 300, Resolved: true, Threshold: 1, Addresses: []ids.ShortID{addrD}, SigIndices: []uint32{0}, Signatures: sigs(validatorTxID[:], keyD)},
 	},
 	2: { // delegator: single owner
-		{UTXOTxID: byteFirst, UTXOOutputIndex: 5, AssetID: nativeAssetID, Amount: 500, Resolved: true, Threshold: 1, Addresses: []ids.ShortID{addrB}, SigIndices: []uint32{0}},
+		{UTXOTxID: byteFirst, UTXOOutputIndex: 5, AssetID: nativeAssetID, Amount: 500, Resolved: true, Threshold: 1, Addresses: []ids.ShortID{addrB}, SigIndices: []uint32{0}, Signatures: sigs(delegatorTxID[:], keyB)},
 	},
 	3: { // auto-renewed: genesis input
-		{UTXOTxID: ids.Empty, UTXOOutputIndex: 2, AssetID: nativeAssetID, Amount: 1000, Resolved: true, Genesis: true, Threshold: 1, Addresses: []ids.ShortID{addrA}, SigIndices: []uint32{0}},
+		{UTXOTxID: ids.Empty, UTXOOutputIndex: 2, AssetID: nativeAssetID, Amount: 1000, Resolved: true, Genesis: true, Threshold: 1, Addresses: []ids.ShortID{addrA}, SigIndices: []uint32{0}, Signatures: sigs(autoRenewedTxID[:], keyA)},
 	},
 	5: { // legacy validator: unresolved input
-		{UTXOTxID: unresolvedTxID, UTXOOutputIndex: 0, AssetID: nativeAssetID, Amount: 2000, SigIndices: []uint32{0}},
+		{UTXOTxID: unresolvedTxID, UTXOOutputIndex: 0, AssetID: nativeAssetID, Amount: 2000, SigIndices: []uint32{0}, Signatures: sigs(genesisTxID[:], keyA)},
 	},
 }
 
@@ -219,12 +229,12 @@ var testBlock = &pchain.Block{
 	Timestamp: 1_700_000_000,
 	Kind:      pchain.BlockStandard,
 	Txs: []pchain.Tx{
-		{Type: pchain.TxAddPermissionlessValidator, Index: 0, ID: validatorTxID, NodeID: nodeID, StartTime: 1_700_000_000, EndTime: 1_800_000_000, Weight: 1000, DelegationShares: 20_000, InputCount: 2, OutputCount: 2},
+		{Type: pchain.TxAddPermissionlessValidator, Index: 0, ID: validatorTxID, NodeID: nodeID, StartTime: 1_700_000_000, EndTime: 1_800_000_000, Weight: 1000, DelegationShares: 20_000, InputCount: 2, OutputCount: 2, UnsignedBytes: validatorTxID[:]},
 		{Type: pchain.TxUnsupported, Index: 1, ID: subnetTxID},
-		{Type: pchain.TxAddPermissionlessDelegator, Index: 2, ID: delegatorTxID, NodeID: nodeID, StartTime: 1_700_000_000, EndTime: 1_750_000_000, Weight: 500, InputCount: 1, OutputCount: 1},
-		{Type: pchain.TxAddAutoRenewedValidator, Index: 3, ID: autoRenewedTxID, NodeID: nodeID, StartTime: 1_700_000_000, EndTime: 1_700_000_000 + 3600, Period: 3600, Weight: 1000, DelegationShares: 30_000, AutoCompoundRewardShares: 5, InputCount: 1, OutputCount: 1},
-		{Type: pchain.TxRewardAutoRenewedValidator, Index: 4, ID: rewardTxID, StartTime: 1_700_000_000, EndTime: 1_700_000_000, StakerTxID: autoRenewedTxID},
-		{Type: pchain.TxAddValidator, Index: 5, ID: genesisTxID, NodeID: nodeID, StartTime: 5, EndTime: 6, Weight: 2000, InputCount: 1, OutputCount: 1},
+		{Type: pchain.TxAddPermissionlessDelegator, Index: 2, ID: delegatorTxID, NodeID: nodeID, StartTime: 1_700_000_000, EndTime: 1_750_000_000, Weight: 500, InputCount: 1, OutputCount: 1, UnsignedBytes: delegatorTxID[:]},
+		{Type: pchain.TxAddAutoRenewedValidator, Index: 3, ID: autoRenewedTxID, NodeID: nodeID, StartTime: 1_700_000_000, EndTime: 1_700_000_000 + 3600, Period: 3600, Weight: 1000, DelegationShares: 30_000, AutoCompoundRewardShares: 5, InputCount: 1, OutputCount: 1, UnsignedBytes: autoRenewedTxID[:]},
+		{Type: pchain.TxRewardAutoRenewedValidator, Index: 4, ID: rewardTxID, StartTime: 1_700_000_000, EndTime: 1_700_000_000, StakerTxID: autoRenewedTxID, UnsignedBytes: rewardTxID[:]},
+		{Type: pchain.TxAddValidator, Index: 5, ID: genesisTxID, NodeID: nodeID, StartTime: 5, EndTime: 6, Weight: 2000, InputCount: 1, OutputCount: 1, UnsignedBytes: genesisTxID[:]},
 	},
 }
 
@@ -282,10 +292,10 @@ var transferBlock = &pchain.Block{
 	Timestamp: transferTimestamp,
 	Kind:      pchain.BlockProposal,
 	Txs: []pchain.Tx{
-		{Type: pchain.TxImport, Index: 0, ID: importTxID, StartTime: transferTimestamp, RemoteChainID: cChainID, InputCount: 2, OutputCount: 1},
-		{Type: pchain.TxExport, Index: 1, ID: exportTxID, StartTime: transferTimestamp, RemoteChainID: cChainID, InputCount: 1, OutputCount: 2},
-		{Type: pchain.TxBase, Index: 2, ID: baseTxID, StartTime: transferTimestamp, InputCount: 1, OutputCount: 2},
-		{Type: pchain.TxRewardValidator, Index: 3, ID: rewardValidatorTxID, StartTime: transferTimestamp, EndTime: transferTimestamp, StakerTxID: validatorTxID},
+		{Type: pchain.TxImport, Index: 0, ID: importTxID, StartTime: transferTimestamp, RemoteChainID: cChainID, InputCount: 2, OutputCount: 1, UnsignedBytes: importTxID[:]},
+		{Type: pchain.TxExport, Index: 1, ID: exportTxID, StartTime: transferTimestamp, RemoteChainID: cChainID, InputCount: 1, OutputCount: 2, UnsignedBytes: exportTxID[:]},
+		{Type: pchain.TxBase, Index: 2, ID: baseTxID, StartTime: transferTimestamp, InputCount: 1, OutputCount: 2, UnsignedBytes: baseTxID[:]},
+		{Type: pchain.TxRewardValidator, Index: 3, ID: rewardValidatorTxID, StartTime: transferTimestamp, EndTime: transferTimestamp, StakerTxID: validatorTxID, UnsignedBytes: rewardValidatorTxID[:]},
 	},
 }
 
@@ -293,14 +303,15 @@ var transferBlock = &pchain.Block{
 // imported inputs. The import's imported UTXO id (stringFirst) sorts after
 // its P-chain input by bytes but before it by CB58 string. The import brings
 // in a custom asset: its native P-chain input pays the fee, the imported
-// input and the output carry customAssetID.
+// input and the output carry customAssetID. The plain transfer is signed in
+// the Ethereum scheme.
 var transferInputs = map[uint32][]pchain.Input{
 	0: {
-		{UTXOTxID: byteFirst, UTXOOutputIndex: 7, AssetID: nativeAssetID, Amount: 10, Resolved: true, Threshold: 1, Addresses: []ids.ShortID{addrA}, SigIndices: []uint32{0}},
-		{UTXOTxID: stringFirst, UTXOOutputIndex: 0, AssetID: customAssetID, Amount: 990, Imported: true, SigIndices: []uint32{0}},
+		{UTXOTxID: byteFirst, UTXOOutputIndex: 7, AssetID: nativeAssetID, Amount: 10, Resolved: true, Threshold: 1, Addresses: []ids.ShortID{addrA}, SigIndices: []uint32{0}, Signatures: sigs(importTxID[:], keyA)},
+		{UTXOTxID: stringFirst, UTXOOutputIndex: 0, AssetID: customAssetID, Amount: 990, Imported: true, SigIndices: []uint32{0}, Signatures: sigs(importTxID[:], keyB)},
 	},
-	1: {{UTXOTxID: byteFirst, UTXOOutputIndex: 8, AssetID: nativeAssetID, Amount: 1000, Resolved: true, Threshold: 1, Addresses: []ids.ShortID{addrC}, SigIndices: []uint32{0}}},
-	2: {{UTXOTxID: stringFirst, UTXOOutputIndex: 2, AssetID: nativeAssetID, Amount: 50, Resolved: true, Threshold: 1, Addresses: []ids.ShortID{addrB}, SigIndices: []uint32{0}}},
+	1: {{UTXOTxID: byteFirst, UTXOOutputIndex: 8, AssetID: nativeAssetID, Amount: 1000, Resolved: true, Threshold: 1, Addresses: []ids.ShortID{addrC}, SigIndices: []uint32{0}, Signatures: sigs(exportTxID[:], keyC)}},
+	2: {{UTXOTxID: stringFirst, UTXOOutputIndex: 2, AssetID: nativeAssetID, Amount: 50, Resolved: true, Threshold: 1, Addresses: []ids.ShortID{addrB}, SigIndices: []uint32{0}, Signatures: ethSigs(baseTxID[:], keyB)}},
 }
 
 // transferInputBytes are the producing-tx sizes of transferInputs; imported
@@ -333,17 +344,47 @@ func transferDecodedBytes(txIndex uint32, inputs ...int) uint64 {
 	return total
 }
 
+// sigs signs unsignedBytes with keys, in order, in the plain scheme (over the
+// sha256 of the bytes, as the P-chain wallets do); ethSigs in the Ethereum
+// scheme (over the Ethereum signed-message hash of the hex-encoded digest, as
+// Ethereum wallets do).
+func sigs(unsignedBytes []byte, keys ...*secp256k1.PrivateKey) [][pchain.SignatureLen]byte {
+	return signAll(secp256k1fx.NewSigningHashes(unsignedBytes).Plain, keys)
+}
+
+func ethSigs(unsignedBytes []byte, keys ...*secp256k1.PrivateKey) [][pchain.SignatureLen]byte {
+	return signAll(secp256k1fx.NewSigningHashes(unsignedBytes).EthPrefixed, keys)
+}
+
+func signAll(hash []byte, keys []*secp256k1.PrivateKey) [][pchain.SignatureLen]byte {
+	signatures := make([][pchain.SignatureLen]byte, len(keys))
+	for i, key := range keys {
+		sig, err := key.SignHash(hash)
+		if err != nil {
+			panic(err)
+		}
+		copy(signatures[i][:], sig)
+	}
+	return signatures
+}
+
 // ownerlessInput is a located output with threshold 0: it has no owner
 // addresses and can be spent without signatures (secp256k1fx permits it).
 var ownerlessInput = pchain.Input{UTXOTxID: byteFirst, UTXOOutputIndex: 9, AssetID: nativeAssetID, Amount: 500, Resolved: true}
 
+// newReaderWithInput serves the fixture block with transaction txIndex funded
+// by input alone instead of its usual inputs.
+func newReaderWithInput(txIndex uint32, input pchain.Input) *fakeReader {
+	r := newFakeReader()
+	r.inputs = map[uint64]map[uint32][]pchain.Input{blockHeight: {txIndex: {input}}}
+	r.inputBytes = map[uint64]map[uint32][]uint64{blockHeight: {txIndex: {testInputBytes[txIndex][0]}}}
+	return r
+}
+
 // newOwnerlessReader serves the fixture block with the delegator (tx 2)
 // funded by ownerlessInput instead of its usual single-owner input.
 func newOwnerlessReader() *fakeReader {
-	r := newFakeReader()
-	r.inputs = map[uint64]map[uint32][]pchain.Input{blockHeight: {2: {ownerlessInput}}}
-	r.inputBytes = map[uint64]map[uint32][]uint64{blockHeight: {2: {testInputBytes[2][0]}}}
-	return r
+	return newReaderWithInput(2, ownerlessInput)
 }
 
 func newFakeReader() *fakeReader {
@@ -473,7 +514,7 @@ func TestPackUnpackRoundTrips(t *testing.T) {
 	require.NoError(err)
 	require.Equal(blockOut, unpackedBlock)
 
-	ownerOut := GetStakeOwnerOutput{Owner: addrA, Resolved: true}
+	ownerOut := GetStakeOwnerOutput{PChainOwner: addrA, CChainOwner: keyA.EthAddress(), Resolved: true}
 	packed, err = PackGetStakeOwnerOutput(ownerOut)
 	require.NoError(err)
 	unpackedOwner, err := UnpackGetStakeOwnerOutput(packed)
@@ -1159,12 +1200,23 @@ func TestGetStakeOwner(t *testing.T) {
 		require.NoError(err)
 		return str
 	}
-	canonicalOwner := addrA
+	canonicalOwner, canonicalKey := addrA, keyA
 	if bech(addrC) < bech(addrA) {
-		canonicalOwner = addrC
+		canonicalOwner, canonicalKey = addrC, keyC
 	}
 	require.Negative(bytes.Compare(byteFirst[:], stringFirst[:]))
 	require.Greater(byteFirst.String(), stringFirst.String())
+
+	// Variants of the delegator's single-owner input (tx 2) and of the
+	// validator's multisig input (tx 0) whose signatures do not recover to
+	// the attributed owner.
+	singleOwner := testInputs[2][0]
+	wrongKey, unsigned, malformed := singleOwner, singleOwner, singleOwner
+	wrongKey.Signatures = sigs(delegatorTxID[:], keyE)
+	unsigned.Signatures = nil
+	malformed.Signatures = make([][pchain.SignatureLen]byte, 1)
+	swapped := testInputs[0][0]
+	swapped.Signatures = sigs(validatorTxID[:], keyC, keyA)
 
 	call := func(in GetStakeOwnerInput) func(testing.TB) []byte {
 		return func(t testing.TB) []byte { return mustPack(t)(PackGetStakeOwner(in)) }
@@ -1181,7 +1233,7 @@ func TestGetStakeOwner(t *testing.T) {
 			SnowContext:       snowCtx,
 			SuppliedGas:       GetStakeOwnerGas(decodedBytes(0, 0), 0, 2),
 			ReadOnly:          true,
-			ExpectedRes:       mustPack(t)(PackGetStakeOwnerOutput(GetStakeOwnerOutput{Owner: canonicalOwner, Resolved: true})),
+			ExpectedRes:       mustPack(t)(PackGetStakeOwnerOutput(GetStakeOwnerOutput{PChainOwner: canonicalOwner, CChainOwner: canonicalKey.EthAddress(), Resolved: true})),
 		},
 		{
 			Name:              "string order picks the other input",
@@ -1190,7 +1242,7 @@ func TestGetStakeOwner(t *testing.T) {
 			SnowContext:       snowCtx,
 			SuppliedGas:       GetStakeOwnerGas(decodedBytes(0, 1), 2, 1), // orders both inputs of tx 0
 			ReadOnly:          true,
-			ExpectedRes:       mustPack(t)(PackGetStakeOwnerOutput(GetStakeOwnerOutput{Owner: addrD, Resolved: true})),
+			ExpectedRes:       mustPack(t)(PackGetStakeOwnerOutput(GetStakeOwnerOutput{PChainOwner: addrD, CChainOwner: keyD.EthAddress(), Resolved: true})),
 		},
 		{
 			Name:              "single owner",
@@ -1199,7 +1251,7 @@ func TestGetStakeOwner(t *testing.T) {
 			SnowContext:       snowCtx,
 			SuppliedGas:       GetStakeOwnerGas(decodedBytes(2, 0), 0, 1),
 			ReadOnly:          true,
-			ExpectedRes:       mustPack(t)(PackGetStakeOwnerOutput(GetStakeOwnerOutput{Owner: addrB, Resolved: true})),
+			ExpectedRes:       mustPack(t)(PackGetStakeOwnerOutput(GetStakeOwnerOutput{PChainOwner: addrB, CChainOwner: keyB.EthAddress(), Resolved: true})),
 		},
 		{
 			Name:              "genesis input has no owner",
@@ -1304,7 +1356,7 @@ func TestGetStakeOwner(t *testing.T) {
 			SnowContext:       snowCtx,
 			SuppliedGas:       GetStakeOwnerGas(transferDecodedBytes(0, 0), 0, 1),
 			ReadOnly:          true,
-			ExpectedRes:       mustPack(t)(PackGetStakeOwnerOutput(GetStakeOwnerOutput{Owner: addrA, Resolved: true})),
+			ExpectedRes:       mustPack(t)(PackGetStakeOwnerOutput(GetStakeOwnerOutput{PChainOwner: addrA, CChainOwner: keyA.EthAddress(), Resolved: true})),
 		},
 		{
 			Name:              "import: string order puts the imported input first, which has no owner",
@@ -1316,13 +1368,13 @@ func TestGetStakeOwner(t *testing.T) {
 			ExpectedRes:       mustPack(t)(PackGetStakeOwnerOutput(GetStakeOwnerOutput{})),
 		},
 		{
-			Name:              "transfer attributes its sender",
+			Name:              "transfer attributes its sender, who signed in the Ethereum scheme",
 			InputFn:           call(GetStakeOwnerInput{Height: transferHeight, TxIndex: 2, Order: canonical}),
 			SetupBlockContext: withBound(bound),
 			SnowContext:       snowCtx,
 			SuppliedGas:       GetStakeOwnerGas(transferDecodedBytes(2, 0), 0, 1),
 			ReadOnly:          true,
-			ExpectedRes:       mustPack(t)(PackGetStakeOwnerOutput(GetStakeOwnerOutput{Owner: addrB, Resolved: true})),
+			ExpectedRes:       mustPack(t)(PackGetStakeOwnerOutput(GetStakeOwnerOutput{PChainOwner: addrB, CChainOwner: keyB.EthAddress(), Resolved: true})),
 		},
 		{
 			Name:              "reward-validator transaction has no inputs",
@@ -1332,6 +1384,58 @@ func TestGetStakeOwner(t *testing.T) {
 			SuppliedGas:       GetStakeOwnerGas(transferBlockBytes, 0, 0),
 			ReadOnly:          true,
 			ExpectedRes:       mustPack(t)(PackGetStakeOwnerOutput(GetStakeOwnerOutput{})),
+		},
+		// Signatures that do not recover to the attributed owner leave the
+		// stake unattributed (never for accepted transactions: consensus
+		// verified them) and still pay for the recovery; none of them
+		// reverts or invalidates execution.
+		{
+			Name:              "wrong-key signature leaves the stake unattributed",
+			InputFn:           call(GetStakeOwnerInput{Height: blockHeight, TxIndex: 2, Order: canonical}),
+			SetupBlockContext: withBound(bound),
+			SnowContext:       snowContextWithReader(t, newReaderWithInput(2, wrongKey)),
+			SuppliedGas:       GetStakeOwnerGas(decodedBytes(2, 0), 0, 1),
+			ReadOnly:          true,
+			ExpectedRes:       mustPack(t)(PackGetStakeOwnerOutput(GetStakeOwnerOutput{})),
+		},
+		{
+			Name:              "missing signature leaves the stake unattributed",
+			InputFn:           call(GetStakeOwnerInput{Height: blockHeight, TxIndex: 2, Order: canonical}),
+			SetupBlockContext: withBound(bound),
+			SnowContext:       snowContextWithReader(t, newReaderWithInput(2, unsigned)),
+			SuppliedGas:       GetStakeOwnerGas(decodedBytes(2, 0), 0, 1),
+			ReadOnly:          true,
+			ExpectedRes:       mustPack(t)(PackGetStakeOwnerOutput(GetStakeOwnerOutput{})),
+		},
+		{
+			Name:              "malformed signature leaves the stake unattributed",
+			InputFn:           call(GetStakeOwnerInput{Height: blockHeight, TxIndex: 2, Order: canonical}),
+			SetupBlockContext: withBound(bound),
+			SnowContext:       snowContextWithReader(t, newReaderWithInput(2, malformed)),
+			SuppliedGas:       GetStakeOwnerGas(decodedBytes(2, 0), 0, 1),
+			ReadOnly:          true,
+			ExpectedRes:       mustPack(t)(PackGetStakeOwnerOutput(GetStakeOwnerOutput{})),
+		},
+		{
+			// The owner's signature is the one at the owner's slot of the
+			// signature indices, not the first: swapping the two signatures
+			// of the multisig input attributes neither owner.
+			Name:              "swapped multisig signatures leave the stake unattributed",
+			InputFn:           call(GetStakeOwnerInput{Height: blockHeight, TxIndex: 0, Order: canonical}),
+			SetupBlockContext: withBound(bound),
+			SnowContext:       snowContextWithReader(t, newReaderWithInput(0, swapped)),
+			SuppliedGas:       GetStakeOwnerGas(decodedBytes(0, 0), 0, 2),
+			ReadOnly:          true,
+			ExpectedRes:       mustPack(t)(PackGetStakeOwnerOutput(GetStakeOwnerOutput{})),
+		},
+		{
+			Name:              "insufficient gas for signature recovery",
+			InputFn:           call(GetStakeOwnerInput{Height: blockHeight, TxIndex: 2, Order: canonical}),
+			SetupBlockContext: withBound(bound),
+			SnowContext:       snowCtx,
+			SuppliedGas:       GetStakeOwnerGas(decodedBytes(2, 0), 0, 1) - 1,
+			ReadOnly:          true,
+			ExpectedErr:       vm.ErrOutOfGas,
 		},
 	}
 	precompiletest.RunPrecompileTests(t, Module, tests)
@@ -1517,6 +1621,71 @@ func TestStakeOwnerCandidates(t *testing.T) {
 
 	// A single owner needs no signatures to be attributed.
 	require.Equal([]ids.ShortID{addrD}, stakeOwnerCandidates(pchain.Input{Addresses: []ids.ShortID{addrD}}))
+}
+
+func TestSignatureOf(t *testing.T) {
+	require := require.New(t)
+
+	sigA, sigC := sigs(validatorTxID[:], keyA)[0], sigs(validatorTxID[:], keyC)[0]
+	in := pchain.Input{
+		Addresses:  []ids.ShortID{addrA, addrB, addrC},
+		SigIndices: []uint32{0, 2},
+		Signatures: [][pchain.SignatureLen]byte{sigA, sigC},
+	}
+	got, ok := signatureOf(in, addrA)
+	require.True(ok)
+	require.Equal(sigA[:], got)
+	got, ok = signatureOf(in, addrC)
+	require.True(ok)
+	require.Equal(sigC[:], got)
+
+	// An owner that did not sign has no signature.
+	_, ok = signatureOf(in, addrB)
+	require.False(ok)
+
+	// Fewer signatures than signature indices: the rest have none.
+	in.Signatures = in.Signatures[:1]
+	_, ok = signatureOf(in, addrC)
+	require.False(ok)
+	_, ok = signatureOf(pchain.Input{Addresses: []ids.ShortID{addrA}, SigIndices: []uint32{0}}, addrA)
+	require.False(ok)
+
+	// An out-of-range index is skipped; the position still counts.
+	in = pchain.Input{
+		Addresses:  []ids.ShortID{addrA},
+		SigIndices: []uint32{5, 0},
+		Signatures: [][pchain.SignatureLen]byte{sigC, sigA},
+	}
+	got, ok = signatureOf(in, addrA)
+	require.True(ok)
+	require.Equal(sigA[:], got)
+}
+
+func TestCChainOwner(t *testing.T) {
+	require := require.New(t)
+
+	unsignedBytes := []byte("some unsigned transaction")
+	owner := func(signatures [][pchain.SignatureLen]byte) pchain.Input {
+		return pchain.Input{Addresses: []ids.ShortID{addrA}, SigIndices: []uint32{0}, Signatures: signatures}
+	}
+
+	// Both signing schemes recover the same key and hence the same EVM
+	// address.
+	got, ok := cChainOwner(unsignedBytes, owner(sigs(unsignedBytes, keyA)), addrA)
+	require.True(ok)
+	require.Equal(keyA.EthAddress(), got)
+	got, ok = cChainOwner(unsignedBytes, owner(ethSigs(unsignedBytes, keyA)), addrA)
+	require.True(ok)
+	require.Equal(keyA.EthAddress(), got)
+
+	// A signature over other bytes, by another key, or none at all does not
+	// recover to the owner.
+	_, ok = cChainOwner([]byte("another transaction"), owner(sigs(unsignedBytes, keyA)), addrA)
+	require.False(ok)
+	_, ok = cChainOwner(unsignedBytes, owner(sigs(unsignedBytes, keyE)), addrA)
+	require.False(ok)
+	_, ok = cChainOwner(unsignedBytes, owner(nil), addrA)
+	require.False(ok)
 }
 
 // TestSmallestBech32PrefersStringOrder mirrors the indexer's

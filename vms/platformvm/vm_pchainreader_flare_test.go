@@ -7,6 +7,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/ava-labs/libevm/common"
 	"github.com/stretchr/testify/require"
 
 	"github.com/ava-labs/avalanchego/ids"
@@ -131,9 +132,16 @@ func TestPChainReaderOverVM(t *testing.T) {
 	require.Len(inputs, int(total))
 
 	fundedAddrs := set.NewSet[ids.ShortID](len(genesistest.DefaultFundedKeys))
+	fundedEthAddrs := make(map[ids.ShortID]common.Address, len(genesistest.DefaultFundedKeys))
 	for _, key := range genesistest.DefaultFundedKeys {
 		fundedAddrs.Add(key.Address())
+		fundedEthAddrs[key.Address()] = key.EthAddress()
 	}
+	// The wallet signed the unsigned bytes the reader exposes: every input's
+	// signature recovers to its (funded) owner, whose C-chain address the
+	// gateway derives from the recovered key.
+	require.Equal(tx.Unsigned.Bytes(), got.UnsignedBytes)
+	hashes := secp256k1fx.NewSigningHashes(got.UnsignedBytes)
 	var funded uint64
 	for _, in := range inputs {
 		if !in.Genesis {
@@ -143,6 +151,10 @@ func TestPChainReaderOverVM(t *testing.T) {
 		require.Len(in.Addresses, 1)
 		require.True(fundedAddrs.Contains(in.Addresses[0]))
 		require.Equal([]uint32{0}, in.SigIndices)
+		require.Len(in.Signatures, 1)
+		pk, err := hashes.RecoverSigner(nil, in.Signatures[0][:], in.Addresses[0])
+		require.NoError(err)
+		require.Equal(fundedEthAddrs[in.Addresses[0]], pk.EthAddress())
 		funded += in.Amount
 	}
 	require.GreaterOrEqual(funded, vm.MinValidatorStake)

@@ -16,6 +16,7 @@ import (
 	"github.com/ava-labs/avalanchego/snow/pchain"
 	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/avalanchego/utils/formatting/address"
+	"github.com/ava-labs/avalanchego/vms/secp256k1fx"
 )
 
 // pchainReader returns the P-chain reader of the chain context.
@@ -379,11 +380,13 @@ func getTransactionOutputs(accessibleState contract.AccessibleState, caller comm
 	return packed, remainingGas, nil
 }
 
-// getStakeOwner attributes a transaction to one P-chain address the
-// way the Flare P-chain indexer does: the first input (in the requested
-// order), restricted to the owners whose signatures authorized the spend, and
-// among those the lexically smallest bech32 address string. Genesis and
-// unresolved inputs have no owner.
+// getStakeOwner attributes a transaction to one owner the way the Flare
+// P-chain indexer does: the first input (in the requested order), restricted
+// to the owners whose signatures authorized the spend, and among those the
+// lexically smallest bech32 address string. It returns the owner's P-chain
+// address together with the C-chain (EVM) address of the same key, recovered
+// from the owner's signature on the transaction. Genesis and unresolved inputs
+// have no owner.
 //
 //nolint:revive // General-purpose types lose the meaning of args if unused ones are removed
 func getStakeOwner(accessibleState contract.AccessibleState, caller common.Address, addr common.Address, input []byte, suppliedGas uint64, readOnly bool) ([]byte, uint64, error) {
@@ -426,7 +429,11 @@ func getStakeOwner(accessibleState contract.AccessibleState, caller common.Addre
 	var out GetStakeOwnerOutput
 	if len(inputs) == 1 && inputs[0].Resolved && !inputs[0].Genesis {
 		candidates := stakeOwnerCandidates(inputs[0])
-		if remainingGas, err = contract.DeductGas(remainingGas, uint64(len(candidates))*AddressGas); err != nil {
+		gas := uint64(len(candidates)) * AddressGas
+		if len(candidates) > 0 {
+			gas += SignatureRecoveryGas
+		}
+		if remainingGas, err = contract.DeductGas(remainingGas, gas); err != nil {
 			return nil, 0, err
 		}
 		if len(candidates) > 0 {
@@ -435,7 +442,15 @@ func getStakeOwner(accessibleState contract.AccessibleState, caller common.Addre
 			if err != nil {
 				return invalidate(accessibleState, err)
 			}
-			out = GetStakeOwnerOutput{Owner: owner, Resolved: true}
+			// Consensus verified the owner's signature (under either
+			// signing scheme) before accepting the transaction, so it only
+			// fails to recover for data the P-chain never accepts; that
+			// leaves the stake unattributed, deterministically, rather than
+			// reverting.
+			unsignedBytes := unsignedBytesOf(blkReader.Block(), in.TxIndex)
+			if cOwner, ok := cChainOwner(unsignedBytes, inputs[0], owner); ok {
+				out = GetStakeOwnerOutput{PChainOwner: owner, CChainOwner: cOwner, Resolved: true}
+			}
 		}
 	}
 
@@ -463,6 +478,46 @@ func stakeOwnerCandidates(in pchain.Input) []ids.ShortID {
 		return in.Addresses
 	}
 	return candidates
+}
+
+// unsignedBytesOf returns the unsigned bytes of transaction txIndex of blk,
+// nil when there is no such transaction.
+func unsignedBytesOf(blk *pchain.Block, txIndex uint32) []byte {
+	if uint64(txIndex) >= uint64(len(blk.Txs)) {
+		return nil
+	}
+	return blk.Txs[txIndex].UnsignedBytes
+}
+
+// cChainOwner recovers the C-chain (EVM) address of the key that signed the
+// input for owner: the owner's signature (see signatureOf) over the
+// transaction's unsigned bytes, under either signing scheme the P-chain
+// accepts (vms/secp256k1fx.SigningHashes). ok is false when the owner has no
+// signature on the input or its signature does not recover to it.
+func cChainOwner(unsignedBytes []byte, in pchain.Input, owner ids.ShortID) (common.Address, bool) {
+	sig, ok := signatureOf(in, owner)
+	if !ok {
+		return common.Address{}, false
+	}
+	pk, err := secp256k1fx.NewSigningHashes(unsignedBytes).RecoverSigner(nil, sig, owner)
+	if err != nil {
+		return common.Address{}, false
+	}
+	return pk.EthAddress(), true
+}
+
+// signatureOf returns the signature of owner on the input: the signature at
+// the position of the owner's slot in the input's signature indices.
+func signatureOf(in pchain.Input, owner ids.ShortID) ([]byte, bool) {
+	for k, index := range in.SigIndices {
+		if k >= len(in.Signatures) {
+			return nil, false
+		}
+		if uint64(index) < uint64(len(in.Addresses)) && in.Addresses[index] == owner {
+			return in.Signatures[k][:], true
+		}
+	}
+	return nil, false
 }
 
 // smallestBech32 returns the address whose bech32 string with hrp is the

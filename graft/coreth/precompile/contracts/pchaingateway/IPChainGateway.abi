@@ -75,11 +75,6 @@
         "internalType": "uint32",
         "name": "txIndex",
         "type": "uint32"
-      },
-      {
-        "internalType": "uint8",
-        "name": "order",
-        "type": "uint8"
       }
     ],
     "name": "getStakeOwner",

@@ -468,7 +468,7 @@ func TestABISelectorsAndSignatures(t *testing.T) {
 		"getTransactions":       "getTransactions(uint64,uint32,uint32,uint256,uint32,uint32)",
 		"getTransactionInputs":  "getTransactionInputs(uint64,uint32,uint32,uint32,uint8)",
 		"getTransactionOutputs": "getTransactionOutputs(uint64,uint32,uint32,uint32)",
-		"getStakeOwner":         "getStakeOwner(uint64,uint32,uint8)",
+		"getStakeOwner":         "getStakeOwner(uint64,uint32)",
 	}
 	require.Len(PChainGatewayABI.Methods, len(want))
 	for name, sig := range want {
@@ -996,6 +996,11 @@ func TestGetTransactionInputs(t *testing.T) {
 	canonical := uint8(pchain.InputOrderCanonical)
 	byString := uint8(pchain.InputOrderByUTXOTxIDString)
 
+	// byteFirst sorts before stringFirst by bytes but after it by CB58 string,
+	// so the two orders differ for the validator's inputs.
+	require.Negative(t, bytes.Compare(byteFirst[:], stringFirst[:]))
+	require.Greater(t, byteFirst.String(), stringFirst.String())
+
 	tests := []precompiletest.PrecompileTest{
 		{
 			Name:              "canonical order",
@@ -1204,8 +1209,6 @@ func TestGetStakeOwner(t *testing.T) {
 	if bech(addrC) < bech(addrA) {
 		canonicalOwner, canonicalKey = addrC, keyC
 	}
-	require.Negative(bytes.Compare(byteFirst[:], stringFirst[:]))
-	require.Greater(byteFirst.String(), stringFirst.String())
 
 	// Variants of the delegator's single-owner input (tx 2) and of the
 	// validator's multisig input (tx 0) whose signatures do not recover to
@@ -1221,128 +1224,80 @@ func TestGetStakeOwner(t *testing.T) {
 	call := func(in GetStakeOwnerInput) func(testing.TB) []byte {
 		return func(t testing.TB) []byte { return mustPack(t)(PackGetStakeOwner(in)) }
 	}
-	canonical := uint8(pchain.InputOrderCanonical)
-	byString := uint8(pchain.InputOrderByUTXOTxIDString)
 	env := &fakeEnv{}
 
 	tests := []precompiletest.PrecompileTest{
 		{
-			Name:              "canonical order picks the smallest bech32 signer of the first input",
-			InputFn:           call(GetStakeOwnerInput{Height: blockHeight, TxIndex: 0, Order: canonical}),
+			Name:              "picks the smallest bech32 signer of the first canonical input",
+			InputFn:           call(GetStakeOwnerInput{Height: blockHeight, TxIndex: 0}),
 			SetupBlockContext: withBound(bound),
 			SnowContext:       snowCtx,
-			SuppliedGas:       GetStakeOwnerGas(decodedBytes(0, 0), 0, 2),
+			SuppliedGas:       GetStakeOwnerGas(decodedBytes(0, 0), 2),
 			ReadOnly:          true,
 			ExpectedRes:       mustPack(t)(PackGetStakeOwnerOutput(GetStakeOwnerOutput{PChainOwner: canonicalOwner, CChainOwner: canonicalKey.EthAddress(), Resolved: true})),
 		},
 		{
-			Name:              "string order picks the other input",
-			InputFn:           call(GetStakeOwnerInput{Height: blockHeight, TxIndex: 0, Order: byString}),
-			SetupBlockContext: withBound(bound),
-			SnowContext:       snowCtx,
-			SuppliedGas:       GetStakeOwnerGas(decodedBytes(0, 1), 2, 1), // orders both inputs of tx 0
-			ReadOnly:          true,
-			ExpectedRes:       mustPack(t)(PackGetStakeOwnerOutput(GetStakeOwnerOutput{PChainOwner: addrD, CChainOwner: keyD.EthAddress(), Resolved: true})),
-		},
-		{
 			Name:              "single owner",
-			InputFn:           call(GetStakeOwnerInput{Height: blockHeight, TxIndex: 2, Order: canonical}),
+			InputFn:           call(GetStakeOwnerInput{Height: blockHeight, TxIndex: 2}),
 			SetupBlockContext: withBound(bound),
 			SnowContext:       snowCtx,
-			SuppliedGas:       GetStakeOwnerGas(decodedBytes(2, 0), 0, 1),
+			SuppliedGas:       GetStakeOwnerGas(decodedBytes(2, 0), 1),
 			ReadOnly:          true,
 			ExpectedRes:       mustPack(t)(PackGetStakeOwnerOutput(GetStakeOwnerOutput{PChainOwner: addrB, CChainOwner: keyB.EthAddress(), Resolved: true})),
 		},
 		{
 			Name:              "genesis input has no owner",
-			InputFn:           call(GetStakeOwnerInput{Height: blockHeight, TxIndex: 3, Order: canonical}),
+			InputFn:           call(GetStakeOwnerInput{Height: blockHeight, TxIndex: 3}),
 			SetupBlockContext: withBound(bound),
 			SnowContext:       snowCtx,
-			SuppliedGas:       GetStakeOwnerGas(decodedBytes(3, 0), 0, 0),
+			SuppliedGas:       GetStakeOwnerGas(decodedBytes(3, 0), 0),
 			ReadOnly:          true,
 			ExpectedRes:       mustPack(t)(PackGetStakeOwnerOutput(GetStakeOwnerOutput{})),
 		},
 		{
 			Name:              "no inputs has no owner",
-			InputFn:           call(GetStakeOwnerInput{Height: blockHeight, TxIndex: 4, Order: canonical}),
+			InputFn:           call(GetStakeOwnerInput{Height: blockHeight, TxIndex: 4}),
 			SetupBlockContext: withBound(bound),
 			SnowContext:       snowCtx,
-			SuppliedGas:       GetStakeOwnerGas(testBlockBytes, 0, 0),
+			SuppliedGas:       GetStakeOwnerGas(testBlockBytes, 0),
 			ReadOnly:          true,
 			ExpectedRes:       mustPack(t)(PackGetStakeOwnerOutput(GetStakeOwnerOutput{})),
 		},
 		{
 			Name:              "unresolved input has no owner",
-			InputFn:           call(GetStakeOwnerInput{Height: blockHeight, TxIndex: 5, Order: canonical}),
+			InputFn:           call(GetStakeOwnerInput{Height: blockHeight, TxIndex: 5}),
 			SetupBlockContext: withBound(bound),
 			SnowContext:       snowCtx,
-			SuppliedGas:       GetStakeOwnerGas(decodedBytes(5, 0), 0, 0),
+			SuppliedGas:       GetStakeOwnerGas(decodedBytes(5, 0), 0),
 			ReadOnly:          true,
 			ExpectedRes:       mustPack(t)(PackGetStakeOwnerOutput(GetStakeOwnerOutput{})),
 		},
 		{
-			Name:              "ownerless output has no owner in canonical order",
-			InputFn:           call(GetStakeOwnerInput{Height: blockHeight, TxIndex: 2, Order: canonical}),
+			Name:              "ownerless output has no owner",
+			InputFn:           call(GetStakeOwnerInput{Height: blockHeight, TxIndex: 2}),
 			SetupBlockContext: withBound(bound),
 			SnowContext:       snowContextWithReader(t, newOwnerlessReader()),
-			SuppliedGas:       GetStakeOwnerGas(decodedBytes(2, 0), 0, 0),
+			SuppliedGas:       GetStakeOwnerGas(decodedBytes(2, 0), 0),
 			ReadOnly:          true,
 			ExpectedRes:       mustPack(t)(PackGetStakeOwnerOutput(GetStakeOwnerOutput{})),
-		},
-		{
-			Name:              "ownerless output has no owner in string order",
-			InputFn:           call(GetStakeOwnerInput{Height: blockHeight, TxIndex: 2, Order: byString}),
-			SetupBlockContext: withBound(bound),
-			SnowContext:       snowContextWithReader(t, newOwnerlessReader()),
-			SuppliedGas:       GetStakeOwnerGas(decodedBytes(2, 0), 1, 0),
-			ReadOnly:          true,
-			ExpectedRes:       mustPack(t)(PackGetStakeOwnerOutput(GetStakeOwnerOutput{})),
-		},
-		{
-			Name:              "insufficient gas for ordering",
-			InputFn:           call(GetStakeOwnerInput{Height: blockHeight, TxIndex: 0, Order: byString}),
-			SetupBlockContext: withBound(bound),
-			SnowContext:       snowCtx,
-			SuppliedGas:       GetStakeOwnerGas(testBlockBytes, 2, 0) - 1,
-			ReadOnly:          true,
-			ExpectedErr:       vm.ErrOutOfGas,
-		},
-		{
-			Name:              "no inputs in string order orders nothing",
-			InputFn:           call(GetStakeOwnerInput{Height: blockHeight, TxIndex: 4, Order: byString}),
-			SetupBlockContext: withBound(bound),
-			SnowContext:       snowCtx,
-			SuppliedGas:       GetStakeOwnerGas(testBlockBytes, 0, 0),
-			ReadOnly:          true,
-			ExpectedRes:       mustPack(t)(PackGetStakeOwnerOutput(GetStakeOwnerOutput{})),
-		},
-		{
-			Name:              "invalid order reverts",
-			InputFn:           call(GetStakeOwnerInput{Height: blockHeight, TxIndex: 0, Order: 7}),
-			SetupBlockContext: withBound(bound),
-			SnowContext:       snowCtx,
-			SuppliedGas:       GetStakeOwnerGas(0, 0, 0),
-			ReadOnly:          true,
-			ExpectedRes:       revertReason(reasonInvalidInputOrder),
-			ExpectedErr:       vm.ErrExecutionReverted,
 		},
 		{
 			Name:              "unsupported tx reverts",
-			InputFn:           call(GetStakeOwnerInput{Height: blockHeight, TxIndex: 1, Order: canonical}),
+			InputFn:           call(GetStakeOwnerInput{Height: blockHeight, TxIndex: 1}),
 			SetupBlockContext: withBound(bound),
 			SnowContext:       snowCtx,
-			SuppliedGas:       GetStakeOwnerGas(testBlockBytes, 0, 0),
+			SuppliedGas:       GetStakeOwnerGas(testBlockBytes, 0),
 			ReadOnly:          true,
 			ExpectedRes:       revertReason(reasonUnsupportedTx),
 			ExpectedErr:       vm.ErrExecutionReverted,
 		},
 		{
 			Name:              "reader failure invalidates execution",
-			InputFn:           call(GetStakeOwnerInput{Height: blockHeight, TxIndex: 0, Order: canonical}),
+			InputFn:           call(GetStakeOwnerInput{Height: blockHeight, TxIndex: 0}),
 			SetupBlockContext: withBound(bound),
 			SnowContext:       snowContextWithReader(t, &fakeReader{err: errDatabaseCorrupted}),
 			PrecompileEnv:     env,
-			SuppliedGas:       GetStakeOwnerGas(0, 0, 0),
+			SuppliedGas:       GetStakeOwnerGas(0, 0),
 			ReadOnly:          true,
 			ExpectedErr:       errDatabaseCorrupted,
 			AfterHook: func(testing.TB, contract.StateDB) {
@@ -1350,38 +1305,29 @@ func TestGetStakeOwner(t *testing.T) {
 			},
 		},
 		{
-			Name:              "import: canonical order attributes the fee-paying P-chain input",
-			InputFn:           call(GetStakeOwnerInput{Height: transferHeight, TxIndex: 0, Order: canonical}),
+			Name:              "import: attributes the fee-paying P-chain input, first in canonical order",
+			InputFn:           call(GetStakeOwnerInput{Height: transferHeight, TxIndex: 0}),
 			SetupBlockContext: withBound(bound),
 			SnowContext:       snowCtx,
-			SuppliedGas:       GetStakeOwnerGas(transferDecodedBytes(0, 0), 0, 1),
+			SuppliedGas:       GetStakeOwnerGas(transferDecodedBytes(0, 0), 1),
 			ReadOnly:          true,
 			ExpectedRes:       mustPack(t)(PackGetStakeOwnerOutput(GetStakeOwnerOutput{PChainOwner: addrA, CChainOwner: keyA.EthAddress(), Resolved: true})),
 		},
 		{
-			Name:              "import: string order puts the imported input first, which has no owner",
-			InputFn:           call(GetStakeOwnerInput{Height: transferHeight, TxIndex: 0, Order: byString}),
-			SetupBlockContext: withBound(bound),
-			SnowContext:       snowCtx,
-			SuppliedGas:       GetStakeOwnerGas(transferBlockBytes, 2, 0),
-			ReadOnly:          true,
-			ExpectedRes:       mustPack(t)(PackGetStakeOwnerOutput(GetStakeOwnerOutput{})),
-		},
-		{
 			Name:              "transfer attributes its sender, who signed in the Ethereum scheme",
-			InputFn:           call(GetStakeOwnerInput{Height: transferHeight, TxIndex: 2, Order: canonical}),
+			InputFn:           call(GetStakeOwnerInput{Height: transferHeight, TxIndex: 2}),
 			SetupBlockContext: withBound(bound),
 			SnowContext:       snowCtx,
-			SuppliedGas:       GetStakeOwnerGas(transferDecodedBytes(2, 0), 0, 1),
+			SuppliedGas:       GetStakeOwnerGas(transferDecodedBytes(2, 0), 1),
 			ReadOnly:          true,
 			ExpectedRes:       mustPack(t)(PackGetStakeOwnerOutput(GetStakeOwnerOutput{PChainOwner: addrB, CChainOwner: keyB.EthAddress(), Resolved: true})),
 		},
 		{
 			Name:              "reward-validator transaction has no inputs",
-			InputFn:           call(GetStakeOwnerInput{Height: transferHeight, TxIndex: 3, Order: canonical}),
+			InputFn:           call(GetStakeOwnerInput{Height: transferHeight, TxIndex: 3}),
 			SetupBlockContext: withBound(bound),
 			SnowContext:       snowCtx,
-			SuppliedGas:       GetStakeOwnerGas(transferBlockBytes, 0, 0),
+			SuppliedGas:       GetStakeOwnerGas(transferBlockBytes, 0),
 			ReadOnly:          true,
 			ExpectedRes:       mustPack(t)(PackGetStakeOwnerOutput(GetStakeOwnerOutput{})),
 		},
@@ -1391,28 +1337,28 @@ func TestGetStakeOwner(t *testing.T) {
 		// reverts or invalidates execution.
 		{
 			Name:              "wrong-key signature leaves the stake unattributed",
-			InputFn:           call(GetStakeOwnerInput{Height: blockHeight, TxIndex: 2, Order: canonical}),
+			InputFn:           call(GetStakeOwnerInput{Height: blockHeight, TxIndex: 2}),
 			SetupBlockContext: withBound(bound),
 			SnowContext:       snowContextWithReader(t, newReaderWithInput(2, wrongKey)),
-			SuppliedGas:       GetStakeOwnerGas(decodedBytes(2, 0), 0, 1),
+			SuppliedGas:       GetStakeOwnerGas(decodedBytes(2, 0), 1),
 			ReadOnly:          true,
 			ExpectedRes:       mustPack(t)(PackGetStakeOwnerOutput(GetStakeOwnerOutput{})),
 		},
 		{
 			Name:              "missing signature leaves the stake unattributed",
-			InputFn:           call(GetStakeOwnerInput{Height: blockHeight, TxIndex: 2, Order: canonical}),
+			InputFn:           call(GetStakeOwnerInput{Height: blockHeight, TxIndex: 2}),
 			SetupBlockContext: withBound(bound),
 			SnowContext:       snowContextWithReader(t, newReaderWithInput(2, unsigned)),
-			SuppliedGas:       GetStakeOwnerGas(decodedBytes(2, 0), 0, 1),
+			SuppliedGas:       GetStakeOwnerGas(decodedBytes(2, 0), 1),
 			ReadOnly:          true,
 			ExpectedRes:       mustPack(t)(PackGetStakeOwnerOutput(GetStakeOwnerOutput{})),
 		},
 		{
 			Name:              "malformed signature leaves the stake unattributed",
-			InputFn:           call(GetStakeOwnerInput{Height: blockHeight, TxIndex: 2, Order: canonical}),
+			InputFn:           call(GetStakeOwnerInput{Height: blockHeight, TxIndex: 2}),
 			SetupBlockContext: withBound(bound),
 			SnowContext:       snowContextWithReader(t, newReaderWithInput(2, malformed)),
-			SuppliedGas:       GetStakeOwnerGas(decodedBytes(2, 0), 0, 1),
+			SuppliedGas:       GetStakeOwnerGas(decodedBytes(2, 0), 1),
 			ReadOnly:          true,
 			ExpectedRes:       mustPack(t)(PackGetStakeOwnerOutput(GetStakeOwnerOutput{})),
 		},
@@ -1421,19 +1367,19 @@ func TestGetStakeOwner(t *testing.T) {
 			// signature indices, not the first: swapping the two signatures
 			// of the multisig input attributes neither owner.
 			Name:              "swapped multisig signatures leave the stake unattributed",
-			InputFn:           call(GetStakeOwnerInput{Height: blockHeight, TxIndex: 0, Order: canonical}),
+			InputFn:           call(GetStakeOwnerInput{Height: blockHeight, TxIndex: 0}),
 			SetupBlockContext: withBound(bound),
 			SnowContext:       snowContextWithReader(t, newReaderWithInput(0, swapped)),
-			SuppliedGas:       GetStakeOwnerGas(decodedBytes(0, 0), 0, 2),
+			SuppliedGas:       GetStakeOwnerGas(decodedBytes(0, 0), 2),
 			ReadOnly:          true,
 			ExpectedRes:       mustPack(t)(PackGetStakeOwnerOutput(GetStakeOwnerOutput{})),
 		},
 		{
 			Name:              "insufficient gas for signature recovery",
-			InputFn:           call(GetStakeOwnerInput{Height: blockHeight, TxIndex: 2, Order: canonical}),
+			InputFn:           call(GetStakeOwnerInput{Height: blockHeight, TxIndex: 2}),
 			SetupBlockContext: withBound(bound),
 			SnowContext:       snowCtx,
-			SuppliedGas:       GetStakeOwnerGas(decodedBytes(2, 0), 0, 1) - 1,
+			SuppliedGas:       GetStakeOwnerGas(decodedBytes(2, 0), 1) - 1,
 			ReadOnly:          true,
 			ExpectedErr:       vm.ErrOutOfGas,
 		},

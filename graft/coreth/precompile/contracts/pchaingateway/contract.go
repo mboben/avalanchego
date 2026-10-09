@@ -138,7 +138,6 @@ type GetTransactionOutputsOutput struct {
 type GetStakeOwnerInput struct {
 	Height  uint64
 	TxIndex uint32
-	Order   uint8
 }
 
 // GetStakeOwnerOutput is the output of getStakeOwner: the attributed owner's
@@ -281,7 +280,7 @@ func UnpackGetTransactionOutputsOutput(output []byte) (GetTransactionOutputsOutp
 
 // PackGetStakeOwner packs the getStakeOwner call (selector included).
 func PackGetStakeOwner(in GetStakeOwnerInput) ([]byte, error) {
-	return PChainGatewayABI.Pack("getStakeOwner", in.Height, in.TxIndex, in.Order)
+	return PChainGatewayABI.Pack("getStakeOwner", in.Height, in.TxIndex)
 }
 
 // UnpackGetStakeOwnerInput unpacks the getStakeOwner arguments (selector omitted).

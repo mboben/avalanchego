@@ -22,7 +22,7 @@ interface IPChainGateway {
     //   10 Base (plain P-chain transfer), 11 RewardValidator (removal of a bounded staker of type 1, 2, 6 or 7;
     //   a proposal tx whose outcome is the kind of the block at height+1).
     //
-    // Input orders accepted by `getTransactionInputs` and `getStakeOwner`:
+    // Input orders accepted by `getTransactionInputs` (`getStakeOwner` always uses order 0):
     //   0 canonical (serialized order: the P-chain inputs, then the imported inputs of an import tx,
     //     each group sorted by UTXO tx id bytes, then output index),
     //   1 by the CB58 string of the UTXO tx id, then output index.
@@ -133,17 +133,17 @@ interface IPChainGateway {
     ) external view returns (Output[] memory outputs, uint32 outputCount);
 
     /// @notice Stake owner attribution compatible with the Flare P-chain indexer: the first input in
-    /// the given `order`, restricted to the owners that signed it, choosing the lexically smallest
-    /// bech32 address string. `pChainOwner` is that owner's P-chain address and `cChainOwner` the
-    /// EVM address of the same key, recovered from the owner's signature on the transaction (the
-    /// P-chain accepts signatures over the plain transaction hash and Ethereum-prefixed ones).
-    /// `resolved` is false, and both addresses zero, when the input is missing, imported, unresolved,
-    /// a genesis UTXO or an ownerless output (threshold 0, no addresses), which resolves for
-    /// `getTransactionInputs` but cannot be attributed, or when the owner's signature does not recover
-    /// to it (impossible for accepted transactions). On transfers it attributes the sender (fee payer).
+    /// canonical order (the serialized order, order 0 of `getTransactionInputs`), restricted to the
+    /// owners that signed it, choosing the lexically smallest bech32 address string. `pChainOwner` is
+    /// that owner's P-chain address and `cChainOwner` the EVM address of the same key, recovered from
+    /// the owner's signature on the transaction (the P-chain accepts signatures over the plain
+    /// transaction hash and Ethereum-prefixed ones). `resolved` is false, and both addresses zero, when
+    /// the input is missing, imported, unresolved, a genesis UTXO or an ownerless output (threshold 0,
+    /// no addresses), which resolves for `getTransactionInputs` but cannot be attributed, or when the
+    /// owner's signature does not recover to it (impossible for accepted transactions). On transfers
+    /// it attributes the sender (fee payer).
     function getStakeOwner(
         uint64 height,
-        uint32 txIndex,
-        uint8 order
+        uint32 txIndex
     ) external view returns (bytes20 pChainOwner, address cChainOwner, bool resolved);
 }

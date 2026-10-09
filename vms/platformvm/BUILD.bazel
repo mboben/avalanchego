@@ -162,6 +162,7 @@ go_test(
         "//wallet/chain/p/builder",
         "//wallet/chain/p/wallet",
         "//wallet/subnet/primary/common",
+        "@com_github_ava_labs_libevm//common",
         "@com_github_leanovate_gopter//:gopter",
         "@com_github_leanovate_gopter//gen",
         "@com_github_leanovate_gopter//prop",

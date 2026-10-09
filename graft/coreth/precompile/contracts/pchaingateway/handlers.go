@@ -381,12 +381,12 @@ func getTransactionOutputs(accessibleState contract.AccessibleState, caller comm
 }
 
 // getStakeOwner attributes a transaction to one owner the way the Flare
-// P-chain indexer does: the first input (in the requested order), restricted
-// to the owners whose signatures authorized the spend, and among those the
-// lexically smallest bech32 address string. It returns the owner's P-chain
-// address together with the C-chain (EVM) address of the same key, recovered
-// from the owner's signature on the transaction. Genesis and unresolved inputs
-// have no owner.
+// P-chain indexer does: the first input in canonical (serialized) order,
+// restricted to the owners whose signatures authorized the spend, and among
+// those the lexically smallest bech32 address string. It returns the owner's
+// P-chain address together with the C-chain (EVM) address of the same key,
+// recovered from the owner's signature on the transaction. Genesis and
+// unresolved inputs have no owner.
 //
 //nolint:revive // General-purpose types lose the meaning of args if unused ones are removed
 func getStakeOwner(accessibleState contract.AccessibleState, caller common.Address, addr common.Address, input []byte, suppliedGas uint64, readOnly bool) ([]byte, uint64, error) {
@@ -397,9 +397,6 @@ func getStakeOwner(accessibleState contract.AccessibleState, caller common.Addre
 	in, err := UnpackGetStakeOwnerInput(input)
 	if err != nil {
 		return revert(remainingGas, reasonInvalidInput)
-	}
-	if in.Order > uint8(pchain.InputOrderByUTXOTxIDString) {
-		return revert(remainingGas, reasonInvalidInputOrder)
 	}
 	if reason, ok := checkBound(accessibleState, in.Height); !ok {
 		return revert(remainingGas, reason)
@@ -414,10 +411,9 @@ func getStakeOwner(accessibleState contract.AccessibleState, caller common.Addre
 	if err != nil {
 		return readerFailure(accessibleState, remainingGas, err)
 	}
-	if remainingGas, err = deductInputOrdering(remainingGas, blkReader.Block(), in.TxIndex, 0, 1, pchain.InputOrder(in.Order)); err != nil {
-		return nil, 0, err
-	}
-	inputs, _, err := blkReader.GetInputs(in.TxIndex, 0, 1, pchain.InputOrder(in.Order), charge)
+	// The first canonical input is sliced from the decoded transaction, so
+	// there is no ordering gas.
+	inputs, _, err := blkReader.GetInputs(in.TxIndex, 0, 1, pchain.InputOrderCanonical, charge)
 	if err != nil {
 		return readerFailure(accessibleState, remainingGas, err)
 	}

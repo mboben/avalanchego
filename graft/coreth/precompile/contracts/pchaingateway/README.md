@@ -56,7 +56,7 @@ one. There are no refunds for short pages. Constants in `gas.go`:
 | per requested input slot (`maxInputsPerTx` per tx slot, `maxInputs`, one for `getStakeOwner`) | 10 000 |
 | per requested output slot (`maxOutputsPerTx` per tx slot, `maxOutputs`) | 1 000 |
 | per byte of P-chain data decoded: the block's stored bytes on every call, plus the stored bytes of each producing transaction resolved for an input (genesis UTXOs and imported inputs: none) | 10 |
-| per input of the transaction when a non-empty page (`maxInputs > 0`, `fromInput < inputCount`) is read with `order = 1` (`getTransactionInputs`, `getStakeOwner`): ordering by CB58 string touches every input | 1 000 |
+| per input of the transaction when a non-empty page (`maxInputs > 0`, `fromInput < inputCount`) is read with `order = 1` (`getTransactionInputs`; `getStakeOwner` always reads the canonical first input): ordering by CB58 string touches every input | 1 000 |
 | per returned owner address, of inputs and outputs (per candidate for `getStakeOwner`) | 200 |
 | signature recovery of the attributed owner (`getStakeOwner`, when the first input has a candidate owner): up to two secp256k1 public-key recoveries, one per accepted signing scheme | 6 000 |
 
@@ -140,7 +140,8 @@ transaction is not on the P-chain, and the reader does not look it up (a lookup 
 Orders: `0` canonical — the serialized order: the P-chain inputs, then the imported inputs, each group sorted by UTXO
 transaction id **bytes**, then output index (the indexer's `in_idx`); `1` by the **CB58 string** of the UTXO
 transaction id, then output index, over the whole list. The two differ only when the CB58 strings have different
-lengths (or, for imports, across the two groups).
+lengths (or, for imports, across the two groups). Only `getTransactionInputs` takes an `order`; `getStakeOwner`
+always uses the canonical order.
 
 ### Outputs
 
@@ -161,8 +162,9 @@ Types 4 (config) and 10 (transfer) have transfer outputs only; types 5 and 11 ha
 ### `getStakeOwner`
 
 Reproduces the attribution rule of the Flare P-chain indexer (`utils/staking/utils.go` `DedupeTxs` and
-`indexer/shared` `selectSigners`): take the first input in the requested order, keep only the owners that signed it
-(all owners if there are no usable signature indices), and pick the lexically smallest **bech32** string with the
+`indexer/shared` `selectSigners`): take the first input in canonical order (the serialized order, the indexer's
+`in_idx` 0; there is no `order` argument), keep only the owners that signed it (all owners if there are no usable
+signature indices), and pick the lexically smallest **bech32** string with the
 network's HRP. The owner is returned twice: `pChainOwner`, its P-chain address, and `cChainOwner`, the C-chain (EVM)
 address of the same key. A P-chain address (`ripemd160(sha256(compressed key))`) cannot be converted into an EVM
 address (`keccak256(uncompressed key)[12:]`), but the owner signed the transaction: the node recovers the public key

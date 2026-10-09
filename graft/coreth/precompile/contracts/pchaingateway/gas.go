@@ -47,10 +47,11 @@ const (
 	ByteGas uint64 = 10
 	// InputOrderGas is charged per input of the transaction when a non-empty
 	// page is read in InputOrderByUTXOTxIDString order (getTransactionInputs
-	// with order 1, getStakeOwner with order 1): whatever the page size, the
-	// reader converts every input's UTXO transaction ID to its CB58 string
-	// and sorts them. The reader caches the order per decoded block, but the
-	// gas is charged on every such read. Calibration:
+	// with order 1; getStakeOwner reads in canonical order and never pays
+	// it): whatever the page size, the reader converts every input's UTXO
+	// transaction ID to its CB58 string and sorts them. The reader caches the
+	// order per decoded block, but the gas is charged on every such read.
+	// Calibration:
 	// BenchmarkPermutationByString in vms/platformvm/pchainreader measures
 	// 1.3-1.6 µs per input (16 to 20,000 inputs; the string conversion
 	// dominates) on an M-series laptop, i.e. ~160 gas at the 100 Mgas/s
@@ -111,11 +112,11 @@ func GetTransactionOutputsGas(maxOutputs uint32, blockBytes uint64, addresses in
 }
 
 // GetStakeOwnerGas is the cost of getStakeOwner given the total stored bytes
-// decoded, the number of inputs ordered by CB58 string (the transaction's
-// input count in order 1, else 0) and the number of candidate owner addresses
-// of the first input (the signature recovery is charged when there is one).
-func GetStakeOwnerGas(decodedBytes uint64, orderedInputs uint32, candidates int) uint64 {
-	gas := BlockReadGas + InputGas + decodedBytes*ByteGas + uint64(orderedInputs)*InputOrderGas + uint64(candidates)*AddressGas
+// decoded and the number of candidate owner addresses of the first input (the
+// signature recovery is charged when there is one). The first input is read
+// in canonical order, which is never charged for ordering.
+func GetStakeOwnerGas(decodedBytes uint64, candidates int) uint64 {
+	gas := BlockReadGas + InputGas + decodedBytes*ByteGas + uint64(candidates)*AddressGas
 	if candidates > 0 {
 		gas += SignatureRecoveryGas
 	}

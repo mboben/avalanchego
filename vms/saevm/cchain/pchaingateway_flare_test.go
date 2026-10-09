@@ -310,12 +310,11 @@ func (f *gatewayFixture) assertGatewayReads(ctx context.Context, t *testing.T, s
 	got, err = call(pchaingateway.PackGetStakeOwner(pchaingateway.GetStakeOwnerInput{
 		Height:  f.height,
 		TxIndex: 0,
-		Order:   uint8(pchain.InputOrderCanonical),
 	}))
-	require.NoError(err, "getStakeOwner(%d, 0, 0)", f.height)
+	require.NoError(err, "getStakeOwner(%d, 0)", f.height)
 	ownerOut, err := pchaingateway.UnpackGetStakeOwnerOutput(got)
 	require.NoError(err)
-	require.Equal(pchaingateway.GetStakeOwnerOutput{PChainOwner: f.owner, CChainOwner: f.cOwner, Resolved: true}, ownerOut, "getStakeOwner(%d, 0, 0)", f.height)
+	require.Equal(pchaingateway.GetStakeOwnerOutput{PChainOwner: f.owner, CChainOwner: f.cOwner, Resolved: true}, ownerOut, "getStakeOwner(%d, 0)", f.height)
 }
 
 // TestPChainGatewayPrecompile drives the gateway end to end: the SAE builder

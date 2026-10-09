@@ -72,10 +72,7 @@ func (b *gatewayFakeBlockReader) Block() *pchain.Block {
 	return b.blk
 }
 
-func (b *gatewayFakeBlockReader) GetInputs(txIndex, from, max uint32, order pchain.InputOrder, _ pchain.ByteCharger) ([]pchain.Input, uint32, error) {
-	if order > pchain.InputOrderByUTXOTxIDString {
-		return nil, 0, pchain.ErrInvalidInputOrder
-	}
+func (b *gatewayFakeBlockReader) GetInputs(txIndex, from, max uint32, _ pchain.ByteCharger) ([]pchain.Input, uint32, error) {
 	if int(txIndex) >= len(b.blk.Txs) {
 		return nil, 0, pchain.ErrTxIndexOutOfRange
 	}

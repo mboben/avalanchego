@@ -126,7 +126,7 @@ func TestPChainReaderOverVM(t *testing.T) {
 	// transaction, or from the change of the subnet-creation transaction
 	// defaultVM accepted (the wallet picks UTXOs in ID order, so which ones
 	// are spent varies between runs); both are owned by the funded keys.
-	inputs, total, err := blkReader.GetInputs(0, 0, 64, pchain.InputOrderCanonical, nil)
+	inputs, total, err := blkReader.GetInputs(0, 0, 64, nil)
 	require.NoError(err)
 	require.Equal(got.InputCount, total)
 	require.Len(inputs, int(total))

@@ -4,7 +4,6 @@
 package pchainreader
 
 import (
-	"sync"
 	"time"
 
 	"github.com/ava-labs/avalanchego/ids"
@@ -43,9 +42,6 @@ type decodedBlock struct {
 	// outs references the produced outputs of every decoded transaction
 	// inside the parsed transaction; they are converted per requested page.
 	outs []txOutputs
-	// byString caches, per transaction, the permutation of ins in
-	// [pchain.InputOrderByUTXOTxIDString], computed once on first use.
-	byString []stringOrder
 }
 
 // txOutputs references the produced outputs of one transaction: the BaseTx
@@ -68,24 +64,6 @@ func (o txOutputs) at(i int) (*avax.TransferableOutput, pchain.OutputKind) {
 		return o.outs[i], pchain.OutputTransfer
 	}
 	return o.extra[i-len(o.outs)], o.extraKind
-}
-
-// stringOrder lazily holds the CB58-string order of one transaction's inputs.
-type stringOrder struct {
-	once sync.Once
-	perm []int
-}
-
-// inputsByString returns the indexes of transaction txIndex's inputs in
-// CB58-string order, computing them on first use. Ordering converts every
-// input's UTXO transaction ID to its string and sorts them, whatever page is
-// read afterwards; the gateway prices that per input of the transaction.
-func (db *decodedBlock) inputsByString(txIndex uint32) []int {
-	so := &db.byString[txIndex]
-	so.once.Do(func() {
-		so.perm = permutationByString(db.ins[txIndex])
-	})
-	return so.perm
 }
 
 func (r *Reader) decode(blk block.Block) *decodedBlock {
@@ -113,7 +91,6 @@ func (r *Reader) decode(blk block.Block) *decodedBlock {
 		importedFrom: make([]uint32, len(rawTxs)),
 		creds:        make([][]*secp256k1fx.Credential, len(rawTxs)),
 		outs:         make([]txOutputs, len(rawTxs)),
-		byString:     make([]stringOrder, len(rawTxs)),
 	}
 	for i, tx := range rawTxs {
 		d := newTxDecoder(timestamp, durango, uint32(i), tx.ID())

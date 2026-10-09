@@ -26,7 +26,6 @@ const (
 	reasonUnsupportedTx         = "PChainGateway: unsupported tx type"
 	reasonInputIndexOutOfRange  = "PChainGateway: input index out of range"
 	reasonOutputIndexOutOfRange = "PChainGateway: output index out of range"
-	reasonInvalidInputOrder     = "PChainGateway: invalid input order"
 )
 
 var (
@@ -87,8 +86,6 @@ func readerError(err error) (reason string, callerError bool) {
 		return reasonInputIndexOutOfRange, true
 	case errors.Is(err, pchain.ErrOutputIndexOutOfRange):
 		return reasonOutputIndexOutOfRange, true
-	case errors.Is(err, pchain.ErrInvalidInputOrder):
-		return reasonInvalidInputOrder, true
 	default:
 		return "", false
 	}

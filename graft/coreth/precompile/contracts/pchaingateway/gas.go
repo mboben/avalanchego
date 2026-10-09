@@ -3,8 +3,6 @@
 
 package pchaingateway
 
-import "github.com/ava-labs/avalanchego/snow/pchain"
-
 // Gas schedule and protocol caps. Gas is charged before any P-chain access and
 // depends only on the call arguments plus, for owner addresses, on the
 // returned data, so it is identical on every node. The schedule targets the
@@ -45,18 +43,6 @@ const (
 	// validators. A 2 MiB block (the P-chain maximum) costs ~21M gas, a
 	// 128 KiB block (the builder's target size) ~1.3M gas.
 	ByteGas uint64 = 10
-	// InputOrderGas is charged per input of the transaction when a non-empty
-	// page is read in InputOrderByUTXOTxIDString order (getTransactionInputs
-	// with order 1; getStakeOwner reads in canonical order and never pays
-	// it): whatever the page size, the reader converts every input's UTXO
-	// transaction ID to its CB58 string and sorts them. The reader caches the
-	// order per decoded block, but the gas is charged on every such read.
-	// Calibration:
-	// BenchmarkPermutationByString in vms/platformvm/pchainreader measures
-	// 1.3-1.6 µs per input (16 to 20,000 inputs; the string conversion
-	// dominates) on an M-series laptop, i.e. ~160 gas at the 100 Mgas/s
-	// target; 1,000 gas/input keeps a >6x margin.
-	InputOrderGas uint64 = 1_000
 	// SignatureRecoveryGas is charged by getStakeOwner when its input has a
 	// candidate owner: the owner's C-chain address is recovered from the
 	// owner's signature on the transaction, which takes up to two secp256k1
@@ -97,11 +83,10 @@ func GetTransactionsGas(maxTxs, maxInputsPerTx, maxOutputsPerTx uint32, decodedB
 }
 
 // GetTransactionInputsGas is the cost of getTransactionInputs for the given
-// page size, the total stored bytes decoded, the number of inputs ordered by
-// CB58 string (the transaction's input count for a non-empty page in order 1,
-// else 0) and the number of owner addresses returned.
-func GetTransactionInputsGas(maxInputs uint32, decodedBytes uint64, orderedInputs uint32, addresses int) uint64 {
-	return BlockReadGas + uint64(maxInputs)*InputGas + decodedBytes*ByteGas + uint64(orderedInputs)*InputOrderGas + uint64(addresses)*AddressGas
+// page size, the total stored bytes decoded and the number of owner addresses
+// returned.
+func GetTransactionInputsGas(maxInputs uint32, decodedBytes uint64, addresses int) uint64 {
+	return BlockReadGas + uint64(maxInputs)*InputGas + decodedBytes*ByteGas + uint64(addresses)*AddressGas
 }
 
 // GetTransactionOutputsGas is the cost of getTransactionOutputs for the given
@@ -113,23 +98,11 @@ func GetTransactionOutputsGas(maxOutputs uint32, blockBytes uint64, addresses in
 
 // GetStakeOwnerGas is the cost of getStakeOwner given the total stored bytes
 // decoded and the number of candidate owner addresses of the first input (the
-// signature recovery is charged when there is one). The first input is read
-// in canonical order, which is never charged for ordering.
+// signature recovery is charged when there is one).
 func GetStakeOwnerGas(decodedBytes uint64, candidates int) uint64 {
 	gas := BlockReadGas + InputGas + decodedBytes*ByteGas + uint64(candidates)*AddressGas
 	if candidates > 0 {
 		gas += SignatureRecoveryGas
 	}
 	return gas
-}
-
-// InputOrderingGas is the cost of ordering the inputs of a transaction with
-// inputCount inputs before reading max of them from position from in order:
-// InputOrderGas per input of the transaction when the order is by CB58 string
-// and the page is not empty, else 0.
-func InputOrderingGas(inputCount, from, max uint32, order pchain.InputOrder) uint64 {
-	if order != pchain.InputOrderByUTXOTxIDString || max == 0 || from >= inputCount {
-		return 0
-	}
-	return uint64(inputCount) * InputOrderGas
 }

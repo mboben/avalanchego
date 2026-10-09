@@ -37,7 +37,7 @@ and in every historical replay (`eth_call`, `debug_trace*`). Three mechanisms gu
 
 | Situation | Behaviour |
 |---|---|
-| Caller errors: height above the bound, no committed height (pre-Helicon block), page size above a cap, tx index / input index / output index out of range, unsupported tx type, invalid order, malformed calldata | Solidity `Error(string)` revert with a `PChainGateway: …` reason; remaining gas is kept |
+| Caller errors: height above the bound, no committed height (pre-Helicon block), page size above a cap, tx index / input index / output index out of range, unsupported tx type, malformed calldata | Solidity `Error(string)` revert with a `PChainGateway: …` reason; remaining gas is kept |
 | Node-local failures: no P-chain reader on the chain context, committed height not accepted locally (RPC on a lagging node), database errors | `InvalidateExecution` + error: canonical execution halts loudly instead of diverging, RPC returns the error. Never a catchable revert, so a daemon cannot swallow it and advance its cursor. |
 
 ## Gas
@@ -56,7 +56,6 @@ one. There are no refunds for short pages. Constants in `gas.go`:
 | per requested input slot (`maxInputsPerTx` per tx slot, `maxInputs`, one for `getStakeOwner`) | 10 000 |
 | per requested output slot (`maxOutputsPerTx` per tx slot, `maxOutputs`) | 1 000 |
 | per byte of P-chain data decoded: the block's stored bytes on every call, plus the stored bytes of each producing transaction resolved for an input (genesis UTXOs and imported inputs: none) | 10 |
-| per input of the transaction when a non-empty page (`maxInputs > 0`, `fromInput < inputCount`) is read with `order = 1` (`getTransactionInputs`; `getStakeOwner` always reads the canonical first input): ordering by CB58 string touches every input | 1 000 |
 | per returned owner address, of inputs and outputs (per candidate for `getStakeOwner`) | 200 |
 | signature recovery of the attributed owner (`getStakeOwner`, when the first input has a candidate owner): up to two secp256k1 public-key recoveries, one per accepted signing scheme | 6 000 |
 
@@ -69,12 +68,9 @@ builder's target) about 1.3M; the 2 MiB maximum about 21M. The node never parses
 stored bytes under the lock (`state.GetBlockBytes`, `state.GetTxBytes`), charges them, and parses outside. Reads that
 cannot pay for the bytes run out of gas before any parsing happens. The local tip height (bound checks, the execution
 gate) comes from the accepted-height index, never from parsing the tip block, so a P-chain tip change costs a few
-index lookups rather than an unmetered parse. Input ordering is priced the same way: `order = 1` converts every
-input's UTXO transaction ID to its CB58 string and sorts them whatever the page size (about 1.5 µs per input,
-`BenchmarkPermutationByString`), so a non-empty page in that order pays 1 000 gas per input of the transaction, before
-anything is ordered and also when the reader serves the cached order. Empty pages (`maxInputs = 0` or
-`fromInput = inputCount`) and canonical-order pages order nothing and pay nothing for it; canonical pages are sliced
-directly from the decoded transaction. A call decodes and pays for its block once: `pchain.Reader.GetBlock` returns a
+index lookups rather than an unmetered parse. Input pages are sliced directly from the decoded transaction, in its
+serialized order, so a page costs nothing beyond its requested slots and the producing transactions it resolves. A
+call decodes and pays for its block once: `pchain.Reader.GetBlock` returns a
 handle (`pchain.BlockReader`) over the decoded block and the per-transaction input and output reads of
 `getTransactions` go through that handle, so they charge only the producing transactions the inputs resolve. Outputs
 need no lookup at all: the decoded block keeps references into the parsed transaction and a page is converted on
@@ -137,11 +133,9 @@ exported by the source chain (`utxoTxId` is that chain's export transaction). Im
 `imported`, carry their `assetId`, `amount` and `sigIndices`, and are never resolved (`resolved == false`): their producing
 transaction is not on the P-chain, and the reader does not look it up (a lookup would fail as a node-local error).
 
-Orders: `0` canonical — the serialized order: the P-chain inputs, then the imported inputs, each group sorted by UTXO
-transaction id **bytes**, then output index (the indexer's `in_idx`); `1` by the **CB58 string** of the UTXO
-transaction id, then output index, over the whole list. The two differ only when the CB58 strings have different
-lengths (or, for imports, across the two groups). Only `getTransactionInputs` takes an `order`; `getStakeOwner`
-always uses the canonical order.
+Inputs are listed in canonical order, the transaction's serialized order: the P-chain inputs, then the imported
+inputs, each group sorted by UTXO transaction id **bytes**, then output index (the indexer's `in_idx`). Pages are
+slices of that list.
 
 ### Outputs
 
@@ -162,9 +156,9 @@ Types 4 (config) and 10 (transfer) have transfer outputs only; types 5 and 11 ha
 ### `getStakeOwner`
 
 Reproduces the attribution rule of the Flare P-chain indexer (`utils/staking/utils.go` `DedupeTxs` and
-`indexer/shared` `selectSigners`): take the first input in canonical order (the serialized order, the indexer's
-`in_idx` 0; there is no `order` argument), keep only the owners that signed it (all owners if there are no usable
-signature indices), and pick the lexically smallest **bech32** string with the
+`indexer/shared` `selectSigners`): take the first input (in canonical order: the indexer's `in_idx` 0), keep only
+the owners that signed it (all owners if there are no usable signature indices), and pick the lexically smallest
+**bech32** string with the
 network's HRP. The owner is returned twice: `pChainOwner`, its P-chain address, and `cChainOwner`, the C-chain (EVM)
 address of the same key. A P-chain address (`ripemd160(sha256(compressed key))`) cannot be converted into an EVM
 address (`keccak256(uncompressed key)[12:]`), but the owner signed the transaction: the node recovers the public key

@@ -71,16 +71,6 @@ func byteCharger(remainingGas *uint64) pchain.ByteCharger {
 	}
 }
 
-// deductInputOrdering charges InputOrderingGas for reading max inputs of
-// transaction txIndex of blk from position from in order. Out-of-range
-// transaction indexes charge nothing: the reader rejects them.
-func deductInputOrdering(remainingGas uint64, blk *pchain.Block, txIndex, from, max uint32, order pchain.InputOrder) (uint64, error) {
-	if uint64(txIndex) >= uint64(len(blk.Txs)) {
-		return remainingGas, nil
-	}
-	return contract.DeductGas(remainingGas, InputOrderingGas(blk.Txs[txIndex].InputCount, from, max, order))
-}
-
 // typeSelected reports whether filter selects txType; a zero filter selects
 // every supported type.
 func typeSelected(filter *big.Int, txType pchain.TxType) bool {
@@ -239,7 +229,7 @@ func getTransactions(accessibleState contract.AccessibleState, caller common.Add
 		}
 		var inputs []pchain.Input
 		if in.MaxInputsPerTx > 0 && tx.InputCount > 0 {
-			inputs, _, err = blkReader.GetInputs(next, 0, in.MaxInputsPerTx, pchain.InputOrderCanonical, charge)
+			inputs, _, err = blkReader.GetInputs(next, 0, in.MaxInputsPerTx, charge)
 			if err != nil {
 				return readerFailure(accessibleState, remainingGas, err)
 			}
@@ -280,9 +270,6 @@ func getTransactionInputs(accessibleState contract.AccessibleState, caller commo
 	if in.MaxInputs > MaxInputsPerCall {
 		return revert(remainingGas, reasonPageSizeExceedsCap)
 	}
-	if in.Order > uint8(pchain.InputOrderByUTXOTxIDString) {
-		return revert(remainingGas, reasonInvalidInputOrder)
-	}
 	if remainingGas, err = contract.DeductGas(remainingGas, uint64(in.MaxInputs)*InputGas); err != nil {
 		return nil, 0, err
 	}
@@ -299,12 +286,7 @@ func getTransactionInputs(accessibleState contract.AccessibleState, caller commo
 	if err != nil {
 		return readerFailure(accessibleState, remainingGas, err)
 	}
-	// Ordering by CB58 string touches every input of the transaction, so it
-	// is paid per input before the reader orders anything.
-	if remainingGas, err = deductInputOrdering(remainingGas, blkReader.Block(), in.TxIndex, in.FromInput, in.MaxInputs, pchain.InputOrder(in.Order)); err != nil {
-		return nil, 0, err
-	}
-	inputs, total, err := blkReader.GetInputs(in.TxIndex, in.FromInput, in.MaxInputs, pchain.InputOrder(in.Order), charge)
+	inputs, total, err := blkReader.GetInputs(in.TxIndex, in.FromInput, in.MaxInputs, charge)
 	if err != nil {
 		return readerFailure(accessibleState, remainingGas, err)
 	}
@@ -411,9 +393,7 @@ func getStakeOwner(accessibleState contract.AccessibleState, caller common.Addre
 	if err != nil {
 		return readerFailure(accessibleState, remainingGas, err)
 	}
-	// The first canonical input is sliced from the decoded transaction, so
-	// there is no ordering gas.
-	inputs, _, err := blkReader.GetInputs(in.TxIndex, 0, 1, pchain.InputOrderCanonical, charge)
+	inputs, _, err := blkReader.GetInputs(in.TxIndex, 0, 1, charge)
 	if err != nil {
 		return readerFailure(accessibleState, remainingGas, err)
 	}

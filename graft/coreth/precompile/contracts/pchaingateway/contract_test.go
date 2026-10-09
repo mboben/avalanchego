@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"sort"
 	"testing"
 
 	"github.com/ava-labs/libevm/common"
@@ -83,10 +82,7 @@ func (b *fakeBlockReader) Block() *pchain.Block {
 	return b.blk
 }
 
-func (b *fakeBlockReader) GetInputs(txIndex, from, max uint32, order pchain.InputOrder, charge pchain.ByteCharger) ([]pchain.Input, uint32, error) {
-	if order > pchain.InputOrderByUTXOTxIDString {
-		return nil, 0, pchain.ErrInvalidInputOrder
-	}
+func (b *fakeBlockReader) GetInputs(txIndex, from, max uint32, charge pchain.ByteCharger) ([]pchain.Input, uint32, error) {
 	if int(txIndex) >= len(b.blk.Txs) {
 		return nil, 0, pchain.ErrTxIndexOutOfRange
 	}
@@ -95,20 +91,6 @@ func (b *fakeBlockReader) GetInputs(txIndex, from, max uint32, order pchain.Inpu
 	}
 	ins := b.inputs[txIndex]
 	sizes := b.sizes[txIndex]
-	perm := make([]int, len(ins))
-	for i := range perm {
-		perm[i] = i
-	}
-	if order == pchain.InputOrderByUTXOTxIDString {
-		sort.SliceStable(perm, func(a, b int) bool {
-			ia, ib := perm[a], perm[b]
-			sa, sb := ins[ia].UTXOTxID.String(), ins[ib].UTXOTxID.String()
-			if sa != sb {
-				return sa < sb
-			}
-			return ins[ia].UTXOOutputIndex < ins[ib].UTXOOutputIndex
-		})
-	}
 	total := uint32(len(ins))
 	if from > total {
 		return nil, total, pchain.ErrInputIndexOutOfRange
@@ -118,7 +100,7 @@ func (b *fakeBlockReader) GetInputs(txIndex, from, max uint32, order pchain.Inpu
 		end = from + max
 	}
 	page := make([]pchain.Input, 0, end-from)
-	for _, i := range perm[from:end] {
+	for i := from; i < end; i++ {
 		if charge != nil && sizes[i] > 0 { // genesis UTXOs charge nothing
 			if err := charge(sizes[i]); err != nil {
 				return nil, total, err
@@ -165,9 +147,9 @@ const (
 )
 
 var (
-	// byteFirst sorts before stringFirst by bytes but after it by CB58 string.
-	byteFirst   = ids.ID{0x01}
-	stringFirst = ids.ID{0x03}
+	// byteFirst sorts before byteSecond by UTXO tx id bytes: the inputs' canonical order.
+	byteFirst  = ids.ID{0x01}
+	byteSecond = ids.ID{0x03}
 
 	// Owners are the P-chain addresses of deterministic keys, so that the
 	// fixture inputs can carry the owners' signatures and getStakeOwner can
@@ -207,9 +189,9 @@ var (
 // bytes would do); their inputs carry the owners' signatures over them, in
 // the plain scheme unless noted.
 var testInputs = map[uint32][]pchain.Input{
-	0: { // validator: canonical order byteFirst, stringFirst
+	0: { // validator: canonical order byteFirst, byteSecond
 		{UTXOTxID: byteFirst, UTXOOutputIndex: 0, AssetID: nativeAssetID, Amount: 700, Resolved: true, Threshold: 2, Addresses: []ids.ShortID{addrA, addrB, addrC}, SigIndices: []uint32{0, 2}, Signatures: sigs(validatorTxID[:], keyA, keyC)},
-		{UTXOTxID: stringFirst, UTXOOutputIndex: 1, AssetID: nativeAssetID, Amount: 300, Resolved: true, Threshold: 1, Addresses: []ids.ShortID{addrD}, SigIndices: []uint32{0}, Signatures: sigs(validatorTxID[:], keyD)},
+		{UTXOTxID: byteSecond, UTXOOutputIndex: 1, AssetID: nativeAssetID, Amount: 300, Resolved: true, Threshold: 1, Addresses: []ids.ShortID{addrD}, SigIndices: []uint32{0}, Signatures: sigs(validatorTxID[:], keyD)},
 	},
 	2: { // delegator: single owner
 		{UTXOTxID: byteFirst, UTXOOutputIndex: 5, AssetID: nativeAssetID, Amount: 500, Resolved: true, Threshold: 1, Addresses: []ids.ShortID{addrB}, SigIndices: []uint32{0}, Signatures: sigs(delegatorTxID[:], keyB)},
@@ -300,18 +282,16 @@ var transferBlock = &pchain.Block{
 }
 
 // transferInputs are in canonical order: the P-chain inputs first, then the
-// imported inputs. The import's imported UTXO id (stringFirst) sorts after
-// its P-chain input by bytes but before it by CB58 string. The import brings
-// in a custom asset: its native P-chain input pays the fee, the imported
-// input and the output carry customAssetID. The plain transfer is signed in
-// the Ethereum scheme.
+// imported inputs. The import brings in a custom asset: its native P-chain
+// input pays the fee, the imported input and the output carry customAssetID.
+// The plain transfer is signed in the Ethereum scheme.
 var transferInputs = map[uint32][]pchain.Input{
 	0: {
 		{UTXOTxID: byteFirst, UTXOOutputIndex: 7, AssetID: nativeAssetID, Amount: 10, Resolved: true, Threshold: 1, Addresses: []ids.ShortID{addrA}, SigIndices: []uint32{0}, Signatures: sigs(importTxID[:], keyA)},
-		{UTXOTxID: stringFirst, UTXOOutputIndex: 0, AssetID: customAssetID, Amount: 990, Imported: true, SigIndices: []uint32{0}, Signatures: sigs(importTxID[:], keyB)},
+		{UTXOTxID: byteSecond, UTXOOutputIndex: 0, AssetID: customAssetID, Amount: 990, Imported: true, SigIndices: []uint32{0}, Signatures: sigs(importTxID[:], keyB)},
 	},
 	1: {{UTXOTxID: byteFirst, UTXOOutputIndex: 8, AssetID: nativeAssetID, Amount: 1000, Resolved: true, Threshold: 1, Addresses: []ids.ShortID{addrC}, SigIndices: []uint32{0}, Signatures: sigs(exportTxID[:], keyC)}},
-	2: {{UTXOTxID: stringFirst, UTXOOutputIndex: 2, AssetID: nativeAssetID, Amount: 50, Resolved: true, Threshold: 1, Addresses: []ids.ShortID{addrB}, SigIndices: []uint32{0}, Signatures: ethSigs(baseTxID[:], keyB)}},
+	2: {{UTXOTxID: byteSecond, UTXOOutputIndex: 2, AssetID: nativeAssetID, Amount: 50, Resolved: true, Threshold: 1, Addresses: []ids.ShortID{addrB}, SigIndices: []uint32{0}, Signatures: ethSigs(baseTxID[:], keyB)}},
 }
 
 // transferInputBytes are the producing-tx sizes of transferInputs; imported
@@ -466,7 +446,7 @@ func TestABISelectorsAndSignatures(t *testing.T) {
 		"getNativeAssetId":      "getNativeAssetId()",
 		"getBlock":              "getBlock(uint64)",
 		"getTransactions":       "getTransactions(uint64,uint32,uint32,uint256,uint32,uint32)",
-		"getTransactionInputs":  "getTransactionInputs(uint64,uint32,uint32,uint32,uint8)",
+		"getTransactionInputs":  "getTransactionInputs(uint64,uint32,uint32,uint32)",
 		"getTransactionOutputs": "getTransactionOutputs(uint64,uint32,uint32,uint32)",
 		"getStakeOwner":         "getStakeOwner(uint64,uint32)",
 	}
@@ -626,7 +606,7 @@ func TestAssetIdsAreExposed(t *testing.T) {
 	importOnly := new(big.Int).SetBit(big.NewInt(0), int(pchain.TxImport), 1)
 
 	feeInput := Input{UtxoTxId: byteFirst, UtxoOutputIndex: 7, AssetId: nativeAssetID, Amount: 10, Resolved: true, Threshold: 1, Addresses: [][20]byte{addrA}, SigIndices: []uint32{0}}
-	importedInput := Input{UtxoTxId: stringFirst, UtxoOutputIndex: 0, AssetId: customAssetID, Amount: 990, Imported: true, Addresses: [][20]byte{}, SigIndices: []uint32{0}}
+	importedInput := Input{UtxoTxId: byteSecond, UtxoOutputIndex: 0, AssetId: customAssetID, Amount: 990, Imported: true, Addresses: [][20]byte{}, SigIndices: []uint32{0}}
 	importedOutput := Output{Kind: uint8(pchain.OutputTransfer), AssetId: customAssetID, Amount: 990, Threshold: 1, Addresses: [][20]byte{addrB}}
 
 	tests := []precompiletest.PrecompileTest{
@@ -657,11 +637,11 @@ func TestAssetIdsAreExposed(t *testing.T) {
 		{
 			Name: "getTransactionInputs",
 			InputFn: func(t testing.TB) []byte {
-				return mustPack(t)(PackGetTransactionInputs(GetTransactionInputsInput{Height: transferHeight, TxIndex: 0, FromInput: 0, MaxInputs: 64, Order: uint8(pchain.InputOrderCanonical)}))
+				return mustPack(t)(PackGetTransactionInputs(GetTransactionInputsInput{Height: transferHeight, TxIndex: 0, FromInput: 0, MaxInputs: 64}))
 			},
 			SetupBlockContext: withBound(bound),
 			SnowContext:       snowCtx,
-			SuppliedGas:       GetTransactionInputsGas(64, transferDecodedBytes(0, 0), 0, 1),
+			SuppliedGas:       GetTransactionInputsGas(64, transferDecodedBytes(0, 0), 1),
 			ReadOnly:          true,
 			ExpectedRes: mustPack(t)(PackGetTransactionInputsOutput(GetTransactionInputsOutput{
 				Inputs:     []Input{feeInput, importedInput},
@@ -993,21 +973,13 @@ func TestGetTransactionInputs(t *testing.T) {
 	call := func(in GetTransactionInputsInput) func(testing.TB) []byte {
 		return func(t testing.TB) []byte { return mustPack(t)(PackGetTransactionInputs(in)) }
 	}
-	canonical := uint8(pchain.InputOrderCanonical)
-	byString := uint8(pchain.InputOrderByUTXOTxIDString)
-
-	// byteFirst sorts before stringFirst by bytes but after it by CB58 string,
-	// so the two orders differ for the validator's inputs.
-	require.Negative(t, bytes.Compare(byteFirst[:], stringFirst[:]))
-	require.Greater(t, byteFirst.String(), stringFirst.String())
-
 	tests := []precompiletest.PrecompileTest{
 		{
-			Name:              "canonical order",
-			InputFn:           call(GetTransactionInputsInput{Height: blockHeight, TxIndex: 0, FromInput: 0, MaxInputs: 64, Order: canonical}),
+			Name:              "all inputs, in canonical order",
+			InputFn:           call(GetTransactionInputsInput{Height: blockHeight, TxIndex: 0, FromInput: 0, MaxInputs: 64}),
 			SetupBlockContext: withBound(bound),
 			SnowContext:       snowCtx,
-			SuppliedGas:       GetTransactionInputsGas(64, decodedBytes(0, 0, 1), 0, 4),
+			SuppliedGas:       GetTransactionInputsGas(64, decodedBytes(0, 0, 1), 4),
 			ReadOnly:          true,
 			ExpectedRes: mustPack(t)(PackGetTransactionInputsOutput(GetTransactionInputsOutput{
 				Inputs:     []Input{toInput(testInputs[0][0]), toInput(testInputs[0][1])},
@@ -1015,23 +987,11 @@ func TestGetTransactionInputs(t *testing.T) {
 			})),
 		},
 		{
-			Name:              "order by UTXO tx id string",
-			InputFn:           call(GetTransactionInputsInput{Height: blockHeight, TxIndex: 0, FromInput: 0, MaxInputs: 64, Order: byString}),
-			SetupBlockContext: withBound(bound),
-			SnowContext:       snowCtx,
-			SuppliedGas:       GetTransactionInputsGas(64, decodedBytes(0, 1, 0), 2, 4), // orders both inputs of tx 0
-			ReadOnly:          true,
-			ExpectedRes: mustPack(t)(PackGetTransactionInputsOutput(GetTransactionInputsOutput{
-				Inputs:     []Input{toInput(testInputs[0][1]), toInput(testInputs[0][0])},
-				InputCount: 2,
-			})),
-		},
-		{
 			Name:              "paging",
-			InputFn:           call(GetTransactionInputsInput{Height: blockHeight, TxIndex: 0, FromInput: 1, MaxInputs: 1, Order: canonical}),
+			InputFn:           call(GetTransactionInputsInput{Height: blockHeight, TxIndex: 0, FromInput: 1, MaxInputs: 1}),
 			SetupBlockContext: withBound(bound),
 			SnowContext:       snowCtx,
-			SuppliedGas:       GetTransactionInputsGas(1, decodedBytes(0, 1), 0, 1),
+			SuppliedGas:       GetTransactionInputsGas(1, decodedBytes(0, 1), 1),
 			ReadOnly:          true,
 			ExpectedRes: mustPack(t)(PackGetTransactionInputsOutput(GetTransactionInputsOutput{
 				Inputs:     []Input{toInput(testInputs[0][1])},
@@ -1040,10 +1000,10 @@ func TestGetTransactionInputs(t *testing.T) {
 		},
 		{
 			Name:              "unresolved input is returned as such",
-			InputFn:           call(GetTransactionInputsInput{Height: blockHeight, TxIndex: 5, FromInput: 0, MaxInputs: 8, Order: canonical}),
+			InputFn:           call(GetTransactionInputsInput{Height: blockHeight, TxIndex: 5, FromInput: 0, MaxInputs: 8}),
 			SetupBlockContext: withBound(bound),
 			SnowContext:       snowCtx,
-			SuppliedGas:       GetTransactionInputsGas(8, decodedBytes(5, 0), 0, 0),
+			SuppliedGas:       GetTransactionInputsGas(8, decodedBytes(5, 0), 0),
 			ReadOnly:          true,
 			ExpectedRes: mustPack(t)(PackGetTransactionInputsOutput(GetTransactionInputsOutput{
 				Inputs:     []Input{toInput(testInputs[5][0])},
@@ -1051,18 +1011,8 @@ func TestGetTransactionInputs(t *testing.T) {
 			})),
 		},
 		{
-			Name:              "invalid order reverts",
-			InputFn:           call(GetTransactionInputsInput{Height: blockHeight, TxIndex: 0, FromInput: 0, MaxInputs: 1, Order: 2}),
-			SetupBlockContext: withBound(bound),
-			SnowContext:       snowCtx,
-			SuppliedGas:       BlockReadGas,
-			ReadOnly:          true,
-			ExpectedRes:       revertReason(reasonInvalidInputOrder),
-			ExpectedErr:       vm.ErrExecutionReverted,
-		},
-		{
 			Name:              "maxInputs above cap reverts",
-			InputFn:           call(GetTransactionInputsInput{Height: blockHeight, TxIndex: 0, FromInput: 0, MaxInputs: MaxInputsPerCall + 1, Order: canonical}),
+			InputFn:           call(GetTransactionInputsInput{Height: blockHeight, TxIndex: 0, FromInput: 0, MaxInputs: MaxInputsPerCall + 1}),
 			SetupBlockContext: withBound(bound),
 			SnowContext:       snowCtx,
 			SuppliedGas:       BlockReadGas,
@@ -1071,62 +1021,29 @@ func TestGetTransactionInputs(t *testing.T) {
 			ExpectedErr:       vm.ErrExecutionReverted,
 		},
 		{
-			Name:              "empty page in string order orders nothing",
-			InputFn:           call(GetTransactionInputsInput{Height: blockHeight, TxIndex: 0, FromInput: 0, MaxInputs: 0, Order: byString}),
+			Name:              "empty page",
+			InputFn:           call(GetTransactionInputsInput{Height: blockHeight, TxIndex: 0, FromInput: 0, MaxInputs: 0}),
 			SetupBlockContext: withBound(bound),
 			SnowContext:       snowCtx,
-			SuppliedGas:       GetTransactionInputsGas(0, testBlockBytes, 0, 0),
+			SuppliedGas:       GetTransactionInputsGas(0, testBlockBytes, 0),
 			ReadOnly:          true,
 			ExpectedRes:       mustPack(t)(PackGetTransactionInputsOutput(GetTransactionInputsOutput{Inputs: []Input{}, InputCount: 2})),
 		},
 		{
-			Name:              "page past the last input in string order orders nothing",
-			InputFn:           call(GetTransactionInputsInput{Height: blockHeight, TxIndex: 0, FromInput: 2, MaxInputs: 5, Order: byString}),
+			Name:              "page starting at the input count is empty",
+			InputFn:           call(GetTransactionInputsInput{Height: blockHeight, TxIndex: 0, FromInput: 2, MaxInputs: 5}),
 			SetupBlockContext: withBound(bound),
 			SnowContext:       snowCtx,
-			SuppliedGas:       GetTransactionInputsGas(5, testBlockBytes, 0, 0),
+			SuppliedGas:       GetTransactionInputsGas(5, testBlockBytes, 0),
 			ReadOnly:          true,
 			ExpectedRes:       mustPack(t)(PackGetTransactionInputsOutput(GetTransactionInputsOutput{Inputs: []Input{}, InputCount: 2})),
 		},
 		{
-			Name:              "one input in string order pays for ordering the whole transaction",
-			InputFn:           call(GetTransactionInputsInput{Height: blockHeight, TxIndex: 0, FromInput: 1, MaxInputs: 1, Order: byString}),
-			SetupBlockContext: withBound(bound),
-			SnowContext:       snowCtx,
-			SuppliedGas:       GetTransactionInputsGas(1, decodedBytes(0, 0), 2, 3), // second by string is the byteFirst input
-			ReadOnly:          true,
-			ExpectedRes: mustPack(t)(PackGetTransactionInputsOutput(GetTransactionInputsOutput{
-				Inputs:     []Input{toInput(testInputs[0][0])},
-				InputCount: 2,
-			})),
-		},
-		{
-			Name:              "insufficient gas for ordering",
-			InputFn:           call(GetTransactionInputsInput{Height: blockHeight, TxIndex: 0, FromInput: 0, MaxInputs: 1, Order: byString}),
-			SetupBlockContext: withBound(bound),
-			SnowContext:       snowCtx,
-			SuppliedGas:       GetTransactionInputsGas(1, testBlockBytes, 2, 0) - 1, // charged before any input is resolved
-			ReadOnly:          true,
-			ExpectedErr:       vm.ErrOutOfGas,
-		},
-		{
-			Name:              "ownerless output resolves with no addresses in canonical order",
-			InputFn:           call(GetTransactionInputsInput{Height: blockHeight, TxIndex: 2, FromInput: 0, MaxInputs: 8, Order: canonical}),
+			Name:              "ownerless output resolves with no addresses",
+			InputFn:           call(GetTransactionInputsInput{Height: blockHeight, TxIndex: 2, FromInput: 0, MaxInputs: 8}),
 			SetupBlockContext: withBound(bound),
 			SnowContext:       snowContextWithReader(t, newOwnerlessReader()),
-			SuppliedGas:       GetTransactionInputsGas(8, decodedBytes(2, 0), 0, 0),
-			ReadOnly:          true,
-			ExpectedRes: mustPack(t)(PackGetTransactionInputsOutput(GetTransactionInputsOutput{
-				Inputs:     []Input{toInput(ownerlessInput)},
-				InputCount: 1,
-			})),
-		},
-		{
-			Name:              "ownerless output resolves with no addresses in string order",
-			InputFn:           call(GetTransactionInputsInput{Height: blockHeight, TxIndex: 2, FromInput: 0, MaxInputs: 8, Order: byString}),
-			SetupBlockContext: withBound(bound),
-			SnowContext:       snowContextWithReader(t, newOwnerlessReader()),
-			SuppliedGas:       GetTransactionInputsGas(8, decodedBytes(2, 0), 1, 0),
+			SuppliedGas:       GetTransactionInputsGas(8, decodedBytes(2, 0), 0),
 			ReadOnly:          true,
 			ExpectedRes: mustPack(t)(PackGetTransactionInputsOutput(GetTransactionInputsOutput{
 				Inputs:     []Input{toInput(ownerlessInput)},
@@ -1135,55 +1052,43 @@ func TestGetTransactionInputs(t *testing.T) {
 		},
 		{
 			Name:              "unsupported tx reverts",
-			InputFn:           call(GetTransactionInputsInput{Height: blockHeight, TxIndex: 1, FromInput: 0, MaxInputs: 1, Order: canonical}),
+			InputFn:           call(GetTransactionInputsInput{Height: blockHeight, TxIndex: 1, FromInput: 0, MaxInputs: 1}),
 			SetupBlockContext: withBound(bound),
 			SnowContext:       snowCtx,
-			SuppliedGas:       GetTransactionInputsGas(1, testBlockBytes, 0, 0),
+			SuppliedGas:       GetTransactionInputsGas(1, testBlockBytes, 0),
 			ReadOnly:          true,
 			ExpectedRes:       revertReason(reasonUnsupportedTx),
 			ExpectedErr:       vm.ErrExecutionReverted,
 		},
 		{
 			Name:              "tx index out of range reverts",
-			InputFn:           call(GetTransactionInputsInput{Height: blockHeight, TxIndex: 6, FromInput: 0, MaxInputs: 1, Order: canonical}),
+			InputFn:           call(GetTransactionInputsInput{Height: blockHeight, TxIndex: 6, FromInput: 0, MaxInputs: 1}),
 			SetupBlockContext: withBound(bound),
 			SnowContext:       snowCtx,
-			SuppliedGas:       GetTransactionInputsGas(1, testBlockBytes, 0, 0),
+			SuppliedGas:       GetTransactionInputsGas(1, testBlockBytes, 0),
 			ReadOnly:          true,
 			ExpectedRes:       revertReason(reasonTxIndexOutOfRange),
 			ExpectedErr:       vm.ErrExecutionReverted,
 		},
 		{
 			Name:              "input index out of range reverts",
-			InputFn:           call(GetTransactionInputsInput{Height: blockHeight, TxIndex: 0, FromInput: 3, MaxInputs: 1, Order: canonical}),
+			InputFn:           call(GetTransactionInputsInput{Height: blockHeight, TxIndex: 0, FromInput: 3, MaxInputs: 1}),
 			SetupBlockContext: withBound(bound),
 			SnowContext:       snowCtx,
-			SuppliedGas:       GetTransactionInputsGas(1, testBlockBytes, 0, 0),
+			SuppliedGas:       GetTransactionInputsGas(1, testBlockBytes, 0),
 			ReadOnly:          true,
 			ExpectedRes:       revertReason(reasonInputIndexOutOfRange),
 			ExpectedErr:       vm.ErrExecutionReverted,
 		},
 		{
 			Name:              "imported input is unresolved and charges no producing transaction",
-			InputFn:           call(GetTransactionInputsInput{Height: transferHeight, TxIndex: 0, FromInput: 0, MaxInputs: 64, Order: canonical}),
+			InputFn:           call(GetTransactionInputsInput{Height: transferHeight, TxIndex: 0, FromInput: 0, MaxInputs: 64}),
 			SetupBlockContext: withBound(bound),
 			SnowContext:       snowCtx,
-			SuppliedGas:       GetTransactionInputsGas(64, transferDecodedBytes(0, 0), 0, 1),
+			SuppliedGas:       GetTransactionInputsGas(64, transferDecodedBytes(0, 0), 1),
 			ReadOnly:          true,
 			ExpectedRes: mustPack(t)(PackGetTransactionInputsOutput(GetTransactionInputsOutput{
 				Inputs:     []Input{toInput(transferInputs[0][0]), toInput(transferInputs[0][1])},
-				InputCount: 2,
-			})),
-		},
-		{
-			Name:              "imported input sorts first by UTXO tx id string",
-			InputFn:           call(GetTransactionInputsInput{Height: transferHeight, TxIndex: 0, FromInput: 0, MaxInputs: 64, Order: byString}),
-			SetupBlockContext: withBound(bound),
-			SnowContext:       snowCtx,
-			SuppliedGas:       GetTransactionInputsGas(64, transferDecodedBytes(0, 0), 2, 1),
-			ReadOnly:          true,
-			ExpectedRes: mustPack(t)(PackGetTransactionInputsOutput(GetTransactionInputsOutput{
-				Inputs:     []Input{toInput(transferInputs[0][1]), toInput(transferInputs[0][0])},
 				InputCount: 2,
 			})),
 		},

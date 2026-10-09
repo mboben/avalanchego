@@ -38,7 +38,6 @@ var (
 	ErrUnsupportedTx         = errors.New("unsupported transaction type")
 	ErrInputIndexOutOfRange  = errors.New("input index out of range")
 	ErrOutputIndexOutOfRange = errors.New("output index out of range")
-	ErrInvalidInputOrder     = errors.New("invalid input order")
 )
 
 // BlockKind is the kind of an accepted P-chain block.
@@ -92,23 +91,6 @@ const (
 
 	// NumTxTypes is one past the highest [TxType].
 	NumTxTypes
-)
-
-// InputOrder selects the order in which the inputs of a transaction are
-// returned by [BlockReader.GetInputs].
-type InputOrder uint8
-
-const (
-	// InputOrderCanonical is the serialized order of the transaction: the
-	// P-chain inputs followed, for import transactions, by the imported
-	// inputs, each group sorted by UTXO transaction ID bytes, then by output
-	// index (the P-chain requires that order).
-	InputOrderCanonical InputOrder = iota
-	// InputOrderByUTXOTxIDString sorts by the CB58 string representation of
-	// the UTXO transaction ID (ids.ID.String), then by output index. It
-	// differs from the canonical order only when the CB58 strings have
-	// different lengths (or, for import transactions, across the two groups).
-	InputOrderByUTXOTxIDString
 )
 
 // OutputKind is the kind of a produced output; see [Output].
@@ -290,12 +272,16 @@ type BlockReader interface {
 	// Block returns the decoded block.
 	Block() *Block
 	// GetInputs returns up to max inputs of the transaction at txIndex,
-	// starting at position from of the requested order, and the total number
-	// of inputs. Only decoded (non-[TxUnsupported]) transactions have
-	// inputs. charge is called with the stored size of each producing
-	// transaction that is resolved (genesis UTXOs and imported inputs have
-	// none) before it is decoded.
-	GetInputs(txIndex, from, max uint32, order InputOrder, charge ByteCharger) ([]Input, uint32, error)
+	// starting at position from, and the total number of inputs. Inputs are
+	// in the transaction's serialized (canonical) order: the P-chain inputs
+	// followed, for import transactions, by the imported inputs, each group
+	// sorted by UTXO transaction ID bytes, then by output index (the P-chain
+	// requires that order; it is the Flare P-chain indexer's input index).
+	// Only decoded (non-[TxUnsupported]) transactions have inputs. charge is
+	// called with the stored size of each producing transaction that is
+	// resolved (genesis UTXOs and imported inputs have none) before it is
+	// decoded.
+	GetInputs(txIndex, from, max uint32, charge ByteCharger) ([]Input, uint32, error)
 	// GetOutputs returns up to max outputs of the transaction at txIndex,
 	// starting at position from, and the total number of outputs. Only
 	// decoded transactions have outputs. Outputs are part of the decoded

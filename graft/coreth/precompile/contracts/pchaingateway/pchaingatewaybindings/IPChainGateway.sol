@@ -22,10 +22,8 @@ interface IPChainGateway {
     //   10 Base (plain P-chain transfer), 11 RewardValidator (removal of a bounded staker of type 1, 2, 6 or 7;
     //   a proposal tx whose outcome is the kind of the block at height+1).
     //
-    // Input orders accepted by `getTransactionInputs` (`getStakeOwner` always uses order 0):
-    //   0 canonical (serialized order: the P-chain inputs, then the imported inputs of an import tx,
-    //     each group sorted by UTXO tx id bytes, then output index),
-    //   1 by the CB58 string of the UTXO tx id, then output index.
+    // Inputs are listed in canonical order (the transaction's serialized order): the P-chain inputs,
+    // then the imported inputs of an import tx, each group sorted by UTXO tx id bytes, then output index.
     //
     // Output kinds:
     //   0 transfer: a P-chain UTXO (txId, position),
@@ -113,14 +111,13 @@ interface IPChainGateway {
         uint32 maxOutputsPerTx
     ) external view returns (Tx[] memory txs, uint32 nextIndex);
 
-    /// @notice Inputs `[fromInput, fromInput+maxInputs)` of the transaction at `txIndex` in the given
-    /// `order`, and the total number of inputs.
+    /// @notice Inputs `[fromInput, fromInput+maxInputs)` of the transaction at `txIndex`, in canonical
+    /// order, and the total number of inputs.
     function getTransactionInputs(
         uint64 height,
         uint32 txIndex,
         uint32 fromInput,
-        uint32 maxInputs,
-        uint8 order
+        uint32 maxInputs
     ) external view returns (Input[] memory inputs, uint32 inputCount);
 
     /// @notice Outputs `[fromOutput, fromOutput+maxOutputs)` of the transaction at `txIndex`, and the
@@ -132,16 +129,15 @@ interface IPChainGateway {
         uint32 maxOutputs
     ) external view returns (Output[] memory outputs, uint32 outputCount);
 
-    /// @notice Stake owner attribution compatible with the Flare P-chain indexer: the first input in
-    /// canonical order (the serialized order, order 0 of `getTransactionInputs`), restricted to the
-    /// owners that signed it, choosing the lexically smallest bech32 address string. `pChainOwner` is
-    /// that owner's P-chain address and `cChainOwner` the EVM address of the same key, recovered from
-    /// the owner's signature on the transaction (the P-chain accepts signatures over the plain
-    /// transaction hash and Ethereum-prefixed ones). `resolved` is false, and both addresses zero, when
-    /// the input is missing, imported, unresolved, a genesis UTXO or an ownerless output (threshold 0,
-    /// no addresses), which resolves for `getTransactionInputs` but cannot be attributed, or when the
-    /// owner's signature does not recover to it (impossible for accepted transactions). On transfers
-    /// it attributes the sender (fee payer).
+    /// @notice Stake owner attribution compatible with the Flare P-chain indexer: the first input (in
+    /// canonical order), restricted to the owners that signed it, choosing the lexically smallest
+    /// bech32 address string. `pChainOwner` is that owner's P-chain address and `cChainOwner` the
+    /// EVM address of the same key, recovered from the owner's signature on the transaction (the
+    /// P-chain accepts signatures over the plain transaction hash and Ethereum-prefixed ones).
+    /// `resolved` is false, and both addresses zero, when the input is missing, imported, unresolved,
+    /// a genesis UTXO or an ownerless output (threshold 0, no addresses), which resolves for
+    /// `getTransactionInputs` but cannot be attributed, or when the owner's signature does not recover
+    /// to it (impossible for accepted transactions). On transfers it attributes the sender (fee payer).
     function getStakeOwner(
         uint64 height,
         uint32 txIndex

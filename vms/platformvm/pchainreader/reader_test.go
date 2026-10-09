@@ -4,7 +4,6 @@
 package pchainreader
 
 import (
-	"bytes"
 	"errors"
 	"testing"
 	"time"
@@ -407,7 +406,7 @@ func TestDecodeProposalAndOptionBlocks(t *testing.T) {
 	require.Empty(got.Txs)
 
 	// The reward transaction has no inputs.
-	inputs, total, err := getInputs(reader, 1, 1, 0, 10, pchain.InputOrderCanonical, nil)
+	inputs, total, err := getInputs(reader, 1, 1, 0, 10, nil)
 	require.NoError(err)
 	require.Zero(total)
 	require.Empty(inputs)
@@ -554,11 +553,8 @@ func TestGetBlockErrors(t *testing.T) {
 	require.NotErrorIs(err, pchain.ErrNotAccepted)
 	require.ErrorContains(err, "last accepted 5")
 
-	_, _, err = getInputs(reader, 5, 0, 0, 1, pchain.InputOrderCanonical, nil)
+	_, _, err = getInputs(reader, 5, 0, 0, 1, nil)
 	require.ErrorIs(err, pchain.ErrTxIndexOutOfRange)
-
-	_, _, err = getInputs(reader, 5, 0, 0, 1, pchain.InputOrderByUTXOTxIDString+1, nil)
-	require.ErrorIs(err, pchain.ErrInvalidInputOrder)
 }
 
 // inputFixture builds a staking transaction whose inputs exercise every owner
@@ -668,11 +664,11 @@ func TestGetInputsResolvesOwners(t *testing.T) {
 	f := newInputFixture(t)
 
 	// The unknown producing transaction is a local error, not an unresolved input.
-	_, total, err := getInputs(f.reader, f.height, 0, 0, 10, pchain.InputOrderCanonical, nil)
+	_, total, err := getInputs(f.reader, f.height, 0, 0, 10, nil)
 	require.ErrorIs(err, database.ErrNotFound)
 	require.Equal(uint32(8), total)
 
-	inputs, total, err := getInputs(f.reader, f.height, 0, 0, 7, pchain.InputOrderCanonical, nil)
+	inputs, total, err := getInputs(f.reader, f.height, 0, 0, 7, nil)
 	require.NoError(err)
 	require.Equal(uint32(8), total)
 	require.Equal([]pchain.Input{
@@ -686,27 +682,27 @@ func TestGetInputsResolvesOwners(t *testing.T) {
 	}, inputs)
 
 	// Paging.
-	inputs, total, err = getInputs(f.reader, f.height, 0, 4, 2, pchain.InputOrderCanonical, nil)
+	inputs, total, err = getInputs(f.reader, f.height, 0, 4, 2, nil)
 	require.NoError(err)
 	require.Equal(uint32(8), total)
 	require.Len(inputs, 2)
 	require.Equal(f.stakerID, inputs[0].UTXOTxID)
 	require.Equal(uint32(3), inputs[1].UTXOOutputIndex)
 
-	inputs, _, err = getInputs(f.reader, f.height, 0, 7, 0, pchain.InputOrderCanonical, nil)
+	inputs, _, err = getInputs(f.reader, f.height, 0, 7, 0, nil)
 	require.NoError(err)
 	require.Empty(inputs)
 
-	inputs, _, err = getInputs(f.reader, f.height, 0, 8, 5, pchain.InputOrderCanonical, nil)
+	inputs, _, err = getInputs(f.reader, f.height, 0, 8, 5, nil)
 	require.NoError(err)
 	require.Empty(inputs)
 
-	_, _, err = getInputs(f.reader, f.height, 0, 9, 1, pchain.InputOrderCanonical, nil)
+	_, _, err = getInputs(f.reader, f.height, 0, 9, 1, nil)
 	require.ErrorIs(err, pchain.ErrInputIndexOutOfRange)
 
 	// Owners are cached after the first resolution.
 	calls := f.store.calls
-	_, _, err = getInputs(f.reader, f.height, 0, 0, 7, pchain.InputOrderCanonical, nil)
+	_, _, err = getInputs(f.reader, f.height, 0, 0, 7, nil)
 	require.NoError(err)
 	require.Equal(calls, f.store.calls)
 }
@@ -720,78 +716,10 @@ func TestGetInputsUnsupportedTx(t *testing.T) {
 	store.accept(blk)
 	reader := New(store, nil, testUpgrades)
 
-	_, _, err := getInputs(reader, 1, 0, 0, 1, pchain.InputOrderCanonical, nil)
+	_, _, err := getInputs(reader, 1, 0, 0, 1, nil)
 	require.ErrorIs(err, pchain.ErrUnsupportedTx)
 	_, _, err = getOutputs(reader, 1, 0, 0, 1)
 	require.ErrorIs(err, pchain.ErrUnsupportedTx)
-}
-
-func TestGetInputsOrderByUTXOTxIDString(t *testing.T) {
-	require := require.New(t)
-
-	// byteFirst sorts before stringFirst by bytes but after it by CB58 string:
-	// a 36-byte value below 58^48 has 48 base58 digits starting with a high
-	// digit, while a value above it has 49 digits starting with '2'.
-	byteFirst := ids.ID{0x01}
-	stringFirst := ids.ID{0x03}
-	require.Negative(bytes.Compare(byteFirst[:], stringFirst[:]))
-	require.Greater(byteFirst.String(), stringFirst.String())
-
-	producer := func(t *testing.T, id ids.ID, amounts ...uint64) *txs.Tx {
-		outs := make([]*avax.TransferableOutput, len(amounts))
-		for i, amount := range amounts {
-			outs[i] = transferOutput(amount, owners(addrA))
-		}
-		tx := signedTx(t, &txs.BaseTx{BaseTx: avax.BaseTx{
-			NetworkID:    constants.UnitTestID,
-			BlockchainID: constants.PlatformChainID,
-			Ins:          []*avax.TransferableInput{transferInput(ids.GenerateTestID(), 0, 1, 0)},
-			Outs:         outs,
-			Memo:         types.JSONByteSlice{},
-		}})
-		// Force the transaction ID so that the inputs can reference it.
-		tx.TxID = id
-		return tx
-	}
-
-	store := newFakeStore()
-	store.txs[byteFirst] = producer(t, byteFirst, 1, 2)
-	store.txs[stringFirst] = producer(t, stringFirst, 3)
-
-	// Canonical (serialized) order: by UTXO tx ID bytes, then output index.
-	ins := []*avax.TransferableInput{
-		transferInput(byteFirst, 0, 1, 0),
-		transferInput(byteFirst, 1, 2, 0),
-		transferInput(stringFirst, 0, 3, 0),
-	}
-	stakingTx := signedTx(t, permissionlessValidator(constants.PrimaryNetworkID, ids.GenerateTestNodeID(), ins))
-	blk := newBanffStandard(t, postDurangoTime, ids.GenerateTestID(), 1, stakingTx)
-	store.accept(blk)
-	reader := New(store, nil, testUpgrades)
-
-	canonical, total, err := getInputs(reader, 1, 0, 0, 3, pchain.InputOrderCanonical, nil)
-	require.NoError(err)
-	require.Equal(uint32(3), total)
-	require.Equal([]uint64{1, 2, 3}, amounts(canonical))
-
-	byString, total, err := getInputs(reader, 1, 0, 0, 3, pchain.InputOrderByUTXOTxIDString, nil)
-	require.NoError(err)
-	require.Equal(uint32(3), total)
-	require.Equal([]uint64{3, 1, 2}, amounts(byString))
-	require.Equal(stringFirst, byString[0].UTXOTxID)
-
-	// Paging applies after ordering.
-	page, _, err := getInputs(reader, 1, 0, 1, 1, pchain.InputOrderByUTXOTxIDString, nil)
-	require.NoError(err)
-	require.Equal([]uint64{1}, amounts(page))
-}
-
-func amounts(inputs []pchain.Input) []uint64 {
-	out := make([]uint64, len(inputs))
-	for i, in := range inputs {
-		out[i] = in.Amount
-	}
-	return out
 }
 
 func TestLockedStoreHoldsLockPerCall(t *testing.T) {
@@ -803,7 +731,7 @@ func TestLockedStoreHoldsLockPerCall(t *testing.T) {
 
 	_, err := getBlock(reader, f.height, nil)
 	require.NoError(err)
-	_, _, err = getInputs(reader, f.height, 0, 1, 5, pchain.InputOrderCanonical, nil)
+	_, _, err = getInputs(reader, f.height, 0, 1, 5, nil)
 	require.NoError(err)
 
 	require.Positive(locker.locks)
@@ -880,14 +808,14 @@ func TestGetInputsChargesProducingTxBytes(t *testing.T) {
 	// outputs of the same producing tx (charged on each resolution, the
 	// second one from cache).
 	c := &recordingCharger{}
-	inputs, _, err := getInputs(f.reader, f.height, 0, 0, 3, pchain.InputOrderCanonical, c.charge)
+	inputs, _, err := getInputs(f.reader, f.height, 0, 0, 3, c.charge)
 	require.NoError(err)
 	require.Len(inputs, 3)
 	require.Equal([]uint64{blockSize, uint64(len(producer.Bytes())), uint64(len(producer.Bytes()))}, c.charges)
 
 	// Returned stake and reward UTXO both parse the staker transaction.
 	c = &recordingCharger{}
-	_, _, err = getInputs(f.reader, f.height, 0, 4, 2, pchain.InputOrderCanonical, c.charge)
+	_, _, err = getInputs(f.reader, f.height, 0, 4, 2, c.charge)
 	require.NoError(err)
 	require.Equal([]uint64{blockSize, uint64(len(staker.Bytes())), uint64(len(staker.Bytes()))}, c.charges)
 
@@ -896,7 +824,7 @@ func TestGetInputsChargesProducingTxBytes(t *testing.T) {
 	br, err := f.reader.GetBlock(f.height, nil)
 	require.NoError(err)
 	c = &recordingCharger{}
-	_, _, err = br.GetInputs(0, 0, 3, pchain.InputOrderCanonical, c.charge)
+	_, _, err = br.GetInputs(0, 0, 3, c.charge)
 	require.NoError(err)
 	require.Equal([]uint64{uint64(len(producer.Bytes())), uint64(len(producer.Bytes()))}, c.charges)
 
@@ -910,7 +838,7 @@ func TestGetInputsChargesProducingTxBytes(t *testing.T) {
 		}
 		return nil
 	}
-	_, _, err = getInputs(f.reader, f.height, 0, 0, 3, pchain.InputOrderCanonical, failSecond)
+	_, _, err = getInputs(f.reader, f.height, 0, 0, 3, failSecond)
 	require.ErrorIs(err, errNoGas)
 	require.Equal(2, charged) // block bytes, then the first producing tx
 }
@@ -937,12 +865,12 @@ func getOutputs(r *Reader, height uint64, txIndex, from, max uint32) ([]pchain.O
 // getInputs reads the block at height and then a page of the inputs of its
 // transaction txIndex, charging the block and then the producing transactions
 // through charge, exactly like a single gateway call does.
-func getInputs(r *Reader, height uint64, txIndex, from, max uint32, order pchain.InputOrder, charge pchain.ByteCharger) ([]pchain.Input, uint32, error) {
+func getInputs(r *Reader, height uint64, txIndex, from, max uint32, charge pchain.ByteCharger) ([]pchain.Input, uint32, error) {
 	br, err := r.GetBlock(height, charge)
 	if err != nil {
 		return nil, 0, err
 	}
-	return br.GetInputs(txIndex, from, max, order, charge)
+	return br.GetInputs(txIndex, from, max, charge)
 }
 
 // acceptChain accepts n empty Banff standard blocks at heights 1..n.
@@ -1032,45 +960,9 @@ func TestLastAcceptedHeightWhenTipMovesDuringLookup(t *testing.T) {
 	require.Zero(store.bytesCalls)
 }
 
-func TestGetInputsStringOrderIsLazyAndCached(t *testing.T) {
-	require := require.New(t)
-	f := newInputFixture(t)
-	br, err := f.reader.GetBlock(f.height, nil)
-	require.NoError(err)
-	db, ok := f.reader.blocks.Get(f.height)
-	require.True(ok)
-
-	// Canonical reads and empty string-ordered pages never order anything.
-	_, total, err := br.GetInputs(0, 0, 3, pchain.InputOrderCanonical, nil)
-	require.NoError(err)
-	require.Positive(total)
-	empty, _, err := br.GetInputs(0, 0, 0, pchain.InputOrderByUTXOTxIDString, nil)
-	require.NoError(err)
-	require.Empty(empty)
-	require.NotNil(empty)
-	empty, _, err = br.GetInputs(0, total, 5, pchain.InputOrderByUTXOTxIDString, nil)
-	require.NoError(err)
-	require.Empty(empty)
-	require.Nil(db.byString[0].perm)
-
-	// The first non-empty string-ordered page orders the whole transaction
-	// once; later pages, from any block reader, reuse the same permutation.
-	page, _, err := br.GetInputs(0, 0, 1, pchain.InputOrderByUTXOTxIDString, nil)
-	require.NoError(err)
-	require.Len(page, 1)
-	perm := db.byString[0].perm
-	require.Len(perm, int(total))
-
-	again, err := f.reader.GetBlock(f.height, nil)
-	require.NoError(err)
-	_, _, err = again.GetInputs(0, 1, 2, pchain.InputOrderByUTXOTxIDString, nil)
-	require.NoError(err)
-	require.Equal(&perm[0], &db.byString[0].perm[0])
-}
-
 // TestOwnerlessOutputResolves covers an output with threshold 0 and no
 // addresses, which secp256k1fx permits: it is located, so it resolves, with an
-// empty owner list, in both input orders.
+// empty owner list.
 func TestOwnerlessOutputResolves(t *testing.T) {
 	require := require.New(t)
 
@@ -1087,19 +979,17 @@ func TestOwnerlessOutputResolves(t *testing.T) {
 	store.accept(newBanffStandard(t, postDurangoTime, ids.GenerateTestID(), 1, stakingTx))
 	reader := New(store, nil, testUpgrades)
 
-	for _, order := range []pchain.InputOrder{pchain.InputOrderCanonical, pchain.InputOrderByUTXOTxIDString} {
-		inputs, total, err := getInputs(reader, 1, 0, 0, 1, order, nil)
-		require.NoError(err)
-		require.Equal(uint32(1), total)
-		require.Len(inputs, 1)
-		in := inputs[0]
-		require.True(in.Resolved)
-		require.False(in.Genesis)
-		require.Zero(in.Threshold)
-		require.Empty(in.Addresses)
-		require.Empty(in.SigIndices)
-		require.Equal(uint64(10), in.Amount)
-	}
+	inputs, total, err := getInputs(reader, 1, 0, 0, 1, nil)
+	require.NoError(err)
+	require.Equal(uint32(1), total)
+	require.Len(inputs, 1)
+	in := inputs[0]
+	require.True(in.Resolved)
+	require.False(in.Genesis)
+	require.Zero(in.Threshold)
+	require.Empty(in.Addresses)
+	require.Empty(in.SigIndices)
+	require.Equal(uint64(10), in.Amount)
 }
 
 func utxoTxIDs(inputs []pchain.Input) []ids.ID {
@@ -1220,7 +1110,7 @@ func TestDecodeRewardValidatorProposal(t *testing.T) {
 	}, got.Txs[1])
 
 	// A reward transaction has neither inputs nor outputs.
-	inputs, total, err := getInputs(reader, 1, 1, 0, 10, pchain.InputOrderCanonical, nil)
+	inputs, total, err := getInputs(reader, 1, 1, 0, 10, nil)
 	require.NoError(err)
 	require.Zero(total)
 	require.Empty(inputs)
@@ -1247,71 +1137,64 @@ func TestDecodeRewardValidatorProposal(t *testing.T) {
 func TestGetInputsImportTx(t *testing.T) {
 	require := require.New(t)
 
-	// byteFirst sorts before stringFirst by bytes but after it by CB58 string
-	// (see TestGetInputsOrderByUTXOTxIDString); ids.Empty sorts first both ways.
-	byteFirst, stringFirst := ids.ID{0x01}, ids.ID{0x03}
-	require.Greater(byteFirst.String(), stringFirst.String())
-	require.Less(ids.Empty.String(), stringFirst.String())
+	// producerID is the P-chain transaction that produced the fee input,
+	// exportID the source chain's export transaction of the second imported
+	// UTXO.
+	producerID, exportID := ids.ID{0x03}, ids.ID{0x01}
 
 	producer := signedTx(t, plainTransfer(
 		[]*avax.TransferableInput{transferInput(ids.GenerateTestID(), 0, 5, 0)},
 		transferOutput(3, owners(addrA)),
 	))
-	producer.TxID = stringFirst
+	producer.TxID = producerID
 	genesisUTXO := &avax.UTXO{
 		UTXOID: avax.UTXOID{TxID: ids.Empty, OutputIndex: 3},
 		Asset:  avax.Asset{ID: avaxAssetID},
 		Out:    &secp256k1fx.TransferOutput{Amt: 42, OutputOwners: owners(addrC)},
 	}
 	tx := signedTx(t, importTx(ids.GenerateTestID(),
-		[]*avax.TransferableInput{transferInput(stringFirst, 0, 3, 0)},
-		[]*avax.TransferableInput{transferInput(ids.Empty, 3, 42, 0), transferInput(byteFirst, 0, 7, 0, 1)},
+		[]*avax.TransferableInput{transferInput(producerID, 0, 3, 0)},
+		[]*avax.TransferableInput{transferInput(ids.Empty, 3, 42, 0), transferInput(exportID, 0, 7, 0, 1)},
 		transferOutput(50, owners(addrA)),
 	))
 	blk := newBanffStandard(t, postDurangoTime, ids.GenerateTestID(), 1, tx)
 	store := newFakeStore()
-	store.txs[stringFirst] = producer
+	store.txs[producerID] = producer
 	store.accept(blk)
 	reader := New(store, genesisList(genesisUTXO), testUpgrades)
 
 	// Canonical order: the P-chain input, then the imported inputs. Only the
 	// block and the one producing transaction are fetched and charged.
 	c := &recordingCharger{}
-	inputs, total, err := getInputs(reader, 1, 0, 0, 10, pchain.InputOrderCanonical, c.charge)
+	inputs, total, err := getInputs(reader, 1, 0, 0, 10, c.charge)
 	require.NoError(err)
 	require.Equal(uint32(3), total)
 	require.Equal([]pchain.Input{
-		{UTXOTxID: stringFirst, UTXOOutputIndex: 0, AssetID: avaxAssetID, Amount: 3, Resolved: true, Threshold: 1, Addresses: []ids.ShortID{addrA}, SigIndices: []uint32{0}},
+		{UTXOTxID: producerID, UTXOOutputIndex: 0, AssetID: avaxAssetID, Amount: 3, Resolved: true, Threshold: 1, Addresses: []ids.ShortID{addrA}, SigIndices: []uint32{0}},
 		{UTXOTxID: ids.Empty, UTXOOutputIndex: 3, AssetID: avaxAssetID, Amount: 42, Imported: true, SigIndices: []uint32{0}},
-		{UTXOTxID: byteFirst, UTXOOutputIndex: 0, AssetID: avaxAssetID, Amount: 7, Imported: true, SigIndices: []uint32{0, 1}},
+		{UTXOTxID: exportID, UTXOOutputIndex: 0, AssetID: avaxAssetID, Amount: 7, Imported: true, SigIndices: []uint32{0, 1}},
 	}, inputs)
 	require.Equal([]uint64{uint64(len(blk.Bytes())), uint64(len(producer.Bytes()))}, c.charges)
 	require.Equal(2, store.bytesCalls)
 
-	// The string order sorts the concatenated list, interleaving imported
-	// and P-chain inputs; the flag follows the input, not its position.
-	byString, _, err := getInputs(reader, 1, 0, 0, 10, pchain.InputOrderByUTXOTxIDString, nil)
+	// Paging: position 1 is the first imported input, which resolves and
+	// fetches nothing.
+	page, _, err := getInputs(reader, 1, 0, 1, 1, nil)
 	require.NoError(err)
-	require.Equal([]ids.ID{ids.Empty, stringFirst, byteFirst}, utxoTxIDs(byString))
-	require.True(byString[0].Imported)
-	require.False(byString[1].Imported)
-	require.True(byString[2].Imported)
+	require.Equal([]ids.ID{ids.Empty}, utxoTxIDs(page))
+	require.True(page[0].Imported)
 	require.Equal(2, store.bytesCalls)
-
-	page, _, err := getInputs(reader, 1, 0, 1, 1, pchain.InputOrderByUTXOTxIDString, nil)
-	require.NoError(err)
-	require.Equal([]ids.ID{stringFirst}, utxoTxIDs(page))
 
 	// An import funded from imported UTXOs alone has nothing to resolve.
 	pure := signedTx(t, importTx(ids.GenerateTestID(), nil,
-		[]*avax.TransferableInput{transferInput(byteFirst, 1, 9, 0)},
+		[]*avax.TransferableInput{transferInput(exportID, 1, 9, 0)},
 		transferOutput(9, owners(addrB)),
 	))
 	store.accept(newBanffStandard(t, postDurangoTime, blk.ID(), 2, pure))
-	inputs, total, err = getInputs(reader, 2, 0, 0, 10, pchain.InputOrderCanonical, nil)
+	inputs, total, err = getInputs(reader, 2, 0, 0, 10, nil)
 	require.NoError(err)
 	require.Equal(uint32(1), total)
-	require.Equal([]pchain.Input{{UTXOTxID: byteFirst, UTXOOutputIndex: 1, AssetID: avaxAssetID, Amount: 9, Imported: true, SigIndices: []uint32{0}}}, inputs)
+	require.Equal([]pchain.Input{{UTXOTxID: exportID, UTXOOutputIndex: 1, AssetID: avaxAssetID, Amount: 9, Imported: true, SigIndices: []uint32{0}}}, inputs)
 	require.Equal(3, store.bytesCalls) // the block only
 }
 
@@ -1472,7 +1355,7 @@ func TestAssetIDsFollowInputsAndOutputs(t *testing.T) {
 	require.Equal(uint64(1000), got.Txs[3].Weight)
 
 	// Import: the native fee input, then the custom imported input.
-	inputs, _, err := getInputs(reader, 1, 0, 0, 10, pchain.InputOrderCanonical, nil)
+	inputs, _, err := getInputs(reader, 1, 0, 0, 10, nil)
 	require.NoError(err)
 	require.Equal([]assetAmount{{avaxAssetID, 1}, {customAssetID, 500}}, inputAssets(inputs))
 	require.False(inputs[0].Imported)
@@ -1482,7 +1365,7 @@ func TestAssetIDsFollowInputsAndOutputs(t *testing.T) {
 	require.Equal([]assetAmount{{customAssetID, 500}}, outputAssets(outputs))
 
 	// Transfer: assets follow each input and output, in serialized order.
-	inputs, _, err = getInputs(reader, 1, 1, 0, 10, pchain.InputOrderCanonical, nil)
+	inputs, _, err = getInputs(reader, 1, 1, 0, 10, nil)
 	require.NoError(err)
 	require.Equal([]assetAmount{{customAssetID, 500}, {avaxAssetID, 30}}, inputAssets(inputs))
 	require.True(inputs[0].Resolved) // resolved from the import's custom output
@@ -1491,7 +1374,7 @@ func TestAssetIDsFollowInputsAndOutputs(t *testing.T) {
 	require.Equal([]assetAmount{{customAssetID, 300}, {avaxAssetID, 29}, {customAssetID, 200}}, outputAssets(outputs))
 
 	// Export: native change, then the exported custom output.
-	inputs, _, err = getInputs(reader, 1, 2, 0, 10, pchain.InputOrderCanonical, nil)
+	inputs, _, err = getInputs(reader, 1, 2, 0, 10, nil)
 	require.NoError(err)
 	require.Equal([]assetAmount{{customAssetID, 300}, {avaxAssetID, 10}}, inputAssets(inputs))
 	outputs, _, err = getOutputs(reader, 1, 2, 0, 10)
@@ -1502,7 +1385,7 @@ func TestAssetIDsFollowInputsAndOutputs(t *testing.T) {
 
 	// Staker: the custom change output is a transfer output, the stake is
 	// native.
-	inputs, _, err = getInputs(reader, 1, 3, 0, 10, pchain.InputOrderCanonical, nil)
+	inputs, _, err = getInputs(reader, 1, 3, 0, 10, nil)
 	require.NoError(err)
 	require.Equal([]assetAmount{{avaxAssetID, 1001}, {customAssetID, 200}}, inputAssets(inputs))
 	outputs, _, err = getOutputs(reader, 1, 3, 0, 10)
@@ -1510,20 +1393,6 @@ func TestAssetIDsFollowInputsAndOutputs(t *testing.T) {
 	require.Equal([]assetAmount{{customAssetID, 200}, {avaxAssetID, 1000}}, outputAssets(outputs))
 	require.Equal(pchain.OutputTransfer, outputs[0].Kind)
 	require.Equal(pchain.OutputStake, outputs[1].Kind)
-
-	// The asset survives reordering by CB58 string with its input.
-	byString, _, err := getInputs(reader, 1, 1, 0, 10, pchain.InputOrderByUTXOTxIDString, nil)
-	require.NoError(err)
-	for _, in := range byString {
-		switch in.UTXOTxID {
-		case imported.ID():
-			require.Equal(customAssetID, in.AssetID)
-		case funding.ID():
-			require.Equal(avaxAssetID, in.AssetID)
-		default:
-			require.Failf("unexpected input", "%s", in.UTXOTxID)
-		}
-	}
 }
 
 // TestDecodeMalformedTxIsUnsupported covers the decoder's error path: a
@@ -1544,7 +1413,7 @@ func TestDecodeMalformedTxIsUnsupported(t *testing.T) {
 	got, err := getBlock(reader, 1, nil)
 	require.NoError(err)
 	require.Equal(pchain.Tx{Type: pchain.TxUnsupported, Index: 0, ID: tx.ID()}, got.Txs[0])
-	_, _, err = getInputs(reader, 1, 0, 0, 1, pchain.InputOrderCanonical, nil)
+	_, _, err = getInputs(reader, 1, 0, 0, 1, nil)
 	require.ErrorIs(err, pchain.ErrUnsupportedTx)
 	_, _, err = getOutputs(reader, 1, 0, 0, 1)
 	require.ErrorIs(err, pchain.ErrUnsupportedTx)
@@ -1608,7 +1477,7 @@ func TestGetInputsSignatures(t *testing.T) {
 
 	// The transfer: each input carries its own credential's signature, which
 	// recovers to its owner over the transaction's unsigned bytes.
-	inputs, _, err := getInputs(reader, 1, 0, 0, 2, pchain.InputOrderCanonical, nil)
+	inputs, _, err := getInputs(reader, 1, 0, 0, 2, nil)
 	require.NoError(err)
 	require.Len(inputs, 2)
 	require.Equal(sigsOf(transfer, 0), inputs[0].Signatures)
@@ -1620,13 +1489,10 @@ func TestGetInputsSignatures(t *testing.T) {
 		require.NoError(err)
 		require.Equal(key.EthAddress(), pk.EthAddress())
 	}
-	byString, _, err := getInputs(reader, 1, 0, 0, 2, pchain.InputOrderByUTXOTxIDString, nil)
-	require.NoError(err)
-	require.Equal(inputs, byString)
 
 	// The config transaction: its input credential only; the trailing
 	// authority credential is not an input credential.
-	inputs, _, err = getInputs(reader, 1, 1, 0, 1, pchain.InputOrderCanonical, nil)
+	inputs, _, err = getInputs(reader, 1, 1, 0, 1, nil)
 	require.NoError(err)
 	require.Len(inputs, 1)
 	require.Equal(sigsOf(config, 0), inputs[0].Signatures)
@@ -1635,14 +1501,14 @@ func TestGetInputsSignatures(t *testing.T) {
 	require.Equal(k0.Address(), pk.Address())
 
 	// Fewer credentials than inputs: the inputs beyond them have none.
-	inputs, _, err = getInputs(reader, 1, 2, 0, 2, pchain.InputOrderCanonical, nil)
+	inputs, _, err = getInputs(reader, 1, 2, 0, 2, nil)
 	require.NoError(err)
 	require.Len(inputs, 2)
 	require.Equal(sigsOf(short, 0), inputs[0].Signatures)
 	require.Nil(inputs[1].Signatures)
 
 	// No credentials at all.
-	inputs, _, err = getInputs(reader, 1, 3, 0, 2, pchain.InputOrderCanonical, nil)
+	inputs, _, err = getInputs(reader, 1, 3, 0, 2, nil)
 	require.NoError(err)
 	require.Len(inputs, 2)
 	for _, in := range inputs {

@@ -4,7 +4,6 @@
 package pchainreader
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -103,22 +102,4 @@ func BenchmarkParseWideOutputBlock(b *testing.B) {
 }
 func BenchmarkParseManyAddressBlock(b *testing.B) {
 	runParseBench(b, benchBlock(b, []*txs.Tx{manyAddressTx(b, 50000)}))
-}
-
-// BenchmarkPermutationByString calibrates the gateway's per-input ordering
-// gas: reading inputs in CB58-string order converts every input's UTXO
-// transaction ID to its string and sorts them, whatever the page size.
-func BenchmarkPermutationByString(b *testing.B) {
-	for _, n := range []int{16, 1_000, 20_000} {
-		ins := make([]*avax.TransferableInput, n)
-		for i := range ins {
-			ins[i] = transferInput(ids.GenerateTestID(), uint32(i), 1, 0)
-		}
-		b.Run(fmt.Sprintf("inputs=%d", n), func(b *testing.B) {
-			for b.Loop() {
-				permutationByString(ins)
-			}
-			b.ReportMetric(float64(b.Elapsed().Nanoseconds())/float64(b.N)/float64(n), "ns/input")
-		})
-	}
 }

@@ -111,7 +111,6 @@ type GetTransactionInputsInput struct {
 	TxIndex   uint32
 	FromInput uint32
 	MaxInputs uint32
-	Order     uint8
 }
 
 // GetTransactionInputsOutput is the output of getTransactionInputs.
@@ -232,7 +231,7 @@ func UnpackGetTransactionsOutput(output []byte) (GetTransactionsOutput, error) {
 
 // PackGetTransactionInputs packs the getTransactionInputs call (selector included).
 func PackGetTransactionInputs(in GetTransactionInputsInput) ([]byte, error) {
-	return PChainGatewayABI.Pack("getTransactionInputs", in.Height, in.TxIndex, in.FromInput, in.MaxInputs, in.Order)
+	return PChainGatewayABI.Pack("getTransactionInputs", in.Height, in.TxIndex, in.FromInput, in.MaxInputs)
 }
 
 // UnpackGetTransactionInputsInput unpacks the getTransactionInputs arguments (selector omitted).

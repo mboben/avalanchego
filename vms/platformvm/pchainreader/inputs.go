@@ -6,7 +6,6 @@ package pchainreader
 import (
 	"errors"
 	"fmt"
-	"sort"
 
 	"github.com/ava-labs/avalanchego/database"
 	"github.com/ava-labs/avalanchego/ids"
@@ -37,15 +36,7 @@ type ownerEntry struct {
 	txBytes uint64
 }
 
-func (b *blockReader) GetInputs(
-	txIndex, from, max uint32,
-	order pchain.InputOrder,
-	charge pchain.ByteCharger,
-) ([]pchain.Input, uint32, error) {
-	if order > pchain.InputOrderByUTXOTxIDString {
-		return nil, 0, fmt.Errorf("%w: %d", pchain.ErrInvalidInputOrder, order)
-	}
-
+func (b *blockReader) GetInputs(txIndex, from, max uint32, charge pchain.ByteCharger) ([]pchain.Input, uint32, error) {
 	r, db := b.r, b.db
 	if uint64(txIndex) >= uint64(len(db.block.Txs)) {
 		return nil, 0, fmt.Errorf("%w: index %d, block has %d transactions", pchain.ErrTxIndexOutOfRange, txIndex, len(db.block.Txs))
@@ -64,22 +55,8 @@ func (b *blockReader) GetInputs(
 		end = from + max
 	}
 	inputs := make([]pchain.Input, 0, end-from)
-	if from == end {
-		return inputs, total, nil // an empty page orders and resolves nothing
-	}
-
-	// positions holds the canonical positions of the page in the requested
-	// order; nil for the canonical order itself.
-	var positions []int
-	if order == pchain.InputOrderByUTXOTxIDString {
-		positions = db.inputsByString(txIndex)[from:end]
-	}
 	importedFrom := int(db.importedFrom[txIndex])
-	for k := from; k < end; k++ {
-		position := int(k)
-		if positions != nil {
-			position = positions[k-from]
-		}
+	for position := int(from); position < int(end); position++ {
 		input, err := r.resolveInput(ins[position], db.creds[txIndex][position], position >= importedFrom, charge)
 		if err != nil {
 			return nil, total, err
@@ -87,29 +64,6 @@ func (b *blockReader) GetInputs(
 		inputs = append(inputs, input)
 	}
 	return inputs, total, nil
-}
-
-// permutationByString returns the indexes of ins sorted by the CB58 string of
-// their UTXO transaction ID, then by output index. It converts every input's
-// ID and sorts them: O(n log n) in the number of inputs.
-func permutationByString(ins []*avax.TransferableInput) []int {
-	perm := make([]int, len(ins))
-	for i := range perm {
-		perm[i] = i
-	}
-
-	keys := make([]string, len(ins))
-	for i, in := range ins {
-		keys[i] = in.TxID.String()
-	}
-	sort.SliceStable(perm, func(a, b int) bool {
-		ia, ib := perm[a], perm[b]
-		if keys[ia] != keys[ib] {
-			return keys[ia] < keys[ib]
-		}
-		return ins[ia].OutputIndex < ins[ib].OutputIndex
-	})
-	return perm
 }
 
 // resolveInput decodes a consumed input together with the signatures of its

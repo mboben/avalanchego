@@ -31,7 +31,6 @@ import (
 	avalanchegenesis "github.com/ava-labs/avalanchego/genesis"
 	corethparams "github.com/ava-labs/avalanchego/graft/coreth/params"
 	evmutils "github.com/ava-labs/avalanchego/graft/evm/utils"
-	avalancheutils "github.com/ava-labs/avalanchego/utils"
 	ethparams "github.com/ava-labs/libevm/params"
 )
 
@@ -101,28 +100,28 @@ func TestParseGenesis(t *testing.T) {
 						PetersburgBlock:     big.NewInt(0),
 						IstanbulBlock:       big.NewInt(0),
 						MuirGlacierBlock:    big.NewInt(0),
-						BerlinBlock:         big.NewInt(1640340),                          // AP2 activation block
-						LondonBlock:         big.NewInt(3308552),                          // AP3 activation block
-						ShanghaiTime:        avalancheutils.PointerTo[uint64](1709740800), // Durango
-						CancunTime:          avalancheutils.PointerTo[uint64](1734368400), // Etna
+						BerlinBlock:         big.NewInt(1640340),     // AP2 activation block
+						LondonBlock:         big.NewInt(3308552),     // AP3 activation block
+						ShanghaiTime:        new(uint64(1709740800)), // Durango
+						CancunTime:          new(uint64(1734368400)), // Etna
 					},
 					&extras.ChainConfig{
 						NetworkUpgrades: extras.NetworkUpgrades{
-							ApricotPhase1BlockTimestamp:     avalancheutils.PointerTo[uint64](1617199200),
-							ApricotPhase2BlockTimestamp:     avalancheutils.PointerTo[uint64](1620644400),
-							ApricotPhase3BlockTimestamp:     avalancheutils.PointerTo[uint64](1629813600),
-							ApricotPhase4BlockTimestamp:     avalancheutils.PointerTo[uint64](1632344400),
-							ApricotPhase5BlockTimestamp:     avalancheutils.PointerTo[uint64](1638468000),
-							ApricotPhasePre6BlockTimestamp:  avalancheutils.PointerTo[uint64](1662341400),
-							ApricotPhase6BlockTimestamp:     avalancheutils.PointerTo[uint64](1662494400),
-							ApricotPhasePost6BlockTimestamp: avalancheutils.PointerTo[uint64](1662519600),
-							BanffBlockTimestamp:             avalancheutils.PointerTo[uint64](1666108800),
-							CortinaBlockTimestamp:           avalancheutils.PointerTo[uint64](1682434800),
-							DurangoBlockTimestamp:           avalancheutils.PointerTo[uint64](1709740800),
-							EtnaTimestamp:                   avalancheutils.PointerTo[uint64](1734368400),
-							FortunaTimestamp:                avalancheutils.PointerTo[uint64](1744124400),
-							GraniteTimestamp:                avalancheutils.PointerTo[uint64](1763568000),
-							HeliconTimestamp:                avalancheutils.PointerTo[uint64](1790089200),
+							ApricotPhase1BlockTimestamp:     new(uint64(1617199200)),
+							ApricotPhase2BlockTimestamp:     new(uint64(1620644400)),
+							ApricotPhase3BlockTimestamp:     new(uint64(1629813600)),
+							ApricotPhase4BlockTimestamp:     new(uint64(1632344400)),
+							ApricotPhase5BlockTimestamp:     new(uint64(1638468000)),
+							ApricotPhasePre6BlockTimestamp:  new(uint64(1662341400)),
+							ApricotPhase6BlockTimestamp:     new(uint64(1662494400)),
+							ApricotPhasePost6BlockTimestamp: new(uint64(1662519600)),
+							BanffBlockTimestamp:             new(uint64(1666108800)),
+							CortinaBlockTimestamp:           new(uint64(1682434800)),
+							DurangoBlockTimestamp:           new(uint64(1709740800)),
+							EtnaTimestamp:                   new(uint64(1734368400)),
+							FortunaTimestamp:                new(uint64(1744124400)),
+							GraniteTimestamp:                new(uint64(1763568000)),
+							HeliconTimestamp:                new(uint64(1790089200)),
 						},
 						AvalancheContext: extras.AvalancheContext{
 							SnowCtx: mainnetCtx,
@@ -131,7 +130,7 @@ func TestParseGenesis(t *testing.T) {
 							PrecompileUpgrades: []extras.PrecompileUpgrade{
 								{
 									Config: warp.NewDefaultConfig(
-										avalancheutils.PointerTo[uint64](1709740800), // Durango
+										new(uint64(1709740800)), // Durango
 									),
 								},
 							},
@@ -255,7 +254,7 @@ func TestParseGenesis(t *testing.T) {
 							EtnaTimestamp:                   initiallyActive,
 							FortunaTimestamp:                initiallyActive,
 							GraniteTimestamp:                initiallyActive,
-							HeliconTimestamp:                unscheduled,
+							HeliconTimestamp:                initiallyActive,
 						},
 						AvalancheContext: extras.AvalancheContext{
 							SnowCtx: localCtx,

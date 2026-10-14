@@ -1,9 +1,9 @@
 # Avalanchego (Flare Fork)
 
 Fork of [ava-labs/avalanchego](https://github.com/ava-labs/avalanchego) with Flare and Songbird network support.
-Module: `github.com/ava-labs/avalanchego` | Go 1.25.11 (see `go.mod` toolchain).
+Module: `github.com/ava-labs/avalanchego` | Go 1.26.8 (see `go.mod`/`go.work`; upstream v1.15.1 raised the minimum from 1.25.10).
 
-**Upstream version:** Pinned to avalanchego **v1.15.0** (branch `flare-merge-1_15_0`) — this is **not** necessarily the latest upstream release. Newer upstream tags may exist; do not assume features/APIs from later versions are present here.
+**Upstream version:** Pinned to avalanchego **v1.15.1** (branch `flare-merge-1_15_1`) — this is **not** necessarily the latest upstream release. Newer upstream tags may exist; do not assume features/APIs from later versions are present here.
 
 **Coreth is grafted into this repo.** Since v1.14.x upstream, coreth lives at `graft/coreth` (module `github.com/ava-labs/avalanchego/graft/coreth`), alongside `graft/evm` (shared EVM/sync code) and `graft/subnet-evm`. All are wired via `replace` directives in the root `go.mod` plus the `go.work` workspace, and are compiled directly into the `avalanchego` binary. There is no separate `evm` plugin binary and the build no longer copies anything into `GOPATH`.
 
@@ -30,9 +30,9 @@ GOWORK=off go mod tidy                          # repo root
 go work sync
 ```
 
-**libevm pinning:** the root `go.mod` and all graft modules must require the **same** `github.com/ava-labs/libevm` version (currently `v1.13.15-0.20260903154605-2eaf73af626c`). The workspace selects the highest requirement; a newer pseudo-version in any module silently downgrades/upgrades everyone and breaks the ava-labs ABI helpers (`PackOutput`, `UnpackInputIntoInterface`, `PackEvent`).
+**libevm pinning:** the root `go.mod` and all graft modules must require the **same** `github.com/ava-labs/libevm` version (currently `v1.13.15-0.20260929143550-dbf7ede95a25`, as pinned by upstream v1.15.1). The workspace selects the highest requirement; a newer pseudo-version in any module silently downgrades/upgrades everyone and breaks the ava-labs ABI helpers (`PackOutput`, `UnpackInputIntoInterface`, `PackEvent`).
 
-**Protobuf:** generated code lives in `proto/pb`. Regenerate with `scripts/protobuf_codegen.sh` (pins buf 1.59.0, protoc-gen-go v1.36.10, protoc-gen-go-grpc 1.5.1), or `buf generate --path <dir>` from `proto/` with matching plugin versions.
+**Protobuf:** generated code lives in `proto/pb`. Regenerate with `scripts/protobuf_codegen.sh` (pins buf 1.70.0, protoc-gen-go v1.36.11, protoc-gen-go-grpc 1.6.2 — check the script, upstream bumps them), or `buf generate --path <dir>` from `proto/` with matching plugin versions.
 
 ## Directory Structure
 
@@ -116,7 +116,7 @@ Coreth implements the C-Chain EVM for Flare/Songbird (module `github.com/ava-lab
 
 This documents merging newer **ava-labs/avalanchego** upstream releases into this fork. The merge is performed in this avalanchego tree; since v1.14.x coreth is part of the avalanchego repository (`graft/coreth`), a single upstream merge brings the avalanchego **and** coreth changes — there is no longer a separate coreth merge.
 
-### Architecture Overview (as of v1.15.0; coreth grafted at `graft/coreth`)
+### Architecture Overview (as of v1.15.1; coreth grafted at `graft/coreth`)
 
 Coreth (`graft/coreth`), the shared EVM/sync code (`graft/evm`), and `graft/subnet-evm` are in-tree Go modules wired to the root avalanchego module via `replace` directives in `go.mod` and the `go.work` workspace. They compile directly into the single `avalanchego` binary (no separate `evm` plugin binary, no GOPATH copy).
 
@@ -209,6 +209,8 @@ In coreth (`graft/coreth/`):
 **New upstream tests that need a Flare SnowCtx:** coreth tests that build a bare `&params.ChainConfig{…}` genesis (e.g. `core/blockchain_test.go` `TestLegacyMarkersRepairedOnStartup`) panic in `customheader.GasLimit` → `extras.ChainConfig.IsSongbirdCode` (`requireSnowCtx`). Wrap the config with `params.WithExtra(…, &extras.ChainConfig{AvalancheContext: extras.AvalancheContext{SnowCtx: &snow.Context{NetworkID: constants.MainnetID}}})` like the neighbouring tests; do not relax `requireSnowCtx`.
 
 **v1.15.0-fuji release-branch leftovers:** the fuji tag carried testnet-only changes that v1.15.0 dropped or superseded (`graft/coreth/plugin/evm/upgradechaintest` + `vms/saevm/cchain/presae_rpc_test.go` → `corethgen` + `synchronoustest` + `TestSynchronousRPCs`; the `"mainnet is not supported"` guard in `config/config.go`; a `t.Skip` in `cchain/vm_test.go`). They were removed in the v1.15.0 merge — do not re-add. Detect such leftovers by comparing `git diff <new-upstream-tag> HEAD --name-only` with the files Flare actually modified since the previous upstream tag.
+
+**v1.15.1 merge notes:** upstream moved the P-chain tx/block types from `vms/platformvm/txs` into the new `vms/platformvm/platform` package (`platform.Tx`, `platform.NewSignedTx`, `platform.Codec`, `platform.BoundedBy`, priorities, ACP-236 auto-renewed txs); `txs/` keeps `executor`, `fee`, `mempool`, `txheap`, `txstest`. Root `utils.PointerTo` is gone (upstream uses Go 1.26 `new(expr)`; graft code uses `graft/evm/utils.PointerTo`). `platformvm/metrics.Metrics` gained `SetLocalDelegatedStake(uint64)` while `SetTotalStake` stays `*big.Int`; the `stakeMetrics` test stub in `vms/platformvm/state/state_test.go` converts the total with `Uint64()`. `upgrade.Default.HeliconTime` is `InitiallyActiveTime` upstream, but Flare's `Local`/`LocalFlare` keep Helicon unscheduled. New upstream tests needing Flare adaptation: coreth `TestFirewoodGenesisPersisted` (SnowCtx wrap, see above), `cchain/config_test.go` Firewood commit-interval table (`FlareID`/`CostwoID`), and `TestRewardDelegatorToAutoRenewedValidator` (no delegator reward UTXO on Flare; keep the Flare `assertNoUTXO` version without `wantOwner`). Upstream deleted `graft/coreth/tests/{utils,warp}`.
 
 **Test files with JSON data (`graft/coreth/internal/ethapi/testdata/`):**
 - The conflict is usually about transaction hashes, state roots, block hashes

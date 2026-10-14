@@ -532,8 +532,18 @@ func TestFirewoodGenesisPersisted(t *testing.T) {
 		addr    = crypto.PubkeyToAddress(key.PublicKey)
 		chainDB = rawdb.NewMemoryDatabase()
 		gspec   = &Genesis{
-			Config: &params.ChainConfig{HomesteadBlock: new(big.Int)},
-			Alloc:  types.GenesisAlloc{addr: {Balance: big.NewInt(1000000)}},
+			// Flare: the gas-limit schedule consulted by the chain maker
+			// (customheader.GasLimit) requires a SnowCtx, as in the other
+			// tests of this file.
+			Config: params.WithExtra(
+				&params.ChainConfig{HomesteadBlock: new(big.Int)},
+				&extras.ChainConfig{
+					AvalancheContext: extras.AvalancheContext{
+						SnowCtx: &snow.Context{NetworkID: constants.MainnetID},
+					},
+				},
+			),
+			Alloc: types.GenesisAlloc{addr: {Balance: big.NewInt(1000000)}},
 		}
 		config = DefaultCacheConfigWithScheme(customrawdb.FirewoodScheme)
 	)

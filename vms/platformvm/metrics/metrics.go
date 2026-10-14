@@ -247,10 +247,6 @@ func (m *metrics) SetLocalDelegatedStake(s uint64) {
 	m.localDelegatedStake.Set(float64(s))
 }
 
-func (m *metrics) SetTotalStake(s uint64) {
-	m.totalStake.Set(float64(s))
-}
-
 func (m *metrics) SetTimeUntilUnstake(timeUntilUnstake time.Duration) {
 	m.timeUntilUnstake.Set(float64(timeUntilUnstake))
 }

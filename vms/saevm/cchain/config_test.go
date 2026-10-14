@@ -334,15 +334,18 @@ func TestConfigStateSyncInterval(t *testing.T) {
 			commitInterval: 256,
 			want:           256,
 		},
+		// Flare's production networks are Flare/Songbird/Coston2/Coston
+		// (constants.ProductionNetworkIDs); Avalanche mainnet is not one and
+		// Fuji does not exist in the Flare fork.
 		{
-			name:           "mainnet",
-			networkID:      constants.MainnetID,
+			name:           "flare",
+			networkID:      constants.FlareID,
 			commitInterval: 256,
 			want:           saedb.DefaultCommitInterval,
 		},
 		{
-			name:           "fuji",
-			networkID:      constants.FujiID,
+			name:           "costwo",
+			networkID:      constants.CostwoID,
 			commitInterval: 256,
 			want:           saedb.DefaultCommitInterval,
 		},

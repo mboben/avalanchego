@@ -232,7 +232,7 @@ func assertRewards(t testing.TB, chain state.Chain, stakerTx *platform.Tx, rewar
 	// A zero-amount reward does not produce a UTXO. On Flare the potential
 	// validation reward is always 0, so the validation UTXO is regularly
 	// skipped.
-	uStakerTx := stakerTx.Unsigned.(*txs.AddAutoRenewedValidatorTx)
+	uStakerTx := stakerTx.Unsigned.(*platform.AddAutoRenewedValidatorTx)
 	outputIndex := 0
 	if rewards.validation > 0 {
 		assertUTXO(t, chain, rewardTxID, outputIndex, rewards.validation, uStakerTx.ValidatorRewardsOwner.(*secp256k1fx.OutputOwners))
@@ -1600,9 +1600,10 @@ func TestRewardDelegatorToAutoRenewedValidator(t *testing.T) {
 		abortState,
 	))
 
-	// Verify delegator reward UTXO on commit: delegator gets 75% of its reward.
+	// Verify the delegator reward UTXO on commit. Upstream expects the
+	// delegator to receive 75% of its reward; on Flare rewards are always 0,
+	// so no UTXO is produced and the owner is irrelevant.
 	uDelegatorTx := delegatorTx.Unsigned.(*platform.AddPermissionlessDelegatorTx)
-	wantOwner := uDelegatorTx.RewardsOwner().(*secp256k1fx.OutputOwners)
 
 	delegatorIt, err := env.state.GetCurrentDelegatorIterator(constants.PrimaryNetworkID, nodeID)
 	require.NoError(t, err)

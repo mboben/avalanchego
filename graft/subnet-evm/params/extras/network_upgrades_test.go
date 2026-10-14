@@ -252,7 +252,7 @@ func TestVerifyNetworkUpgrades(t *testing.T) {
 		{
 			name: "Valid_Mainnet_Durango_reconfigured_to_Flare",
 			upgrades: &NetworkUpgrades{
-				SubnetEVMTimestamp: avalancheutils.PointerTo[uint64](0),
+				SubnetEVMTimestamp: utils.PointerTo[uint64](0),
 				DurangoTimestamp:   utils.TimeToNewUint64(upgrade.GetConfig(constants.FlareID).DurangoTime),
 			},
 			avagoUpgrades: upgrade.Mainnet,
@@ -281,7 +281,7 @@ func TestVerifyNetworkUpgrades(t *testing.T) {
 		{
 			name: "Valid_Granite_After_nil_Fortuna",
 			upgrades: &NetworkUpgrades{
-				SubnetEVMTimestamp: avalancheutils.PointerTo[uint64](0),
+				SubnetEVMTimestamp: utils.PointerTo[uint64](0),
 				DurangoTimestamp:   utils.TimeToNewUint64(upgrade.Mainnet.DurangoTime),
 				EtnaTimestamp:      utils.TimeToNewUint64(upgrade.Mainnet.EtnaTime),
 				FortunaTimestamp:   nil,

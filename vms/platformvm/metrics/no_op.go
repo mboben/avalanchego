@@ -41,7 +41,7 @@ func (noopMetrics) AddValidatorSetsHeightDiff(uint64) {}
 
 func (noopMetrics) SetLocalStake(uint64) {}
 
-func (noopMetrics) SetLocalDelegatedStake(*big.Int) {}
+func (noopMetrics) SetLocalDelegatedStake(uint64) {}
 
 func (noopMetrics) SetTotalStake(*big.Int) {}
 

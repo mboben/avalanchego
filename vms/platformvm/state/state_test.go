@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"maps"
 	"math"
+	"math/big"
 	"math/rand"
 	"sync"
 	"testing"
@@ -5131,8 +5132,10 @@ func (m *stakeMetrics) SetLocalDelegatedStake(s uint64) {
 	m.delegated = s
 }
 
-func (m *stakeMetrics) SetTotalStake(s uint64) {
-	m.total = s
+// SetTotalStake receives Flare's *big.Int total weight; the tests only use
+// totals that fit in a uint64, so they keep asserting against uint64 values.
+func (m *stakeMetrics) SetTotalStake(s *big.Int) {
+	m.total = s.Uint64()
 }
 
 func TestStakeMetricsDelegated(t *testing.T) {

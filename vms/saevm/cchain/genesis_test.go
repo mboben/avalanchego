@@ -169,8 +169,8 @@ func TestParseGenesis(t *testing.T) {
 						MuirGlacierBlock:    big.NewInt(0),
 						BerlinBlock:         big.NewInt(0),
 						LondonBlock:         big.NewInt(0),
-						ShanghaiTime:        avalancheutils.PointerTo[uint64](1750766400), // Durango
-						CancunTime:          avalancheutils.PointerTo[uint64](1763042400), // Etna
+						ShanghaiTime:        new(uint64(1750766400)), // Durango
+						CancunTime:          new(uint64(1763042400)), // Etna
 					},
 					&extras.ChainConfig{
 						NetworkUpgrades: extras.NetworkUpgrades{
@@ -179,15 +179,15 @@ func TestParseGenesis(t *testing.T) {
 							ApricotPhase3BlockTimestamp:     zeroTime,
 							ApricotPhase4BlockTimestamp:     zeroTime,
 							ApricotPhase5BlockTimestamp:     zeroTime,
-							ApricotPhasePre6BlockTimestamp:  avalancheutils.PointerTo[uint64](1732622400),
-							ApricotPhase6BlockTimestamp:     avalancheutils.PointerTo[uint64](1732626000),
-							ApricotPhasePost6BlockTimestamp: avalancheutils.PointerTo[uint64](1732629600),
-							BanffBlockTimestamp:             avalancheutils.PointerTo[uint64](1732633200),
-							CortinaBlockTimestamp:           avalancheutils.PointerTo[uint64](1744113600),
-							DurangoBlockTimestamp:           avalancheutils.PointerTo[uint64](1750766400),
-							EtnaTimestamp:                   avalancheutils.PointerTo[uint64](1763042400),
-							FortunaTimestamp:                avalancheutils.PointerTo[uint64](1774353600),
-							GraniteTimestamp:                avalancheutils.PointerTo[uint64](1781611200),
+							ApricotPhasePre6BlockTimestamp:  new(uint64(1732622400)),
+							ApricotPhase6BlockTimestamp:     new(uint64(1732626000)),
+							ApricotPhasePost6BlockTimestamp: new(uint64(1732629600)),
+							BanffBlockTimestamp:             new(uint64(1732633200)),
+							CortinaBlockTimestamp:           new(uint64(1744113600)),
+							DurangoBlockTimestamp:           new(uint64(1750766400)),
+							EtnaTimestamp:                   new(uint64(1763042400)),
+							FortunaTimestamp:                new(uint64(1774353600)),
+							GraniteTimestamp:                new(uint64(1781611200)),
 							HeliconTimestamp:                unscheduled,
 						},
 						AvalancheContext: extras.AvalancheContext{
@@ -197,7 +197,7 @@ func TestParseGenesis(t *testing.T) {
 							PrecompileUpgrades: []extras.PrecompileUpgrade{
 								{
 									Config: warp.NewDefaultConfig(
-										avalancheutils.PointerTo[uint64](1750766400), // Durango
+										new(uint64(1750766400)), // Durango
 									),
 								},
 							},

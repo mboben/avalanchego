@@ -21,6 +21,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/ava-labs/avalanchego/graft/coreth/params/extras"
+	"github.com/ava-labs/avalanchego/graft/coreth/precompile/contracts/pchaingateway"
 	"github.com/ava-labs/avalanchego/graft/coreth/precompile/contracts/warp"
 	"github.com/ava-labs/avalanchego/snow"
 	"github.com/ava-labs/avalanchego/upgrade"
@@ -133,6 +134,11 @@ func TestParseGenesis(t *testing.T) {
 										new(uint64(1709740800)), // Durango
 									),
 								},
+								{
+									Config: pchaingateway.NewDefaultConfig(
+										new(uint64(1790089200)), // Helicon
+									),
+								},
 							},
 						},
 					},
@@ -200,6 +206,11 @@ func TestParseGenesis(t *testing.T) {
 										new(uint64(1750766400)), // Durango
 									),
 								},
+								{
+									Config: pchaingateway.NewDefaultConfig(
+										unscheduled, // Helicon
+									),
+								},
 							},
 						},
 					},
@@ -264,6 +275,11 @@ func TestParseGenesis(t *testing.T) {
 								{
 									Config: warp.NewDefaultConfig(
 										initiallyActive, // Durango
+									),
+								},
+								{
+									Config: pchaingateway.NewDefaultConfig(
+										initiallyActive, // Helicon
 									),
 								},
 							},
@@ -404,7 +420,7 @@ func TestGenesisHash(t *testing.T) {
 		{
 			name:      "local",
 			networkID: constants.LocalID,
-			want:      "0x6bf7b37d9bd5746e1bfb41875bdca146f97e2d6dbeed1a93d0103d842bedcd2b",
+			want:      "0x1b0bc70ef146c2fe27cfcc19c424665b2c95c1a541e249e13ee0b9ee0f6fa171",
 		},
 	}
 	for _, test := range tests {
@@ -453,7 +469,8 @@ func TestHistoricalGenesisHashes(t *testing.T) {
 
 		// Added the SAE fields: the ACP-176 target exponent, the ACP-283 min
 		// price exponent, and the settlement markers.
-		upgradetest.Helicon: "0xa8ba8fe99b2affb0ed27d0d8c825f6292c3c6f5eb9d53707504bea02ac9c1a9b",
+		// Added the P-chain gateway precompile (Flare).
+		upgradetest.Helicon: "0x5770c0a49d60be8790f3e7d9b911a414c676cec7fec92cba00b30ac2be8a5392",
 	}
 	_ = hashes[upgradetest.Latest] // Enforce completeness at compile time.
 

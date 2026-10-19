@@ -22,6 +22,7 @@ import (
 	"github.com/ava-labs/avalanchego/graft/coreth/params/extras"
 	"github.com/ava-labs/avalanchego/graft/coreth/plugin/evm/customtypes"
 	"github.com/ava-labs/avalanchego/graft/coreth/plugin/evm/upgrade/ap3"
+	"github.com/ava-labs/avalanchego/graft/coreth/precompile/contracts/pchaingateway"
 	"github.com/ava-labs/avalanchego/graft/coreth/precompile/contracts/warp"
 	"github.com/ava-labs/avalanchego/graft/evm/utils"
 	"github.com/ava-labs/avalanchego/snow"
@@ -125,6 +126,12 @@ func parseGenesis(ctx *snow.Context, b []byte) (*genesis, error) {
 					{
 						Config: warp.NewDefaultConfig(
 							utils.TimeToNewUint64(u.DurangoTime),
+						),
+					},
+					// Flare: the P-chain gateway is active from Helicon on.
+					{
+						Config: pchaingateway.NewDefaultConfig(
+							utils.TimeToNewUint64(u.HeliconTime),
 						),
 					},
 				},
@@ -373,8 +380,13 @@ func (g *genesis) writeState(db ethdb.Database, tdb *triedb.Database) (common.Ha
 	// the genesis timestamp is already after the Warp activation, then the
 	// state needs to reflect that or the precompile would never be marked as
 	// active.
-	if c := corethparams.GetExtra(g.Config); c.IsDurango(g.Timestamp) {
+	c := corethparams.GetExtra(g.Config)
+	if c.IsDurango(g.Timestamp) {
 		activatePrecompile(statedb, warp.ContractAddress)
+	}
+	// Flare: same for the P-chain gateway, active from Helicon on.
+	if c.IsHelicon(g.Timestamp) {
+		activatePrecompile(statedb, pchaingateway.ContractAddress)
 	}
 
 	const deleteEmptyObjects = true

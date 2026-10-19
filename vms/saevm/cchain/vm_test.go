@@ -45,6 +45,7 @@ import (
 	"github.com/ava-labs/avalanchego/network/p2p"
 	"github.com/ava-labs/avalanchego/snow"
 	"github.com/ava-labs/avalanchego/snow/engine/snowman/block"
+	"github.com/ava-labs/avalanchego/snow/pchain"
 	"github.com/ava-labs/avalanchego/snow/snowtest"
 	"github.com/ava-labs/avalanchego/upgrade"
 	"github.com/ava-labs/avalanchego/upgrade/upgradetest"
@@ -120,6 +121,7 @@ type (
 		chainDataDir string
 		state        snow.State
 		upgrades     upgrade.Config
+		pchainReader pchain.Reader
 
 		skipRPCTransport bool
 	}
@@ -199,6 +201,14 @@ func withGenesis(g core.Genesis) sutOption {
 
 // withUpgrades overrides the network upgrade schedule, which defaults to
 // every upgrade being active from genesis.
+// withPChainReader sets the snow context's P-chain reader (Flare P-chain
+// gateway precompile); the default SUT has none.
+func withPChainReader(r pchain.Reader) sutOption {
+	return options.Func[sutConfig](func(c *sutConfig) {
+		c.pchainReader = r
+	})
+}
+
 func withUpgrades(u upgrade.Config) sutOption {
 	return options.Func[sutConfig](func(c *sutConfig) {
 		c.upgrades = u
@@ -359,6 +369,7 @@ func tryNewSUT(tb testing.TB, opts ...sutOption) (*SUT, error) {
 	snowCtx.NetworkID = cfg.networkID
 	snowCtx.NetworkUpgrades = cfg.upgrades
 	snowCtx.SharedMemory = memory.NewSharedMemory(snowtest.CChainID)
+	snowCtx.PChainReader = cfg.pchainReader
 	log := loggingtest.New(tb, logging.Debug)
 	snowCtx.Log = log
 	warptest.SetValidators(tb, snowCtx, cfg.validators)
@@ -781,7 +792,10 @@ func (s *SUT) parseVerifyAccept(ctx context.Context, tb testing.TB, blk *blocks.
 // VerifyBlock error, exercising rebuild-and-compare against the tampered
 // field(s). tamper receives the full header so callers can mutate both
 // [types.Header] fields (e.g. Time) and the header extra.
-func (s *SUT) verifyTampered(ctx context.Context, tb testing.TB, valid *blocks.Block, tamper func(*types.Header)) error {
+//
+// Flare: opts select the [block.Context] to verify with (default nil), so
+// blocks built with a context can be re-verified under the same one.
+func (s *SUT) verifyTampered(ctx context.Context, tb testing.TB, valid *blocks.Block, tamper func(*types.Header), opts ...blockOption) error {
 	tb.Helper()
 
 	hdr := valid.Header()
@@ -791,7 +805,7 @@ func (s *SUT) verifyTampered(ctx context.Context, tb testing.TB, valid *blocks.B
 	require.NoErrorf(tb, err, "rlp.EncodeToBytes(tampered block)")
 	parsed, err := s.ParseBlock(ctx, buf)
 	require.NoErrorf(tb, err, "%T.ParseBlock(tampered block)", s.VM)
-	return s.VerifyBlock(ctx, nil, parsed)
+	return s.VerifyBlock(ctx, options.As(opts...).context, parsed)
 }
 
 // tamperExtra adapts a header-extra mutator into the [types.Header] mutator that

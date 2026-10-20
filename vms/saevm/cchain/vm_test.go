@@ -82,7 +82,8 @@ import (
 
 func TestMain(m *testing.M) {
 	evm.RegisterAllLibEVMExtras()
-	goleak.VerifyTestMain(m, saetest.GoleakOptions()...)
+	// Flare: TestGenesisMatchesCoreth boots the Coreth VM, see corethVMGoleakOptions.
+	goleak.VerifyTestMain(m, append(saetest.GoleakOptions(), corethVMGoleakOptions()...)...)
 }
 
 var _ saetest.Peer = (*SUT)(nil)

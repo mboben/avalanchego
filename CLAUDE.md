@@ -1,7 +1,7 @@
 # Avalanchego (Flare Fork)
 
 Fork of [ava-labs/avalanchego](https://github.com/ava-labs/avalanchego) with Flare and Songbird network support.
-Module: `github.com/ava-labs/avalanchego` | Go 1.26.8 (see `go.mod`/`go.work`; upstream v1.15.1 raised the minimum from 1.25.10).
+Module: `github.com/ava-labs/avalanchego` | Go 1.26.10 (see `go.mod`/`go.work`; upstream v1.15.1 raised the minimum from 1.25.10 to 1.26.8, Flare pins 1.26.10).
 
 **Upstream version:** Pinned to avalanchego **v1.15.1** (branch `flare-merge-1_15_1`) — this is **not** necessarily the latest upstream release. Newer upstream tags may exist; do not assume features/APIs from later versions are present here.
 
@@ -70,8 +70,10 @@ go work sync
 
 ### Staking Parameters (`vms/platformvm/txs/executor/inflation_settings.go`)
 - Returns different validator/delegator settings based on network ID and timestamp (`getValidatorRules`/`getDelegatorRules` take a leading `time.Time`)
+- Per-network phases are keyed on fork activation (Granite, Helicon) or fixed dates; Coston2's Helicon phase shortens the minimum validator staking duration to 7 days and the minimum delegation duration to 24 hours (Flare, Songbird and Coston have no Helicon phase yet)
 - All networks return **0 rewards** (rewards handled via smart contracts); see `vms/platformvm/reward/calculator.go`
 - Verification logic in `staker_tx_verification.go`
+- **`config.Internal`'s staking fields are not the primary network's limits on the Flare networks.** `config/config.go` `getStakingConfig` honors the staking flags (`--min/max-validator-stake`, `--min-stake-duration`, …) only on local/custom networks; the public networks (`constants.ProductionNetworkIDs` plus Avalanche Mainnet) are locked to `genesis.GetStakingConfig` (since 2026-10-29; before, every Flare network silently ran with the flag defaults = `genesis.LocalParams`, a consensus-relevant node-local setting). The per-network `StakingConfig`s in `genesis/genesis_{flare,costwo,songbird,coston}.go` keep the durations/uptime at the former flag defaults (24h/365d/0.8) because those still reach consensus (permissioned subnet validators in `verifyAddSubnetValidatorTx`, `TransformSubnetTx`, the reward commit/abort vote); the stake-limit fields only mirror the latest inflation phase and are otherwise unused on Flare networks (`genesis/params_flare_test.go` and `config` `TestGetStakingConfigPublicNetworksIgnoreFlags` pin this). Upstream code that reads `backend.Config.{Min,Max}ValidatorStake`, `MinDelegatorStake` or `MinDelegationFee` directly for the primary network must be redirected to `getValidatorRules`/`getCurrentValidatorRules`: the ACP-236 restake in `proposal_tx_executor.go` (`restakeAutoRenewedValidatorOnCommit`) is such a Flare patch — upstream's `safemath.Sub(Config.MaxValidatorStake, weight)` underflowed for every Coston2 auto-renewed validator above the 3M flag default, and since that reward tx is mandatory the P-chain would have stopped at the first renewal; Flare takes the maximum from the rules and clamps weight ≥ max to zero capacity (regression test `reward_validator_flare_test.go`, Costwo network ID). **On every merge grep `vms/platformvm` for `Config\.\(Min\|Max\)ValidatorStake`, `Config\.MinDelegatorStake`, `Config\.MinDelegationFee` outside `inflation_settings.go`.**
 
 ### Eth-Style Signatures (`vms/secp256k1fx/fx.go`)
 - `VerifyCredentials()` tries two verification methods: standard Avalanche (no prefix) and Ethereum-style (`accounts.TextHash`)
@@ -165,6 +167,8 @@ In avalanchego:
 - `genesis/*.json` - Flare/Songbird/Coston genesis files
 - `utils/constants/network_ids.go` - Flare network IDs
 - `vms/platformvm/txs/executor/staker_tx_verification.go` - Flare staking rules
+- `vms/platformvm/txs/executor/proposal_tx_executor.go` - `restakeAutoRenewedValidatorOnCommit` takes the maximum validator stake from `getValidatorRules` and clamps weight ≥ max to zero restaking capacity; upstream reads `Config.MaxValidatorStake` and underflows (see "Staking Parameters")
+- `config/config.go` `getStakingConfig` + the `StakingConfig` blocks of `genesis/genesis_{flare,costwo,songbird,coston}.go` - staking flags are ignored on the public Flare/Songbird networks (see "Staking Parameters")
 - `vms/platformvm/reward/calculator.go` - Reward calculations (0 rewards)
 - `vms/secp256k1fx/fx.go` + `signing.go` - eth-style prefix support (`SigningHashes`/`RecoverSigner`, shared with the P-chain gateway)
 - `upgrade/upgrade.go` - Flare-specific fork times
